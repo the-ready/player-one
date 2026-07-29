@@ -1,0 +1,99 @@
+name: Deploy to GitHub Pages
+
+# github-pages 環境の保護ルールが main からのデプロイのみを許可しているため、
+# トリガーも main に合わせる（他ブランチから起動しても環境側で拒否される）。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時デプロイは1本に絞る。進行中のものはキャンセルしない（公開途中で止めない）。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # データCSVごとの「最後に更新されたコミット」を引くために全履歴が要る。
+          # 既定の浅いクローン(fetch-depth:1)だと git log がその1コミットしか見ず、
+          # ファイル単位の更新日が取れない。
+          fetch-depth: 0
+
+      # ヘッダーの「最終更新日」用に、各データCSVが最後に変更されたコミットの日付を
+      # data/updated.json に書き出す。
+      #
+      # なぜファイルのタイムスタンプを使わないか: actions/checkout は全ファイルの
+      # mtime をチェックアウト時刻に揃えてしまうので、そのまま配信すると3つのCSVの
+      # Last-Modified が「デプロイした日時」で同じ値になり、タブごとの差が消える。
+      # git の履歴なら「そのCSVを実際に差し替えた日」が取れる。
+      - name: データCSVの更新日を git の履歴から書き出す
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+
+          TARGETS = {"event":"data/events.csv","movie":"data/movies.csv","live":"data/lives.csv"}
+
+          def last_content_change(path):
+              """そのファイルの中身が最後に変わったコミットの日時を ISO8601 で返す。
+
+              単純な `git log -1 -- <path>` では不十分で、2つの取りこぼしがある。
+                1. ファイルを移動しただけのコミットを「更新」と数えてしまう
+                   （実際 data/ へのフォルダ再編で、イベントデータの更新日が
+                     収集日の7/26から再編日の7/28に化けていた）
+                2. rename をまたぐと、それ以前の本当の更新履歴が見えなくなる
+              そこで --follow で名前の変更を辿り、内容が変わっていない移動・複製
+              （R100 / C100）は読み飛ばして、中身が変わったコミットを探す。
+
+              日付ではなく日時（%cI）を返すのは、表示側で閲覧者のローカル日付に
+              直すため。Last-Modified を使う経路と換算のしかたをそろえる。
+              """
+              out = subprocess.run(
+                  ["git","log","--follow","-M","--format=%x01%cI","--name-status","--",path],
+                  capture_output=True, text=True).stdout
+              stamp = None
+              for line in out.splitlines():
+                  if line.startswith("\x01"):
+                      stamp = line[1:].strip()
+                      continue
+                  if not line.strip() or stamp is None:
+                      continue
+                  if line.split("\t")[0] in ("R100","C100"):
+                      stamp = None       # 中身は同じ。このコミットは数えない
+                      continue
+                  return stamp           # A / M / R099以下 = 中身が変わった
+              return None
+
+          out = {}
+          for key, path in TARGETS.items():
+              ts = last_content_change(path)
+              if ts:
+                  out[key] = ts
+          with open("data/updated.json","w",encoding="utf-8") as f:
+              json.dump(out, f, ensure_ascii=False, indent=2)
+          print(json.dumps(out, ensure_ascii=False))
+          PY
+
+      # enablement: true で、Settings を手で触らずに Pages を有効化する
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # ビルドは不要。リポジトリのルートをそのまま配信する
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
