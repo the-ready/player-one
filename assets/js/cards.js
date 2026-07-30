@@ -73,20 +73,16 @@ function posterMarkup(mv){
   return `<div class="ticket-poster no-poster" aria-hidden="true"></div>`;
 }
 
-/* ライブ・フェスではアーティスト写真・キービジュアルを一切表示しない
-   （権利者が無断転載と直リンクを明示的に禁じているため。docs/DESIGN.md 第7.1節）。
-   画像の代わりに、カード上部で出演者名を組んで「ラインナップ」として見せる。 */
-function lineupMarkup(lv, terms){
-  const color = tableMeta(GENRE_TABLE_BY_TAB.live, (lv.genre || [])[0]).c || "var(--ink)";
-  const names = (lv.artists && lv.artists.length) ? lv.artists : [lv.title];
+/* ライブ・フェスカードは映画の帯を流用せず、イベントと同じ装飾なしの構造にした
+   （権利者が写真の無断転載・直リンクを明示的に禁じているため。docs/DESIGN.md 第7.1節、
+   帯を廃止した経緯は第13.5節）。単独公演はタイトルに出演者名が出るので何も出さず、
+   複数出演（フェス・共演）のときだけ、タイトル直下に本文の一部として出演者を並べる。 */
+function artistLineHtml(lv, terms){
+  const names = lv.artists || [];
+  if(names.length < 2) return "";
   const shown = names.slice(0, LINEUP_VISIBLE);
   const rest = names.length - shown.length;
-  const many = shown.length >= 3;
-  return `<div class="lineup${many ? " many" : ""}" style="--lineup-c:${color}">
-      <span class="lineup-label">${(lv.artists || []).length > 1 ? "LINE UP" : "ARTIST"}</span>
-      ${shown.map(n => `<span class="lineup-name">${highlight(n, terms)}</span>`).join("")}
-      ${rest > 0 ? `<span class="lineup-more">ほか${rest}組</span>` : ""}
-    </div>`;
+  return `<p class="lineup-line">出演：${shown.map(n => highlight(n, terms)).join("・")}${rest > 0 ? `　ほか${rest}組` : ""}</p>`;
 }
 
 /* ---------- 会場行 ---------- */
@@ -169,10 +165,14 @@ function ticketBlockHtml(tab, it){
   if(hi.before && onsale !== "before") notes.push(`他${hi.before}件が${words.before}`);
   if(notes.length) rows.push(`<span class="ti-row ti-sub">${esc(tab.seriesLabel.replace(/の他の.*$/, ""))}：${esc(notes.join("／"))}</span>`);
 
+  // 受付終了は右上のバッジ列（cardHtml側）で伝えるので、他に出す情報が無い
+  // 受付終了だけの行では、ラベルだけの帯をカード中央にもう一つ作らない。
+  if(onsale === "closed" && !rows.length) return "";
+
   const urgent = onsale === "open" && deadlineDays(it) != null;
   return `<div class="ticket-info ${onsale}${urgent ? " urgent" : ""}">
       <span class="ti-head">
-        ${onsale !== "unknown" ? `<span class="ti-badge">${esc(words[onsale])}</span>` : ""}
+        ${onsale !== "unknown" && onsale !== "closed" ? `<span class="ti-badge">${esc(words[onsale])}</span>` : ""}
         ${it.onsaleLabel && onsale !== "closed" ? `<span class="ti-label">${esc(it.onsaleLabel)}</span>` : ""}
       </span>
       ${rows.join("")}
@@ -277,15 +277,17 @@ export function gcalUrl(it){
 
 export function cardHtml(tab, it, st, terms){
   const badge = statusMeta(tab.statusTable, it.status);
+  const onsale = onsaleState(it);
   const href = safeUrl(it.url || it.officialUrl);
   const cta = ctaLabel(it.source, tab.cta);
   const fav = isFav(it);
-  const mainCat = tab.key === "event" && it.cats && it.cats.length ? catMeta(it.cats[0]) : null;
+  const mainCat = tab.key === "event" && it.cats && it.cats.length ? catMeta(it.cats[0])
+                : tab.key === "live" && it.genre && it.genre.length ? tableMeta(GENRE_TABLE_BY_TAB.live, it.genre[0])
+                : null;
   const officialLink = officialLinkHtml(it, tab.officialLabel);
 
   const header =
-    tab.header === "poster" ? posterMarkup(it) + `<div class="film-strip" aria-hidden="true"></div><div class="ticket-tear" aria-hidden="true"></div>` :
-    tab.header === "lineup" ? lineupMarkup(it, terms) + `<div class="wristband" aria-hidden="true"></div>` : "";
+    tab.header === "poster" ? posterMarkup(it) + `<div class="film-strip" aria-hidden="true"></div><div class="ticket-tear" aria-hidden="true"></div>` : "";
 
   const pills = tab.key === "event" ? pillList(it.cats, GENRE_TABLE_BY_TAB.event)
               : tab.key === "movie" ? pillList(it.screeningType, SCREENING_TYPES) + pillList(it.genre, GENRE_TABLE_BY_TAB.movie)
@@ -324,9 +326,11 @@ export function cardHtml(tab, it, st, terms){
         <span class="badge-stack">
           ${it.isAdditional ? `<span class="add-badge">${esc(tab.additionalLabel)}</span>` : ""}
           ${it.status ? `<span class="status-badge" style="background:${badge.bg};color:${badge.c}">${esc(it.status)}</span>` : ""}
+          ${onsale === "closed" ? `<span class="status-badge closed-badge">${esc(tab.onsaleWords.closed)}</span>` : ""}
         </span>
       </div>
       <h3 class="title">${highlight(it.title, terms)}</h3>
+      ${tab.key === "live" ? artistLineHtml(it, terms) : ""}
       <p class="meta">${placeLineHtml(tab, it, terms)}${venueCapHtml(it)}${officialLink ? `<br>${officialLink}` : ""}${distBadgeHtml(it, st)}</p>
       <div class="cats">${pills}</div>
       ${ticketBlockHtml(tab, it)}

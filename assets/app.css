@@ -339,7 +339,14 @@ mark{background:var(--sunny-tint);color:inherit;padding:0 .1em;border-radius:3px
   border:2px solid var(--ink);white-space:nowrap;
 }
 .add-badge{background:var(--coral);color:#fff;}
+/* 受付終了は「取れるように見せない」ため、他のステータスとは違う無彩色にする
+   （ticket-info.closed と同じグレー。docs/DESIGN.md 第13.3節）。 */
+.status-badge.closed-badge{background:var(--text-soft);color:#fff;border-color:var(--text-soft);}
 .card .title{font-family:var(--font-display);font-size:16.5px;font-weight:700;margin:0 0 .4rem;line-height:1.45;}
+/* フェス等の複数出演では、タイトル直下に本文としてラインナップを並べる
+   （単独公演はタイトルに名前が出るのでこの行自体を出さない。第13.5節）。 */
+.lineup-line{font-size:12.5px;color:var(--text-soft);font-weight:700;margin:0 0 .5rem;}
+.lineup-line mark{background:var(--sunny-tint);}
 .card .meta{font-size:12px;color:var(--text-soft);margin-bottom:.6rem;font-weight:500;}
 /* 出典名（source）は go-btn のラベル（「◯◯公式で予約する」）に既に出るので、
    ここでは同じ名前をもう一度出さず、公式サイトへのリンクだけを置く。 */
@@ -510,31 +517,6 @@ mark{background:var(--sunny-tint);color:inherit;padding:0 .1em;border-radius:3px
 .ticket-btn-end:first-child{border-right:2px solid rgba(255,255,255,.7);}
 .ticket-btn-end:last-child{border-left:2px solid rgba(255,255,255,.7);}
 
-/* ---------- live / festival card ----------
-   ライブ・フェスではアーティスト写真・キービジュアルを一切表示しない
-   （権利者が無断転載と直リンクを明示的に禁じているため。docs/DESIGN.md 第7.1節）。 */
-.lineup{
-  position:relative;border-radius:16px 16px 0 0;padding:1rem 1.1rem .85rem;
-  background:var(--lineup-c,var(--ink));color:#fff;min-height:100px;
-  display:flex;flex-direction:column;justify-content:center;
-}
-.lineup-label{
-  font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;letter-spacing:.16em;
-  opacity:.9;margin-bottom:.3rem;
-}
-.lineup-name{font-family:var(--font-display);font-weight:900;line-height:1.28;font-size:17px;overflow-wrap:anywhere;}
-/* 出演者が多いフェスは1組あたりの文字を落として、行数で見せる */
-.lineup.many .lineup-name{font-size:13.5px;font-weight:700;line-height:1.4;}
-.lineup-more{font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;opacity:.85;margin-top:.25rem;}
-.lineup mark{background:rgba(255,255,255,.3);color:#fff;}
-/* リストバンドの留め穴。映画カードの「フィルムのスプロケット穴」と対になるモチーフ。 */
-.wristband{
-  height:9px;background:var(--ink);
-  background-image:radial-gradient(circle,var(--card) 1.5px,transparent 1.6px);
-  background-size:7px 9px;background-position:3.5px center;
-}
-.live-body{padding:.95rem 1.2rem 1.15rem;}
-
 /* ---------- 受付情報ブロック（3タブ共通） ---------- */
 .ticket-info{
   margin:.1rem 0 .6rem;padding:.5rem .65rem;border-radius:10px;
@@ -551,7 +533,6 @@ mark{background:var(--sunny-tint);color:inherit;padding:0 .1em;border-radius:3px
   padding:.1rem .5rem;border-radius:999px;border:1.5px solid var(--ink);
   background:var(--ink);color:#fff;font-size:var(--fs-tag);font-weight:700;white-space:nowrap;
 }
-.ticket-info.closed .ti-badge{background:var(--text-soft);border-color:var(--text-soft);}
 .ti-label{font-size:var(--fs-tag);font-weight:700;}
 .ti-row{line-height:1.45;}
 .ti-row b{font-family:var(--font-mono);font-size:12px;}
