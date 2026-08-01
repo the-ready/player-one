@@ -229,6 +229,12 @@ def validate_main(name, rows, enums, rep):
         if not (r.get("url") or "").strip() and not (r.get("official_url") or "").strip():
             rep.error(where, "url も official_url も空です（カードから行き先がありません）")
 
+        # source 列にURLが入っていないか（ボタンラベルが壊れる）
+        source_val = (r.get("source") or "").strip()
+        if source_val and source_val.startswith(("http://", "https://")):
+            rep.warn(where, "source がURLになっています。サイト名を書いてください"
+                            "（ダッシュボードでは「{source}で予約する」のようなボタンラベルに使われます）")
+
         # 座標
         lat = check_num(rep, where, "lat", (r.get("lat") or "").strip(), *LAT_RANGE)
         lng = check_num(rep, where, "lng", (r.get("lng") or "").strip(), *LNG_RANGE)
