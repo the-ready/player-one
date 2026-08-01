@@ -185,7 +185,10 @@ const EVENT_COLUMNS = {
   cats:      ["cats", list],
   venue:     ["venue", txt],
   startDate: ["start_date", txt],
-  seriesId:  ["series_id", txt]
+  seriesId:  ["series_id", txt],
+  // 会場マスターを持たないイベント固有の会場補足情報（第3.4.1節）。
+  parking:        ["parking", txt],
+  nearestStation: ["nearest_station", txt]
 };
 
 const MOVIE_COLUMNS = {
@@ -209,7 +212,11 @@ const LIVE_COLUMNS = {
   venue:     ["venue", txt],
   startDate: ["start_date", txt],
   // ツアー＝巡回。イベントの巡回展・映画の特集上映と同じ「同一シリーズの他会場」
-  seriesId:  ["tour_id", txt]
+  seriesId:  ["tour_id", txt],
+  parking:        ["parking", txt],
+  nearestStation: ["nearest_station", txt],
+  // メインアーティストの Apple Music アーティストページ（第13.11節）。
+  appleMusicUrl:  ["apple_music_url", txt]
 };
 
 /* ---------- 絞り込み軸（ファセット）の宣言 ----------

@@ -196,6 +196,25 @@ function seriesOthersHtml(tab, it){
     </div>`;
 }
 
+/* 会場のくわしい情報（駐車場・最寄り駅）。venue列と違い会場マスターを持たない
+   イベント・ライブ双方で使える、行ごとの補足情報として持たせてある。
+   どちらか一方だけでも出す。両方空なら行自体を出さない（3.5節の欠損耐性と同じ扱い）。 */
+function venueDetailHtml(it){
+  const rows = [];
+  if(it.nearestStation) rows.push(`<span class="vd-row"><span class="vd-label">最寄り駅</span>${esc(it.nearestStation)}</span>`);
+  if(it.parking) rows.push(`<span class="vd-row"><span class="vd-label">駐車場</span>${esc(it.parking)}</span>`);
+  return rows.length ? `<p class="venue-detail">${rows.join("")}</p>` : "";
+}
+
+/* ライブ・フェスのメインアーティストの Apple Music アーティストページへのリンク。
+   appleMusicUrl は events.csv / movies.csv には列が無く常に undefined → safeUrl(undefined) は
+   null になるため、tab を判定しなくてもライブ以外では自然に何も出ない。 */
+function appleMusicLinkHtml(it){
+  const href = safeUrl(it.appleMusicUrl);
+  if(!href) return "";
+  return `<p class="apple-music-link"><a href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(it.title)}のApple Musicアーティストページを開く">Apple Musicでアーティストを見る</a></p>`;
+}
+
 /* 価格の内訳。検証済みの値が揃っているときだけ描画する。
    片方しかない場合に割引率を推定して表示することは絶対にしない。
    price_condition（「au会員・月曜のみ」など）がある行は必ず条件を併記する——
@@ -289,12 +308,16 @@ export function cardHtml(tab, it, st, terms){
   const header =
     tab.header === "poster" ? posterMarkup(it) + `<div class="film-strip" aria-hidden="true"></div><div class="ticket-tear" aria-hidden="true"></div>` : "";
 
-  const pills = tab.key === "event" ? pillList(it.cats, GENRE_TABLE_BY_TAB.event)
+  // mainCat（左上floatバッジ）は cats[0] / genre[0] を使っているので、
+  // 同じ値をこの下のピル一覧にもう一度出さない（バッジと本文で同じタグが二重表示されるのを防ぐ）。
+  const pills = tab.key === "event" ? pillList((it.cats || []).slice(mainCat ? 1 : 0), GENRE_TABLE_BY_TAB.event)
               : tab.key === "movie" ? pillList(it.screeningType, SCREENING_TYPES) + pillList(it.genre, GENRE_TABLE_BY_TAB.movie)
-              :                       pillList(it.liveType, LIVE_TYPES) + pillList(it.genre, GENRE_TABLE_BY_TAB.live);
+              :                       pillList(it.liveType, LIVE_TYPES) + pillList((it.genre || []).slice(mainCat ? 1 : 0), GENRE_TABLE_BY_TAB.live);
 
   const detailBody = [
     it.desc ? `<p class="desc-body">${highlight(it.desc, terms)}</p>` : "",
+    appleMusicLinkHtml(it),
+    venueDetailHtml(it),
     tab.hasPrice ? priceBlock(it) : "",
     it.couponNote ? `<p class="coupon-note"><span class="coupon-tag">クーポン</span>${esc(it.couponNote)}</p>` : "",
     seriesOthersHtml(tab, it),

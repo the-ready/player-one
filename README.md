@@ -24,7 +24,7 @@ data/                         週次で差し替えるデータ。ここだけ�
   theaters.csv                シネコンチェーンの関東店舗ディレクトリ（準静的なマスター）
   venues.csv                  関東のライブ会場ディレクトリ（準静的なマスター）
   sources.json                「調べたサイト一覧」
-skills/                       3つの収集スキル（このリポジトリが正本）
+.claude/skills/               3つの収集スキル（このリポジトリが正本）
 tools/validate_data.py        CSVの検証
 sw.js                         Service Worker
 manifest.webmanifest          ホーム画面追加用
@@ -96,13 +96,13 @@ node tools/smoke_test.mjs          # BASE=... で公開URLにも当てられる
 
 ## データの更新
 
-`data/events.csv` を差し替えるだけでよい。列は以下の37列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
+`data/events.csv` を差し替えるだけでよい。列は以下の39列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
 ```
 
-`kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。
+`kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。`parking` は駐車場情報（例：`あり（有料・120台）`）、`nearest_station` は最寄り駅と徒歩時間（例：`上野駅（徒歩10分）`）で、どちらも「くわしく」の中に表示される。会場公式サイトで確認できなければ空欄でよい（憶測で埋めない）。
 
 価格は確認日時点のスナップショットであり、`price_checked` に確認日を記録する。リアルタイムの価格追従は行わない。
 
@@ -199,13 +199,15 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 `url` に入るのは公式サイトと正規プレイガイド（チケットぴあ／イープラス／ローソンチケット／楽天チケット／ticket board／LivePocket／ZAIKO／teket 等）のみ。完売公演も掲載するが、`onsale_label` を `SOLD OUT` にして取れるように見せない（公式リセールや当日券の可能性があり、「何をやっているか」自体が情報のため）。
 
-### `data/lives.csv` の列（32列固定）
+### `data/lives.csv` の列（35列固定）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
 ```
 
 **このタブは価格比較レイヤーを持たない。** `price_official` / `price_best` / `discount_pct` の列は存在しない。チケットは定価固定で、プレイガイドを横断しても値段が変わらないため。
+
+`parking` / `nearest_station` はイベントと同じ意味の列で、「くわしく」の中に表示される。`apple_music_url` は**その公演のメインアーティスト1組**（フェス・共演では `artists` の最初の1組）の Apple Music アーティストページへのリンク。Apple のアーティストページURLは `https://music.apple.com/{ストアフロント}/artist/{スラッグ}/{アーティストID}` という決まった形を取り、iTunes Search API（`https://itunes.apple.com/search?entity=musicArtist`）で名前から `artistLinkUrl` を機械的に引ける。同姓同名の別アーティストと取り違えるおそれがあるため、確信が持てない場合は空欄にする。
 
 `genre` は `rock` `pop` `idol` `kpop` `hiphop` `dance` `jazz` `classical` `anime` `other` の複数選択可（`|`区切り）。`live_type` は `fes`(音楽フェス) `oneman`(ワンマン・ツアー) `event`(対バン・イベント) `classic`(クラシック公演) `free`(入場無料) から1つ。`status` は `本日開催` `まもなく開催` `開催中` `公演予定` のいずれか。
 
@@ -221,4 +223,4 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 
 `data/lives.csv` の更新は `/kanto-live-collector` スキルが週次で担当する。
 
-**3つの収集スキルはいずれもリポジトリ内の [`skills/`](skills/) が正本**で、`~/.claude/skills/` にはそのコピーを置く。以前はイベント・映画のスキルだけリポジトリ外にあり、構成を変えても伝わらない状態だったが、ライブと同じ方式に統一した。CSVの列を変えたら、`skills/` の3つと `~/.claude/skills/` の両方を更新すること。
+**3つの収集スキルはいずれもリポジトリ内の [`.claude/skills/`](.claude/skills/) が正本**で、`~/.claude/skills/` にはそのコピーを置く。以前はイベント・映画のスキルだけリポジトリ外にあり、構成を変えても伝わらない状態だったが、ライブと同じ方式に統一した。CSVの列を変えたら、`.claude/skills/` の3つと `~/.claude/skills/` の両方を更新すること。

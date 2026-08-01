@@ -50,10 +50,10 @@ description: "Collect Kanto-area event data for the next 3 months and produce ev
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
 ```
 
-全37列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
+全39列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -94,6 +94,8 @@ id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,ran
 | `announced_date`            | そのイベントを**公表・掲載した日** `YYYY-MM-DD`。7日以内なら画面に `NEW` バッジが出る。**分からなければ必ず空欄**（憶測で新着にしない）                                                                                                                         |
 | `is_additional`             | **追加開催・会期延長**が決まった行は `1`、それ以外は空欄                                                                                                                                                                                                        |
 | `onsale_*` / `limited_sale` | 事前予約・抽選・整理券の受付期間（下記「受付期間の書き方」参照）。当日ふらっと行けるイベントは全部空欄でよい                                                                                                                                                    |
+| `parking`                   | 会場の駐車場情報（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                         |
+| `nearest_station`           | 最寄り駅と徒歩時間（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                       |
 
 ### カテゴリキー
 
@@ -201,8 +203,22 @@ id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,ran
 4. **予約方法** — どのプレイガイドで買えるか、日時指定制かどうか
 5. **公式サイトURL**
 6. **価格比較とクーポン** — 「価格比較とクーポン検知」章の手順を必ず実施する
+7. **駐車場・最寄り駅** — 下記「駐車場・最寄り駅の書き方」の手順で確認する
 
 **「何が目玉か」の調査を省略しないこと。** これがないと `desc` が「〇〇の展覧会です」という中身のない一文になり、利用者が判断できない。
+
+---
+
+## 駐車場・最寄り駅の書き方（`parking` / `nearest_station`）
+
+「くわしく」を開いた利用者が、車で行くか電車で行くかをその場で判断できるようにするための情報。**公式サイトの「アクセス」ページに載っている内容をそのまま書き写す**（憶測で埋めない）。
+
+| 列                 | 書き方                                                                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nearest_station`  | 最寄り駅名と徒歩時間（例：`上野駅（徒歩10分）`）。使える駅が複数あるときは `／` 区切りで併記してよい（例：`上野駅（徒歩10分）／根津駅（徒歩8分）`） |
+| `parking`          | 駐車場の有無・台数・料金（例：`あり（有料・120台）`、`契約駐車場なし（近隣コインパーキングを利用）`）。専用駐車場が無い会場は「無い」という事実を書く |
+
+**「たぶんあるだろう」「駅前だから徒歩圏だろう」という推測では書かない。** 公式サイトにアクセス情報が無い、または確認できなかった場合は、**両方とも空欄のままにする**。空欄の行は「くわしく」にこの2項目が出ないだけで、表示は壊れない（第3.5節の欠損耐性）。
 
 ---
 
@@ -411,7 +427,8 @@ JAF会員は当日券200円引き（要会員証提示）
 
 ## 品質チェック（提出前に必ず実施）
 
-- [ ] 全行の列数が19列で揃っているか（CSVパーサで読み込んで確認）
+- [ ] 全行の列数が39列で揃っているか（CSVパーサで読み込んで確認）
+- [ ] `parking`／`nearest_station` は公式サイトの「アクセス」ページ等で確認したものだけを書いているか（不明なら空欄）
 - [ ] `id` が1から連番になっているか
 - [ ] `start_date` / `end_date` が `YYYY-MM-DD` 形式か、または空欄か
 - [ ] 終了日が実行日より前のイベントが混ざっていないか

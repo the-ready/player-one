@@ -39,7 +39,7 @@ EXPECTED_HEADERS = {
         "date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
         "onsale_start_time","onsale_end","onsale_end_time","limited_sale","price","price_official",
         "price_best","discount_pct","best_source","coupon_note","price_checked","price_condition",
-        "source","url","official_url","lat","lng","desc","note"],
+        "source","url","official_url","lat","lng","desc","note","parking","nearest_station"],
     "movies.csv": ["id","title","kana","genre","screening_type","area","theater","theater_url","pref",
         "release_date","end_date","date","status","rank","series_id","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
@@ -48,7 +48,8 @@ EXPECTED_HEADERS = {
     "lives.csv": ["id","tour_id","title","kana","artists","genre","live_type","area","venue","venue_url",
         "pref","start_date","end_date","date","status","rank","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
-        "price","source","url","official_url","lat","lng","desc","note"],
+        "price","source","url","official_url","lat","lng","desc","note",
+        "parking","nearest_station","apple_music_url"],
     "theaters.csv": ["chain","name","pref","area","lat","lng","url"],
     "venues.csv": ["venue","kind","pref","area","capacity","lat","lng","url"],
 }
@@ -223,11 +224,20 @@ def validate_main(name, rows, enums, rep):
             rep.error(where, f"pref に未知の値 {pref!r}（都県の絞り込みから漏れます）")
 
         # リンク
-        for col in ("url", "official_url", "venue_url", "theater_url", "poster_url"):
+        for col in ("url", "official_url", "venue_url", "theater_url", "poster_url", "apple_music_url"):
             if col in r:
                 check_url(rep, where, col, (r.get(col) or "").strip())
         if not (r.get("url") or "").strip() and not (r.get("official_url") or "").strip():
             rep.error(where, "url も official_url も空です（カードから行き先がありません）")
+
+        # apple_music_url は「Apple Musicのアーティストページ」と明示して案内するリンクなので、
+        # 別サービスやアーティスト以外のページ（アルバム・プレイリスト等）を誤って入れていないか確認する。
+        amu = (r.get("apple_music_url") or "").strip()
+        if amu:
+            if not amu.startswith("https://music.apple.com/"):
+                rep.error(where, f"apple_music_url が music.apple.com のURLになっていません: {amu[:60]}")
+            elif "/artist/" not in amu:
+                rep.error(where, f"apple_music_url がアーティストページのURLではないようです（/artist/ を含みません）: {amu[:60]}")
 
         # source 列にURLが入っていないか（ボタンラベルが壊れる）
         source_val = (r.get("source") or "").strip()
