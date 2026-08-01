@@ -1,0 +1,4 @@
+1. 現在の作業ディレクトリで `git pull` を実行し、最新のファイル・フォルダ構成を取得する。
+2. 実行日の曜日を確認し、水曜日なら `.claude/skill` 内の `kanto-live-collector`、木曜日なら `kanto-movie-collector`、金曜日なら `kanto-event-collector` を実行する。それ以外のタイミングであれば、テストを実行している可能性が高い。ユーザから特段指示がなければ、`kanto-event-collector` を実行する。
+3. スキル実行後、`data` ディレクトリ配下に新しいCSVが出力されていることを確認する。
+4. 作業ディレクトリのルートに戻り、変更をすべてコミットしてGitHubリポジトリのmainブランチにpushする。
