@@ -3,810 +3,2336 @@
    同居していて、1行直すだけで173KBのファイルが差分に載る状態だった。
    役割ごとに分けて、ブラウザのキャッシュ粒度もレビューの単位もそろえる。 */
 
-:root{
+:root {
   color-scheme: light;
-  --ink:#33302B;
-  --paper:#F2EEE5;
-  --card:#FFFFFF;
-  --line:#33302B;
-  --text:#33302B;
-  --text-soft:#6B6660;
-  --text-faint:#6F6A64;
-  --pink:#B3566E;      --pink-tint:#F0DFE3;
-  --sunny:#906D2C;     --sunny-tint:#F1E6CC;
-  --sky:#527B86;       --sky-tint:#E1EAEC;
-  --grape:#7B6B9B;     --grape-tint:#E8E3EF;
-  --lime:#637A55;      --lime-tint:#E4EAE0;
-  --tangerine:#A36644; --tangerine-tint:#F0E1D5;
-  --coral:#AC6058;     --coral-tint:#EFDEDC;
-  --teal:#4B7E72;      --teal-tint:#DEEAE7;
-  --font-display:'Zen Maru Gothic', sans-serif;
-  --font-body:'Zen Kaku Gothic New', sans-serif;
-  --font-mono:'JetBrains Mono', monospace;
+  --ink: #33302b;
+  --paper: #f2eee5;
+  --card: #ffffff;
+  --line: #33302b;
+  --text: #33302b;
+  --text-soft: #6b6660;
+  --text-faint: #6f6a64;
+  --pink: #b3566e;
+  --pink-tint: #f0dfe3;
+  --sunny: #906d2c;
+  --sunny-tint: #f1e6cc;
+  --sky: #527b86;
+  --sky-tint: #e1eaec;
+  --grape: #7b6b9b;
+  --grape-tint: #e8e3ef;
+  --lime: #637a55;
+  --lime-tint: #e4eae0;
+  --tangerine: #a36644;
+  --tangerine-tint: #f0e1d5;
+  --coral: #ac6058;
+  --coral-tint: #efdedc;
+  --teal: #4b7e72;
+  --teal-tint: #deeae7;
+  --font-display: "Zen Maru Gothic", sans-serif;
+  --font-body: "Zen Kaku Gothic New", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   /* 最小文字サイズ。日本語は同じptでもラテン文字より潰れるので、
      ラベル・タグ類も11pxを下限にする（以前は9.5〜10pxが混在していた）。 */
-  --fs-tag:11px;
+  --fs-tag: 11px;
 }
 /* ダークモード用の上書きは持たない。:root と <meta name="color-scheme"> の
    両方で light を宣言しているため、OSがダークでもUAはライトのまま描画する。 */
-*{box-sizing:border-box;}
-html,body{margin:0;padding:0;overflow-anchor:none;}
-body{background:var(--paper);color:var(--text);font-family:var(--font-body);line-height:1.6;-webkit-font-smoothing:antialiased;}
-a{color:inherit;}
-button{font-family:inherit;cursor:pointer;}
-::selection{background:var(--pink);color:#fff;}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-anchor: none;
+}
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+::selection {
+  background: var(--pink);
+  color: #fff;
+}
 
 /* ---------- フォーカス表示 ----------
    以前は :focus-visible のスタイルが1つも無く、検索欄では outline:none で
    フォーカスリングを消したうえ、代替が「右下にずれた影」だけだった。
    白い面にもインク色の面にも見えるよう、白＋インクの二重リングにする
    （選択中のチップは背景がインク色なので、単色のリングだと片方で消える）。 */
-:focus-visible{
-  outline:3px solid #fff;
-  outline-offset:0;
-  box-shadow:0 0 0 6px var(--ink);
-  border-radius:inherit;
+:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px var(--ink);
+  border-radius: inherit;
 }
 /* マウス操作では出さない（クリックのたびにリングが出るのを避ける） */
-:focus:not(:focus-visible){outline:none;}
-
-.skip-link{
-  position:absolute;left:.6rem;top:-100px;z-index:100;
-  background:var(--ink);color:#fff;padding:.7rem 1.1rem;border-radius:0 0 12px 12px;
-  font-weight:700;font-size:14px;text-decoration:none;transition:top .15s;
+:focus:not(:focus-visible) {
+  outline: none;
 }
-.skip-link:focus{top:0;}
+
+.skip-link {
+  position: absolute;
+  left: 0.6rem;
+  top: -100px;
+  z-index: 100;
+  background: var(--ink);
+  color: #fff;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0 0 12px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 0;
+}
 
 /* ---------- header ---------- */
-header.pop-header{
-  position:relative;overflow:hidden;
-  background:var(--sunny-tint);
-  border-bottom:4px solid var(--ink);
-  padding:2.6rem clamp(1rem,4vw,3rem) 2.2rem;
+header.pop-header {
+  position: relative;
+  overflow: hidden;
+  background: var(--sunny-tint);
+  border-bottom: 4px solid var(--ink);
+  padding: 2.6rem clamp(1rem, 4vw, 3rem) 2.2rem;
 }
-.blob{position:absolute;border-radius:50%;opacity:.35;z-index:0;}
-.b1{width:120px;height:120px;background:var(--pink);top:-40px;right:8%;}
-.b2{width:70px;height:70px;background:var(--sky);bottom:-20px;right:22%;}
-.b3{width:46px;height:46px;background:var(--grape);top:20px;right:38%;}
-.b4{width:36px;height:36px;background:var(--lime);bottom:10px;left:6%;}
-.header-inner{position:relative;z-index:1;max-width:1100px;margin:0 auto;}
-.kicker-pop{
-  display:inline-block;font-family:var(--font-mono);font-size:11px;font-weight:700;
-  letter-spacing:.1em;background:var(--ink);color:#fff;padding:.3rem .7rem;
-  border-radius:999px;margin-bottom:.7rem;
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.35;
+  z-index: 0;
 }
-h1.pop-title{
-  font-family:var(--font-display);font-weight:900;
-  font-size:clamp(30px,6vw,52px);margin:0 0 .5rem;color:var(--ink);
-  text-shadow:3px 3px 0 var(--pink-tint);letter-spacing:.01em;
+.b1 {
+  width: 120px;
+  height: 120px;
+  background: var(--pink);
+  top: -40px;
+  right: 8%;
 }
-.pop-sub{font-size:14px;color:#3A3A2E;max-width:42em;margin:0 0 1.1rem;font-weight:500;}
+.b2 {
+  width: 70px;
+  height: 70px;
+  background: var(--sky);
+  bottom: -20px;
+  right: 22%;
+}
+.b3 {
+  width: 46px;
+  height: 46px;
+  background: var(--grape);
+  top: 20px;
+  right: 38%;
+}
+.b4 {
+  width: 36px;
+  height: 36px;
+  background: var(--lime);
+  bottom: 10px;
+  left: 6%;
+}
+.header-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.kicker-pop {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: var(--ink);
+  color: #fff;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+}
+h1.pop-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(30px, 6vw, 52px);
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+  text-shadow: 3px 3px 0 var(--pink-tint);
+  letter-spacing: 0.01em;
+}
+.pop-sub {
+  font-size: 14px;
+  color: #3a3a2e;
+  max-width: 42em;
+  margin: 0 0 1.1rem;
+  font-weight: 500;
+}
 /* 背景が --sunny-tint なので --text-faint ではコントラスト比が4.5:1に届かない。
    1段濃い --text-soft（4.58:1）を使う。 */
-.pop-disclaimer{font-size:11px;color:var(--text-soft);max-width:42em;margin:-0.7rem 0 1.1rem;}
-.stat-chips{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;}
+.pop-disclaimer {
+  font-size: 11px;
+  color: var(--text-soft);
+  max-width: 42em;
+  margin: -0.7rem 0 1.1rem;
+}
+.stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
 /* .tab-chip は押せるので min-height 44px を確保する。隣に並ぶ .stat-chip は
    押せないが、同じ行で高さがずれると不揃いに見えるので同じ寸法にそろえる。 */
-.stat-chip{
-  display:inline-flex;align-items:center;min-height:44px;
-  background:#fff;border:3px solid var(--ink);border-radius:999px;
-  padding:.4rem 1rem;font-family:var(--font-mono);font-size:12.5px;font-weight:700;
-  box-shadow:3px 3px 0 var(--ink);
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
 }
-.stat-chip b{color:var(--pink);font-size:15px;}
-.tab-group{display:flex;flex-wrap:wrap;gap:.6rem;}
-.tab-chip{
-  display:inline-flex;align-items:center;min-height:44px;
-  background:#fff;border:3px solid var(--ink);border-radius:999px;color:var(--ink);
-  padding:.4rem 1rem;font-family:var(--font-mono);font-size:12.5px;font-weight:700;
-  box-shadow:3px 3px 0 var(--ink);cursor:pointer;
+.stat-chip b {
+  color: var(--pink);
+  font-size: 15px;
 }
-.tab-chip[aria-selected="true"]{background:var(--ink);color:#fff;}
-.offline-note{
-  margin:.7rem 0 0;padding:.5rem .8rem;border:2px solid var(--ink);border-radius:12px;
-  background:var(--sky-tint);font-size:12px;font-weight:700;max-width:42em;
+.tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.tab-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  padding: 0.4rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+.tab-chip[aria-selected="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.offline-note {
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0.8rem;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--sky-tint);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 42em;
 }
 
 /* ---------- locate feedback ---------- */
-@keyframes btnPulse{0%,100%{opacity:.55;}50%{opacity:.9;}}
-.sort-btn.loading{animation:btnPulse 1s ease-in-out infinite;opacity:.55;}
-@media (prefers-reduced-motion:reduce){.sort-btn.loading{animation:none;opacity:.55;}}
+@keyframes btnPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.sort-btn.loading {
+  animation: btnPulse 1s ease-in-out infinite;
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sort-btn.loading {
+    animation: none;
+    opacity: 0.55;
+  }
+}
 
-.locate-msg{
-  margin-top:.65rem;padding:.8rem 1rem;border:3px solid var(--ink);border-radius:14px;
-  font-size:13px;display:none;box-shadow:3px 3px 0 var(--ink);
+.locate-msg {
+  margin-top: 0.65rem;
+  padding: 0.8rem 1rem;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  font-size: 13px;
+  display: none;
+  box-shadow: 3px 3px 0 var(--ink);
 }
-.locate-msg.show{display:block;}
-.locate-msg.ok{background:var(--lime-tint);}
-.locate-msg.err{background:var(--coral-tint);}
-.locate-msg button.inline-link{background:none;border:none;padding:.3rem 0;font:inherit;text-decoration:underline;font-weight:700;cursor:pointer;color:var(--ink);}
-.region-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem;}
-.region-chip{
-  min-height:40px;border:2px solid var(--ink);background:#fff;border-radius:999px;padding:.38rem .9rem;
-  font-size:12.5px;font-weight:700;color:var(--text);
+.locate-msg.show {
+  display: block;
 }
-.region-chip[aria-pressed="true"]{background:var(--ink);color:#fff;}
+.locate-msg.ok {
+  background: var(--lime-tint);
+}
+.locate-msg.err {
+  background: var(--coral-tint);
+}
+.locate-msg button.inline-link {
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  font: inherit;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--ink);
+}
+.region-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+.region-chip {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.38rem 0.9rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.region-chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
 
 /* ---------- controls ---------- */
-.controls{
-  position:sticky;top:0;z-index:35;background:rgba(242,238,229,.95);backdrop-filter:blur(6px);
-  border-bottom:4px solid var(--ink);padding:.9rem clamp(1rem,4vw,3rem);
-  transition:padding .32s cubic-bezier(.4,0,.2,1),box-shadow .32s ease;
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: rgba(242, 238, 229, 0.95);
+  backdrop-filter: blur(6px);
+  border-bottom: 4px solid var(--ink);
+  padding: 0.9rem clamp(1rem, 4vw, 3rem);
+  transition:
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.32s ease;
 }
-.controls.compact{
-  padding-top:.45rem;padding-bottom:.45rem;
-  box-shadow:0 3px 10px rgba(0,0,0,.1);
+.controls.compact {
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
 }
-.controls-inner{max-width:1100px;margin:0 auto;position:relative;}
-.controls-flex{
-  display:flex;flex-direction:column;
-  transition:gap .32s cubic-bezier(.4,0,.2,1);
+.controls-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
 }
-.controls.compact .controls-flex{flex-direction:row;align-items:center;gap:.5rem;}
-.search-row{
-  display:flex;margin-bottom:.6rem;
-  transition:margin .32s cubic-bezier(.4,0,.2,1);
+.controls-flex {
+  display: flex;
+  flex-direction: column;
+  transition: gap 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.controls.compact .search-row{margin-bottom:0;flex:0 0 auto;order:2;}
-.search-wrap{position:relative;display:flex;align-items:center;justify-content:flex-end;width:100%;}
-input[type="search"]{
-  width:100%;min-height:46px;border:3px solid var(--ink);border-radius:999px;background:#fff;
-  padding:.5rem 1.2rem;font-size:16px;color:var(--text);font-family:var(--font-body);
-  transition:min-height .32s cubic-bezier(.4,0,.2,1),padding .32s cubic-bezier(.4,0,.2,1),width .32s cubic-bezier(.4,0,.2,1);
+.controls.compact .controls-flex {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
 }
-input[type="search"]:focus{box-shadow:3px 3px 0 var(--ink);}
-input[type="search"]:focus-visible{box-shadow:0 0 0 6px var(--ink);}
+.search-row {
+  display: flex;
+  margin-bottom: 0.6rem;
+  transition: margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .search-row {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+  order: 2;
+}
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+input[type="search"] {
+  width: 100%;
+  min-height: 46px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.5rem 1.2rem;
+  font-size: 16px;
+  color: var(--text);
+  font-family: var(--font-body);
+  transition:
+    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type="search"]:focus {
+  box-shadow: 3px 3px 0 var(--ink);
+}
+input[type="search"]:focus-visible {
+  box-shadow: 0 0 0 6px var(--ink);
+}
 
 /* 縮んだときに出す虫めがねボタン。
    以前は入力欄そのものを32pxに潰してアイコンのように見せていたが、
    「入力欄が消えた」と受け取られるうえ、タッチ目標としても小さすぎた。 */
-.search-toggle{
-  display:none;flex:none;align-items:center;justify-content:center;
-  width:44px;height:44px;min-height:44px;padding:0;
-  border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:50%;
+.search-toggle {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 50%;
 }
-@media (min-width:641px){
-  .controls.compact .search-row{width:200px;}
-  .controls.compact input[type="search"]{width:200px;height:36px;min-height:36px;padding:0 1rem;font-size:13.5px;border-width:2px;}
-}
-@media (max-width:640px){
-  .controls.compact .search-toggle{display:inline-flex;order:3;width:36px;height:36px;min-height:36px;}
-  .controls.compact .search-row{display:none;}
-  .controls.compact.search-open .search-row{
-    display:flex;position:absolute;left:0;right:0;top:0;z-index:40;
+@media (min-width: 641px) {
+  .controls.compact .search-row {
+    width: 200px;
   }
-  .controls.compact.search-open input[type="search"]{min-height:38px;font-size:16px;border-width:2px;}
-  .controls.compact.search-open .control-row{visibility:hidden;}
+  .controls.compact input[type="search"] {
+    width: 200px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 1rem;
+    font-size: 13.5px;
+    border-width: 2px;
+  }
 }
-.control-row{
-  display:flex;gap:.4rem;margin-bottom:0;flex:1;min-width:0;order:1;
+@media (max-width: 640px) {
+  .controls.compact .search-toggle {
+    display: inline-flex;
+    order: 3;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+  .controls.compact .search-row {
+    display: none;
+  }
+  .controls.compact.search-open .search-row {
+    display: flex;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 40;
+  }
+  .controls.compact.search-open input[type="search"] {
+    min-height: 38px;
+    font-size: 16px;
+    border-width: 2px;
+  }
+  .controls.compact.search-open .control-row {
+    visibility: hidden;
+  }
 }
-.sort-btn{
-  flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;
-  min-height:44px;border:2px solid var(--ink);background:#fff;color:var(--text-soft);
-  border-radius:999px;padding:.4rem .5rem;font-size:12.5px;font-weight:700;white-space:nowrap;
-  transition:background .15s,color .15s,min-height .32s cubic-bezier(.4,0,.2,1),padding .32s cubic-bezier(.4,0,.2,1);
+.control-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+  order: 1;
 }
-.controls.compact .sort-btn{min-height:36px;padding:.25rem .4rem;font-size:12px;}
-.sort-btn svg{flex:none;}
-.sort-btn .dir-arrow{font-size:11px;min-width:8px;}
-.sort-btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink);}
-.sort-btn[aria-expanded="true"]{background:var(--sunny-tint);border-color:var(--ink);color:var(--ink);}
+.sort-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text-soft);
+  border-radius: 999px;
+  padding: 0.4rem 0.5rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .sort-btn {
+  min-height: 36px;
+  padding: 0.25rem 0.4rem;
+  font-size: 12px;
+}
+.sort-btn svg {
+  flex: none;
+}
+.sort-btn .dir-arrow {
+  font-size: 11px;
+  min-width: 8px;
+}
+.sort-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.sort-btn[aria-expanded="true"] {
+  background: var(--sunny-tint);
+  border-color: var(--ink);
+  color: var(--ink);
+}
 
 /* ---------- 適用中の絞り込み ----------
    何が効いているかは常に見えていて、1タップで外せること。
    縮んだ操作バーでも消さない（条件が効いているのに見えないのが一番困る）。 */
-.applied-bar{
-  display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;
-  margin-top:.55rem;
+.applied-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
 }
-.controls.compact .applied-bar{
-  margin-top:.4rem;flex-wrap:nowrap;overflow-x:auto;
-  scrollbar-width:none;-ms-overflow-style:none;
+.controls.compact .applied-bar {
+  margin-top: 0.4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.controls.compact .applied-bar::-webkit-scrollbar{display:none;}
-.applied-label{
-  font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;
-  color:var(--text-soft);letter-spacing:.04em;flex:none;
+.controls.compact .applied-bar::-webkit-scrollbar {
+  display: none;
 }
-.applied-chip{
-  display:inline-flex;align-items:center;gap:.35rem;flex:none;
-  min-height:32px;border:2px solid var(--ink);background:var(--sunny-tint);color:var(--ink);
-  border-radius:999px;padding:.15rem .6rem;font-size:12px;font-weight:700;max-width:16em;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.applied-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  letter-spacing: 0.04em;
+  flex: none;
 }
-.applied-chip span{font-size:14px;line-height:1;}
-.applied-clear{
-  flex:none;background:none;border:none;color:var(--text-soft);font-size:12px;font-weight:700;
-  text-decoration:underline;padding:.4rem .2rem;min-height:32px;white-space:nowrap;
+.applied-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  min-height: 32px;
+  border: 2px solid var(--ink);
+  background: var(--sunny-tint);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.reset-btn{
-  background:none;border:none;color:var(--text-soft);font-size:13px;font-weight:700;
-  text-decoration:underline;padding:.55rem .2rem;white-space:nowrap;min-height:44px;
+.applied-chip span {
+  font-size: 14px;
+  line-height: 1;
+}
+.applied-clear {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0.4rem 0.2rem;
+  min-height: 32px;
+  white-space: nowrap;
+}
+.reset-btn {
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0.55rem 0.2rem;
+  white-space: nowrap;
+  min-height: 44px;
 }
 
-.popover-backdrop{position:fixed;inset:0;background:rgba(20,18,15,.6);z-index:29;}
+.popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 15, 0.6);
+  z-index: 29;
+}
 /* 操作バー(.controls, z-index:35)は backdrop の上に残す。日程を開いたまま
    エリアや絞り込みへ直接切り替えられないのは、それ自体が使いにくさになる。 */
-.popover-panel{
-  position:absolute;top:calc(100% + 10px);left:0;right:0;z-index:30;
-  background:#fff;border:3px solid var(--ink);border-radius:18px;
-  padding:1.1rem 1.15rem 1rem;box-shadow:6px 6px 0 var(--ink);
-  max-height:min(70vh,520px);overflow-y:auto;
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  padding: 1.1rem 1.15rem 1rem;
+  box-shadow: 6px 6px 0 var(--ink);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
 }
 /* デスクトップでは呼び出しボタンの真下に幅を固定して置く（位置は positionPopover が決める）。
    モバイルは left:0/right:0 のまま画面幅いっぱいに広げる。 */
-@media (min-width:641px){
-  .popover-panel{right:auto;width:100%;max-width:380px;}
+@media (min-width: 641px) {
+  .popover-panel {
+    right: auto;
+    width: 100%;
+    max-width: 380px;
+  }
 }
-.popover-panel.show{animation:popIn .18s ease;}
-@keyframes popIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
-@media (prefers-reduced-motion:reduce){.popover-panel.show{animation:none;}}
-.popover-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;gap:.5rem;}
-.popover-head span{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase;}
+.popover-panel.show {
+  animation: popIn 0.18s ease;
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .popover-panel.show {
+    animation: none;
+  }
+}
+.popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.7rem;
+  gap: 0.5rem;
+}
+.popover-head span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 /* 閉じるボタンは以前26pxで、画面内で最も小さい押しどころだった */
-.popover-close{
-  background:var(--paper);border:2px solid var(--ink);border-radius:50%;
-  width:44px;height:44px;flex:none;
-  font-size:18px;line-height:1;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;
+.popover-close {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
-.chip-row{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.55rem;align-items:center;}
-.chip-row:last-of-type{margin-bottom:0;}
-.chip-label{font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;letter-spacing:.06em;color:var(--text-faint);margin-right:.3rem;text-transform:uppercase;}
-.chip{
-  display:inline-flex;align-items:center;gap:.35rem;
-  min-height:40px;border:2px solid var(--ink);background:#fff;color:var(--text);
-  border-radius:999px;padding:.4rem .8rem;font-size:13px;font-weight:700;transition:background .1s,color .1s;
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  align-items: center;
 }
-.chip[aria-pressed="true"]{background:var(--chip-c,var(--ink));border-color:var(--chip-c,var(--ink));color:var(--chip-tx,#fff);}
+.chip-row:last-of-type {
+  margin-bottom: 0;
+}
+.chip-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-right: 0.3rem;
+  text-transform: uppercase;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.chip[aria-pressed="true"] {
+  background: var(--chip-c, var(--ink));
+  border-color: var(--chip-c, var(--ink));
+  color: var(--chip-tx, #fff);
+}
 /* 0件の選択肢は押せないことを見た目でも示す（押してから0件と分かるのを避ける） */
-.chip[disabled]{opacity:.35;cursor:not-allowed;}
-.chip-count{
-  font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;
-  background:rgba(51,48,43,.10);border-radius:999px;padding:0 .4rem;min-width:1.6em;text-align:center;
+.chip[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
-.chip[aria-pressed="true"] .chip-count{background:rgba(255,255,255,.28);}
-.deal-chip[aria-pressed="true"]{--chip-c:var(--coral);}
-.add-chip[aria-pressed="true"]{--chip-c:var(--coral);}
-.onsale-chip[aria-pressed="true"]{--chip-c:var(--lime);}
-.before-chip[aria-pressed="true"]{--chip-c:var(--sky);}
-.limited-chip[aria-pressed="true"]{--chip-c:var(--sunny);}
-.fav-chip[aria-pressed="true"]{--chip-c:var(--pink);}
-.result-count{
-  font-size:12px;color:var(--text-soft);font-family:var(--font-mono);margin-top:.5rem;font-weight:700;
-  max-height:30px;opacity:1;overflow:hidden;
-  transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .2s ease,margin .32s cubic-bezier(.4,0,.2,1);
+.chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  background: rgba(51, 48, 43, 0.1);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  min-width: 1.6em;
+  text-align: center;
 }
-.controls.compact .result-count{max-height:0;opacity:0;margin:0;}
+.chip[aria-pressed="true"] .chip-count {
+  background: rgba(255, 255, 255, 0.28);
+}
+.deal-chip[aria-pressed="true"] {
+  --chip-c: var(--coral);
+}
+.add-chip[aria-pressed="true"] {
+  --chip-c: var(--coral);
+}
+.onsale-chip[aria-pressed="true"] {
+  --chip-c: var(--lime);
+}
+.before-chip[aria-pressed="true"] {
+  --chip-c: var(--sky);
+}
+.limited-chip[aria-pressed="true"] {
+  --chip-c: var(--sunny);
+}
+.fav-chip[aria-pressed="true"] {
+  --chip-c: var(--pink);
+}
+.result-count {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  margin-top: 0.5rem;
+  font-weight: 700;
+  max-height: 30px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease,
+    margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .result-count {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+}
 
 /* 並び順の切り替え（3タブ共通） */
-.sort-row{
-  display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;
-  margin-bottom:.9rem;padding-bottom:.85rem;border-bottom:2px dashed var(--line);
+.sort-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2px dashed var(--line);
 }
 
 /* ---------- card grid ---------- */
-.pane-main{max-width:1100px;margin:0 auto;padding:1.8rem clamp(1rem,4vw,3rem) 2.5rem;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1.6rem 1.4rem;}
-.card{
-  position:relative;background:var(--card);border:3px solid var(--ink);border-radius:20px;
-  padding:0;box-shadow:5px 5px 0 var(--ink);
-  transition:transform .15s,box-shadow .15s;
+.pane-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.8rem clamp(1rem, 4vw, 3rem) 2.5rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.6rem 1.4rem;
+}
+.card {
+  position: relative;
+  background: var(--card);
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 5px 5px 0 var(--ink);
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 /* content-visibility:auto は使わない。contain:paint を含むため、カードの外へ
    はみ出す .cat-badge / .new-badge が矩形で切り取られてしまう。
    バッジがカードの縁にかかるのはこのデザインの要なので、
    画面外カードの省略より見た目を優先する。 */
-.card-body{padding:1.3rem 1.2rem 1.15rem;}
+.card-body {
+  padding: 1.3rem 1.2rem 1.15rem;
+}
 /* フェードインは一覧が初めて描画されたときだけ。絞り込みや検索のたびに
    innerHTML を作り直すので、.card に直接かけると打鍵のたびに全カードが
    再生されてちらつく。JS側が .is-entering を一度だけ着けて外す。 */
-.grid.is-entering .card{opacity:0;animation:cardIn .4s ease forwards;}
+.grid.is-entering .card {
+  opacity: 0;
+  animation: cardIn 0.4s ease forwards;
+}
 /* 手貼りしたような傾きはこのデザインの識別要素なので残すが、
    読みやすさのために角度は浅くする。 */
-.grid .card:nth-child(3n+1){transform:rotate(-0.6deg);}
-.grid .card:nth-child(3n+2){transform:rotate(0.35deg);}
-.grid .card:nth-child(3n){transform:rotate(-0.25deg);}
-.card:hover{transform:translateY(-4px) rotate(0deg);box-shadow:7px 7px 0 var(--ink);}
-.card:focus-within{transform:rotate(0deg);}
-@keyframes cardIn{to{opacity:1;}}
-@media (prefers-reduced-motion:reduce){
-  .grid.is-entering .card{animation:none;opacity:1;}
-  .grid .card{transform:none;}
+.grid .card:nth-child(3n + 1) {
+  transform: rotate(-0.6deg);
+}
+.grid .card:nth-child(3n + 2) {
+  transform: rotate(0.35deg);
+}
+.grid .card:nth-child(3n) {
+  transform: rotate(-0.25deg);
+}
+.card:hover {
+  transform: translateY(-4px) rotate(0deg);
+  box-shadow: 7px 7px 0 var(--ink);
+}
+.card:focus-within {
+  transform: rotate(0deg);
+}
+@keyframes cardIn {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid.is-entering .card {
+    animation: none;
+    opacity: 1;
+  }
+  .grid .card {
+    transform: none;
+  }
+}
+/* 地図の吹き出しから「このイベントアイテムへ飛ぶ」を押したときに、
+   一覧のどのカードに移動したのかが分かるよう、着地点を短く点滅させる。 */
+.card.jump-highlight {
+  animation: cardJump 1.6s ease-out;
+}
+@keyframes cardJump {
+  0%,
+  35% {
+    box-shadow: 0 0 0 4px var(--pink);
+  }
+  100% {
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card.jump-highlight {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--pink);
+  }
 }
 
-mark{background:var(--sunny-tint);color:inherit;padding:0 .1em;border-radius:3px;}
+mark {
+  background: var(--sunny-tint);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 3px;
+}
 
-.cat-badge{
-  position:absolute;top:-14px;left:18px;border:3px solid var(--ink);border-radius:999px;
-  padding:.22rem .75rem;font-size:var(--fs-tag);font-weight:700;box-shadow:2px 2px 0 var(--ink);
-  font-family:var(--font-body);z-index:2;
+.cat-badge {
+  position: absolute;
+  top: -14px;
+  left: 18px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.22rem 0.75rem;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ink);
+  font-family: var(--font-body);
+  z-index: 2;
 }
-.new-badge{
-  position:absolute;top:-14px;right:16px;border:3px solid var(--ink);border-radius:999px;
-  padding:.22rem .7rem;font-size:var(--fs-tag);font-weight:700;box-shadow:2px 2px 0 var(--ink);
-  background:var(--sunny);color:#fff;font-family:var(--font-mono);letter-spacing:.06em;z-index:2;
+.new-badge {
+  position: absolute;
+  top: -14px;
+  right: 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ink);
+  background: var(--sunny);
+  color: #fff;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  z-index: 2;
 }
-.top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem;gap:.5rem;}
-.date-txt{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--text-soft);}
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+.date-txt {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
 /* ライブは単日公演が多く、日付そのものが主情報なので一段大きく出す */
-.live-date{font-size:13px;color:var(--ink);}
-.badge-stack{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem;}
+.live-date {
+  font-size: 13px;
+  color: var(--ink);
+}
+.badge-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
 /* 割引率のバッジ（discount_pct）はカード表面には出さない。「くわしく」内の
    価格比較（.pc-saved）に金額差として出るので、上部では開催状況だけで足りる。 */
-.status-badge,.add-badge{
-  font-size:var(--fs-tag);font-weight:700;padding:.16rem .55rem;border-radius:999px;
-  border:2px solid var(--ink);white-space:nowrap;
+.status-badge,
+.add-badge {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  white-space: nowrap;
 }
-.add-badge{background:var(--coral);color:#fff;}
+.add-badge {
+  background: var(--coral);
+  color: #fff;
+}
 /* 受付終了は「取れるように見せない」ため、他のステータスとは違う無彩色にする
    （ticket-info.closed と同じグレー。docs/DESIGN.md 第13.3節）。 */
-.status-badge.closed-badge{background:var(--text-soft);color:#fff;border-color:var(--text-soft);}
-.card .title{font-family:var(--font-display);font-size:16.5px;font-weight:700;margin:0 0 .4rem;line-height:1.45;}
+.status-badge.closed-badge {
+  background: var(--text-soft);
+  color: #fff;
+  border-color: var(--text-soft);
+}
+.card .title {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  line-height: 1.45;
+}
 /* フェス等の複数出演では、タイトル直下に本文としてラインナップを並べる
    （単独公演はタイトルに名前が出るのでこの行自体を出さない。第13.5節）。 */
-.lineup-line{font-size:12.5px;color:var(--text-soft);font-weight:700;margin:0 0 .5rem;}
-.lineup-line mark{background:var(--sunny-tint);}
-.card .meta{font-size:12px;color:var(--text-soft);margin-bottom:.6rem;font-weight:500;}
+.lineup-line {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.lineup-line mark {
+  background: var(--sunny-tint);
+}
+.card .meta {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 0.6rem;
+  font-weight: 500;
+}
 /* 出典名（source）は go-btn のラベル（「◯◯公式で予約する」）に既に出るので、
    ここでは同じ名前をもう一度出さず、公式サイトへのリンクだけを置く。 */
-.card .meta .official-link{
-  display:inline;color:var(--grape);font-weight:700;text-decoration:underline;
-  text-underline-offset:2px;font-size:inherit;
+.card .meta .official-link {
+  display: inline;
+  color: var(--grape);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: inherit;
 }
-.card .meta .official-link:hover{color:var(--pink);}
-.venue-cap{font-family:var(--font-mono);font-size:var(--fs-tag);color:var(--text-faint);font-weight:700;}
-.dist-badge{
-  display:inline-flex;align-items:center;gap:.25rem;background:var(--sky-tint);
-  border:2px solid var(--ink);border-radius:999px;padding:.12rem .55rem;
-  font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;margin-left:.4rem;
+.card .meta .official-link:hover {
+  color: var(--pink);
 }
-.cats{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.55rem;}
-.pill-cat{font-size:var(--fs-tag);font-weight:700;padding:.15rem .55rem;border-radius:999px;border:1.5px solid var(--ink);}
-.place-link{
-  background:none;border:none;padding:0;font:inherit;font-weight:700;color:var(--grape);
-  text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+.venue-cap {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  color: var(--text-faint);
+  font-weight: 700;
 }
-.place-link:hover{color:var(--pink);}
-.detail-toggle{
-  background:none;border:none;padding:.4rem 0;display:inline-flex;align-items:center;min-height:44px;
-  font-size:13px;font-weight:700;color:var(--text-soft);
-  text-decoration:underline;
+.dist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--sky-tint);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  margin-left: 0.4rem;
 }
-.desc{
-  font-size:12.5px;color:var(--text-soft);margin:.4rem 0 .7rem;padding-top:.5rem;
-  border-top:2px dashed var(--line);display:none;
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
 }
-.desc.open{display:block;}
-.desc-body{margin:0;}
-.price-txt{font-size:var(--fs-tag);color:var(--text-faint);font-family:var(--font-mono);font-weight:700;margin-bottom:.5rem;display:block;}
+.pill-cat {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+}
+.place-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--grape);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.place-link:hover {
+  color: var(--pink);
+}
+.detail-toggle {
+  background: none;
+  border: none;
+  padding: 0.4rem 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-decoration: underline;
+}
+.desc {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0.4rem 0 0.7rem;
+  padding-top: 0.5rem;
+  border-top: 2px dashed var(--line);
+  display: none;
+}
+.desc.open {
+  display: block;
+}
+.desc-body {
+  margin: 0;
+}
+.price-txt {
+  font-size: var(--fs-tag);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: block;
+}
 
 /* ---------- カードの操作（行きたい・共有・カレンダー） ----------
    文字を添えると3つで1行を占領してカードが窮屈になるため、アイコンだけにして
    「くわしく」と同じ行の右端へ寄せる。行を1つも増やさずに済む。 */
-.detail-row{
-  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
-  margin:.1rem 0 .2rem;min-height:44px;
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0.2rem;
+  min-height: 44px;
 }
-.card-actions{display:flex;gap:.3rem;margin-left:auto;flex:none;}
-.act-btn{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:38px;height:38px;padding:0;border:2px solid var(--ink);background:#fff;color:var(--text-soft);
-  border-radius:50%;
+.card-actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+  flex: none;
 }
-.act-btn svg{flex:none;}
-.act-btn:hover{background:var(--paper);color:var(--ink);}
-.fav-btn[aria-pressed="true"]{background:var(--pink);border-color:var(--pink);color:#fff;}
-.fav-btn[aria-pressed="true"] svg{fill:currentColor;}
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text-soft);
+  border-radius: 50%;
+}
+.act-btn svg {
+  flex: none;
+}
+.act-btn:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.fav-btn[aria-pressed="true"] {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+.fav-btn[aria-pressed="true"] svg {
+  fill: currentColor;
+}
 
 /* カレンダーの追加先えらび。カード内に閉じ込めると端で切れるので body 直下に出す。 */
-.cal-menu{
-  position:fixed;z-index:90;min-width:15em;
-  background:#fff;border:3px solid var(--ink);border-radius:14px;
-  box-shadow:4px 4px 0 var(--ink);padding:.35rem;
-  display:flex;flex-direction:column;gap:.2rem;
+.cal-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 15em;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
-.cal-menu button{
-  display:flex;align-items:center;gap:.5rem;width:100%;min-height:44px;
-  background:none;border:none;border-radius:10px;padding:.4rem .7rem;
-  font-size:13.5px;font-weight:700;color:var(--ink);text-align:left;
+.cal-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  padding: 0.4rem 0.7rem;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
 }
-.cal-menu button:hover{background:var(--sunny-tint);}
-.cal-menu svg{flex:none;color:var(--text-soft);}
+.cal-menu button:hover {
+  background: var(--sunny-tint);
+}
+.cal-menu svg {
+  flex: none;
+  color: var(--text-soft);
+}
 
-.go-btn{
-  display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;min-height:46px;
-  background:var(--pink);color:#fff;text-decoration:none;font-weight:700;font-size:14px;
-  border:3px solid var(--ink);border-radius:14px;padding:.65rem;box-shadow:3px 3px 0 var(--ink);
-  transition:transform .12s,box-shadow .12s;
+.go-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 46px;
+  background: var(--pink);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 0.65rem;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
 }
-.go-btn:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);}
-.go-btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink);}
+.go-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.go-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
 
-.price-compare{
-  margin:.55rem 0 0;padding:.55rem .7rem;border-radius:10px;
-  background:var(--lime-tint);border:1.5px solid var(--ink);
-  display:flex;flex-direction:column;gap:.2rem;font-size:12px;
+.price-compare {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--lime-tint);
+  border: 1.5px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 12px;
 }
-.pc-row{display:flex;align-items:baseline;gap:.45rem;flex-wrap:wrap;}
-.pc-label{font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;color:var(--text-soft);min-width:5.5em;}
-.pc-row s{color:var(--text-soft);}
-.pc-row b{font-size:14px;font-weight:700;}
-.pc-saved{font-size:var(--fs-tag);font-weight:700;color:#fff;background:var(--coral);padding:.08rem .45rem;border-radius:999px;}
-.pc-checked{font-size:var(--fs-tag);color:var(--text-soft);font-family:var(--font-mono);}
+.pc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.pc-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  min-width: 5.5em;
+}
+.pc-row s {
+  color: var(--text-soft);
+}
+.pc-row b {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pc-saved {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: #fff;
+  background: var(--coral);
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+}
+.pc-checked {
+  font-size: var(--fs-tag);
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+}
 /* 条件付きの割引（会員限定・特定曜日など）は条件を必ず併記する。
    条件を落とすと「誰でもこの値段で買える」と読めてしまい、出さないより有害になる。 */
-.pc-cond{font-size:var(--fs-tag);font-weight:700;color:var(--ink);background:var(--sunny-tint);
-  border-radius:6px;padding:.15rem .4rem;}
-.coupon-note{
-  margin:.45rem 0 0;padding:.45rem .6rem;border-radius:10px;
-  background:var(--sunny-tint);border:1.5px solid var(--ink);
-  font-size:12px;font-weight:500;color:var(--ink);
+.pc-cond {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sunny-tint);
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
 }
-.coupon-tag{
-  display:inline-block;margin-right:.4rem;padding:.08rem .45rem;border-radius:999px;
-  background:var(--sunny);color:#fff;font-size:var(--fs-tag);font-weight:700;
+.coupon-note {
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  background: var(--sunny-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
 }
-.poster-credit{font-size:var(--fs-tag);color:var(--text-faint);margin:.4rem 0 0;}
+.coupon-tag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  background: var(--sunny);
+  color: #fff;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+.poster-credit {
+  font-size: var(--fs-tag);
+  color: var(--text-faint);
+  margin: 0.4rem 0 0;
+}
 
 /* 会場のくわしい情報（駐車場・最寄り駅）。desc-body と同じ地の文トーンで、
    価格比較やクーポンのような色付きブロックにはしない（事実情報であって注意喚起ではないため）。 */
-.venue-detail{margin:.5rem 0 0;display:flex;flex-direction:column;gap:.2rem;font-size:12.5px;color:var(--ink);}
-.vd-label{font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;color:var(--text-soft);margin-right:.5rem;}
-.apple-music-link{margin:.5rem 0 0;font-size:12.5px;}
-.apple-music-link a{color:var(--grape);font-weight:700;text-decoration:underline;text-underline-offset:2px;}
-.apple-music-link a:hover{color:var(--pink);}
+.venue-detail {
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.vd-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-right: 0.5rem;
+}
+.apple-music-link {
+  margin: 0.5rem 0 0;
+  font-size: 12.5px;
+}
+.apple-music-link a {
+  color: var(--grape);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.apple-music-link a:hover {
+  color: var(--pink);
+}
 
 /* ---------- movie ticket card ---------- */
-.ticket-poster{position:relative;width:100%;aspect-ratio:16/9;background:var(--paper);overflow:hidden;border-radius:16px 16px 0 0;}
-.ticket-poster img{width:100%;height:100%;object-fit:cover;display:block;}
-.ticket-poster.no-poster{
-  display:flex;align-items:center;justify-content:center;
-  background:repeating-linear-gradient(135deg,var(--sunny-tint) 0 12px,#fff 12px 24px);
+.ticket-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--paper);
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
 }
-.ticket-poster.no-poster::after{
-  content:"";width:44px;height:44px;opacity:.4;
-  background-repeat:no-repeat;background-position:center;background-size:contain;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2333302B' stroke-width='1.6'%3E%3Crect x='2.5' y='5' width='19' height='14' rx='1.5'/%3E%3Ccircle cx='7' cy='9' r='1'/%3E%3Ccircle cx='7' cy='15' r='1'/%3E%3Ccircle cx='17' cy='9' r='1'/%3E%3Ccircle cx='17' cy='15' r='1'/%3E%3Cpath d='M10 8.5l5 3.5-5 3.5z'/%3E%3C/svg%3E");
+.ticket-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
-.film-strip{height:11px;background:var(--ink);background-image:radial-gradient(circle,var(--card) 2.6px,transparent 2.7px);background-size:18px 11px;background-position:9px center;}
-.ticket-tear{height:0;border-top:2px dashed var(--line);}
-.ticket-body{padding:1rem 1.2rem 1.15rem;}
+.ticket-poster.no-poster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--sunny-tint) 0 12px,
+    #fff 12px 24px
+  );
+}
+.ticket-poster.no-poster::after {
+  content: "";
+  width: 44px;
+  height: 44px;
+  opacity: 0.4;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2333302B' stroke-width='1.6'%3E%3Crect x='2.5' y='5' width='19' height='14' rx='1.5'/%3E%3Ccircle cx='7' cy='9' r='1'/%3E%3Ccircle cx='7' cy='15' r='1'/%3E%3Ccircle cx='17' cy='9' r='1'/%3E%3Ccircle cx='17' cy='15' r='1'/%3E%3Cpath d='M10 8.5l5 3.5-5 3.5z'/%3E%3C/svg%3E");
+}
+.film-strip {
+  height: 11px;
+  background: var(--ink);
+  background-image: radial-gradient(
+    circle,
+    var(--card) 2.6px,
+    transparent 2.7px
+  );
+  background-size: 18px 11px;
+  background-position: 9px center;
+}
+.ticket-tear {
+  height: 0;
+  border-top: 2px dashed var(--line);
+}
+.ticket-body {
+  padding: 1rem 1.2rem 1.15rem;
+}
 
 /* 映画チケット風の「上映情報を見る」ボタン。左右の縁を半円で切り欠いて、
    もぎり券のギザギザした輪郭を作る。mask は CSS の border ごと切り抜いてしまうので、
    外枠は「本体の背景=インク色」＋「3px内側の::before=ピンク」の2層で描き、
    影も box-shadow ではなく輪郭に沿う drop-shadow で出す。 */
-.ticket-btn{
-  --nr:4px;      /* 切り欠き(半円)の半径 */
-  --nstep:9.5px; /* 切り欠きの間隔 */
-  --edge:3px;    /* 外枠の太さ */
-  position:relative;
-  align-items:stretch;gap:0;
-  min-height:56px;padding:0;border:none;border-radius:9px;
-  background:var(--ink);
-  box-shadow:none;
-  filter:drop-shadow(3px 3px 0 var(--ink));
+.ticket-btn {
+  --nr: 4px; /* 切り欠き(半円)の半径 */
+  --nstep: 9.5px; /* 切り欠きの間隔 */
+  --edge: 3px; /* 外枠の太さ */
+  position: relative;
+  align-items: stretch;
+  gap: 0;
+  min-height: 56px;
+  padding: 0;
+  border: none;
+  border-radius: 9px;
+  background: var(--ink);
+  box-shadow: none;
+  filter: drop-shadow(3px 3px 0 var(--ink));
   -webkit-mask:
-    radial-gradient(circle var(--nr) at left center,transparent 97%,#000 100%) left center/50.5% var(--nstep) repeat-y,
-    radial-gradient(circle var(--nr) at right center,transparent 97%,#000 100%) right center/50.5% var(--nstep) repeat-y;
+    radial-gradient(circle var(--nr) at left center, transparent 97%, #000 100%)
+      left center/50.5% var(--nstep) repeat-y,
+    radial-gradient(
+        circle var(--nr) at right center,
+        transparent 97%,
+        #000 100%
+      )
+      right center/50.5% var(--nstep) repeat-y;
   mask:
-    radial-gradient(circle var(--nr) at left center,transparent 97%,#000 100%) left center/50.5% var(--nstep) repeat-y,
-    radial-gradient(circle var(--nr) at right center,transparent 97%,#000 100%) right center/50.5% var(--nstep) repeat-y;
-  transition:transform .12s,filter .12s;
+    radial-gradient(circle var(--nr) at left center, transparent 97%, #000 100%)
+      left center/50.5% var(--nstep) repeat-y,
+    radial-gradient(
+        circle var(--nr) at right center,
+        transparent 97%,
+        #000 100%
+      )
+      right center/50.5% var(--nstep) repeat-y;
+  transition:
+    transform 0.12s,
+    filter 0.12s;
 }
-.ticket-btn::before{
-  content:"";position:absolute;inset:var(--edge);border-radius:6px;
-  background:var(--pink);
-  box-shadow:inset 0 0 0 6px var(--pink), inset 0 0 0 7.5px rgba(255,255,255,.5);
+.ticket-btn::before {
+  content: "";
+  position: absolute;
+  inset: var(--edge);
+  border-radius: 6px;
+  background: var(--pink);
+  box-shadow:
+    inset 0 0 0 6px var(--pink),
+    inset 0 0 0 7.5px rgba(255, 255, 255, 0.5);
   -webkit-mask:
-    radial-gradient(circle calc(var(--nr) + var(--edge)) at calc(var(--edge) * -1) center,transparent 97%,#000 100%) left center/50.5% var(--nstep) repeat-y,
-    radial-gradient(circle calc(var(--nr) + var(--edge)) at calc(100% + var(--edge)) center,transparent 97%,#000 100%) right center/50.5% var(--nstep) repeat-y;
+    radial-gradient(
+        circle calc(var(--nr) + var(--edge)) at calc(var(--edge) * -1) center,
+        transparent 97%,
+        #000 100%
+      )
+      left center/50.5% var(--nstep) repeat-y,
+    radial-gradient(
+        circle calc(var(--nr) + var(--edge)) at calc(100% + var(--edge)) center,
+        transparent 97%,
+        #000 100%
+      )
+      right center/50.5% var(--nstep) repeat-y;
   mask:
-    radial-gradient(circle calc(var(--nr) + var(--edge)) at calc(var(--edge) * -1) center,transparent 97%,#000 100%) left center/50.5% var(--nstep) repeat-y,
-    radial-gradient(circle calc(var(--nr) + var(--edge)) at calc(100% + var(--edge)) center,transparent 97%,#000 100%) right center/50.5% var(--nstep) repeat-y;
+    radial-gradient(
+        circle calc(var(--nr) + var(--edge)) at calc(var(--edge) * -1) center,
+        transparent 97%,
+        #000 100%
+      )
+      left center/50.5% var(--nstep) repeat-y,
+    radial-gradient(
+        circle calc(var(--nr) + var(--edge)) at calc(100% + var(--edge)) center,
+        transparent 97%,
+        #000 100%
+      )
+      right center/50.5% var(--nstep) repeat-y;
 }
-.ticket-btn:hover{transform:translate(-2px,-2px);filter:drop-shadow(5px 5px 0 var(--ink));box-shadow:none;}
-.ticket-btn:active{transform:translate(1px,1px);filter:drop-shadow(1px 1px 0 var(--ink));box-shadow:none;}
+.ticket-btn:hover {
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(5px 5px 0 var(--ink));
+  box-shadow: none;
+}
+.ticket-btn:active {
+  transform: translate(1px, 1px);
+  filter: drop-shadow(1px 1px 0 var(--ink));
+  box-shadow: none;
+}
 /* mask はフォーカスリングも切り落とすので、リングは輪郭に沿う drop-shadow で出す */
-.ticket-btn:focus-visible{outline:none;box-shadow:none;filter:drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 0 6px var(--ink));}
-.ticket-btn-main{
-  position:relative;z-index:1;flex:1;min-width:0;
-  display:flex;align-items:center;justify-content:center;padding:.4rem;
+.ticket-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+  filter: drop-shadow(0 0 0 3px #fff) drop-shadow(0 0 0 6px var(--ink));
+}
+.ticket-btn-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
 }
 /* source は CSV 由来で長さが読めない。1行固定 + 末尾省略にすると肝心の
    「上映情報を見る」の側から消えるため、折り返しを許して2行までに収める。 */
-.ticket-btn-label{
-  max-width:100%;line-height:1.3;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
-  overflow:hidden;overflow-wrap:anywhere;
+.ticket-btn-label {
+  max-width: 100%;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
-.ticket-btn-end{position:relative;z-index:1;flex:none;width:18px;margin:11px 0;}
-.ticket-btn-end:first-child{border-right:2px solid rgba(255,255,255,.7);}
-.ticket-btn-end:last-child{border-left:2px solid rgba(255,255,255,.7);}
+.ticket-btn-end {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 18px;
+  margin: 11px 0;
+}
+.ticket-btn-end:first-child {
+  border-right: 2px solid rgba(255, 255, 255, 0.7);
+}
+.ticket-btn-end:last-child {
+  border-left: 2px solid rgba(255, 255, 255, 0.7);
+}
 
 /* ---------- 受付情報ブロック（3タブ共通） ---------- */
-.ticket-info{
-  margin:.1rem 0 .6rem;padding:.5rem .65rem;border-radius:10px;
-  border:1.5px solid var(--ink);background:#F7F6F3;
-  display:flex;flex-direction:column;gap:.18rem;
-  font-size:11.5px;font-weight:700;color:var(--ink);
+.ticket-info {
+  margin: 0.1rem 0 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--ink);
+  background: #f7f6f3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
 }
-.ticket-info.before{background:var(--sky-tint);}
-.ticket-info.open{background:var(--lime-tint);}
-.ticket-info.urgent{background:var(--coral-tint);}
-.ticket-info.closed{background:#EFEFF2;color:var(--text-soft);}
-.ti-head{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin-bottom:.1rem;}
-.ti-badge{
-  padding:.1rem .5rem;border-radius:999px;border:1.5px solid var(--ink);
-  background:var(--ink);color:#fff;font-size:var(--fs-tag);font-weight:700;white-space:nowrap;
+.ticket-info.before {
+  background: var(--sky-tint);
 }
-.ti-label{font-size:var(--fs-tag);font-weight:700;}
-.ti-row{line-height:1.45;}
-.ti-row b{font-family:var(--font-mono);font-size:12px;}
-.ti-sub{font-weight:500;color:var(--text-soft);}
-.ti-limited{font-weight:700;padding-top:.2rem;margin-top:.1rem;border-top:1.5px dashed var(--line);}
+.ticket-info.open {
+  background: var(--lime-tint);
+}
+.ticket-info.urgent {
+  background: var(--coral-tint);
+}
+.ticket-info.closed {
+  background: #efeff2;
+  color: var(--text-soft);
+}
+.ti-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.1rem;
+}
+.ti-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ti-label {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+.ti-row {
+  line-height: 1.45;
+}
+.ti-row b {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.ti-sub {
+  font-weight: 500;
+  color: var(--text-soft);
+}
+.ti-limited {
+  font-weight: 700;
+  padding-top: 0.2rem;
+  margin-top: 0.1rem;
+  border-top: 1.5px dashed var(--line);
+}
 
 /* シリーズ（ツアー／巡回展／特集上映）の他会場 */
-.series-others{
-  margin:.5rem 0 0;padding:.5rem .65rem;border-radius:10px;
-  background:var(--grape-tint);border:1.5px solid var(--ink);font-size:11.5px;
+.series-others {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: var(--grape-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 11.5px;
 }
-.series-head{
-  font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;letter-spacing:.05em;
-  color:var(--text-soft);display:block;margin-bottom:.3rem;
+.series-head {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 0.3rem;
 }
-.series-others ul{margin:0;padding-left:1.1em;}
-.series-others li{margin-bottom:.28rem;}
-.ts-tag{
-  display:inline-block;margin-left:.35rem;padding:.02rem .4rem;border-radius:999px;
-  border:1.5px solid var(--ink);font-size:var(--fs-tag);font-weight:700;white-space:nowrap;background:#fff;
+.series-others ul {
+  margin: 0;
+  padding-left: 1.1em;
 }
-.ts-tag.before{background:var(--sky-tint);}
-.ts-tag.open{background:var(--lime-tint);}
-.ts-tag.closed{background:#EFEFF2;color:var(--text-soft);border-color:var(--text-soft);}
-.ts-tag.limited{background:var(--sunny);color:#fff;}
+.series-others li {
+  margin-bottom: 0.28rem;
+}
+.ts-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  white-space: nowrap;
+  background: #fff;
+}
+.ts-tag.before {
+  background: var(--sky-tint);
+}
+.ts-tag.open {
+  background: var(--lime-tint);
+}
+.ts-tag.closed {
+  background: #efeff2;
+  color: var(--text-soft);
+  border-color: var(--text-soft);
+}
+.ts-tag.limited {
+  background: var(--sunny);
+  color: #fff;
+}
 
 /* ---------- venue picker ---------- */
-.venue-picker{margin-bottom:.9rem;}
-.venue-search{
-  width:100%;min-height:44px;border:2px solid var(--ink);border-radius:999px;background:#fff;
-  padding:.4rem .9rem;font-size:16px;font-family:var(--font-body);color:var(--text);
+.venue-picker {
+  margin-bottom: 0.9rem;
 }
-.venue-search:focus{box-shadow:2px 2px 0 var(--ink);}
-.venue-search:focus-visible{box-shadow:0 0 0 6px var(--ink);}
-.venue-kinds{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 .45rem;}
-.venue-kind{
-  min-height:40px;border:2px solid var(--ink);background:#fff;border-radius:999px;
-  padding:.2rem .7rem;font-size:12px;font-weight:700;color:var(--text);
+.venue-search {
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.4rem 0.9rem;
+  font-size: 16px;
+  font-family: var(--font-body);
+  color: var(--text);
 }
-.venue-kind[aria-pressed="true"]{background:var(--ink);color:#fff;}
+.venue-search:focus {
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.venue-search:focus-visible {
+  box-shadow: 0 0 0 6px var(--ink);
+}
+.venue-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0.45rem;
+}
+.venue-kind {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.venue-kind[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
 /* 会場ピッカーを足したぶんエリアpopover全体が縦に伸びる。都県チップが
    パネルのスクロール外に押し出されすぎないよう、候補リスト側の高さを抑える。 */
-.venue-list{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem;}
-.venue-opt{
-  display:flex;align-items:center;justify-content:space-between;gap:.5rem;width:100%;
-  min-height:44px;border:2px solid var(--ink);background:#fff;border-radius:12px;
-  padding:.35rem .7rem;font-size:12.5px;font-weight:700;color:var(--text);text-align:left;
+.venue-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
-.venue-opt[aria-pressed="true"]{background:var(--ink);color:#fff;}
-.venue-opt .vo-sub{font-family:var(--font-mono);font-size:var(--fs-tag);font-weight:700;opacity:.8;flex:none;}
-.venue-empty{font-size:12px;color:var(--text-soft);padding:.5rem .2rem;margin:0;}
+.venue-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.35rem 0.7rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+}
+.venue-opt[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.venue-opt .vo-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  opacity: 0.8;
+  flex: none;
+}
+.venue-empty {
+  font-size: 12px;
+  color: var(--text-soft);
+  padding: 0.5rem 0.2rem;
+  margin: 0;
+}
 
 /* ---------- calendar ---------- */
-#datePopoverBody{max-width:340px;margin:0 auto;}
-.cal-presets{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.9rem;}
-.preset-chip{
-  min-height:40px;border:2px solid var(--ink);background:#fff;border-radius:999px;
-  padding:.35rem .85rem;font-size:12.5px;font-weight:700;color:var(--text);
+#datePopoverBody {
+  max-width: 340px;
+  margin: 0 auto;
 }
-.preset-chip[aria-pressed="true"]{background:var(--ink);color:#fff;}
-.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;gap:.5rem;}
-.cal-nav button{
-  width:40px;height:40px;border:2px solid var(--ink);background:#fff;border-radius:50%;
-  font-size:16px;line-height:1;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;
+.cal-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
 }
-.cal-month{font-weight:700;font-size:14px;font-family:var(--font-mono);}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.preset-chip {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.preset-chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+.cal-nav button {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.cal-month {
+  font-weight: 700;
+  font-size: 14px;
+  font-family: var(--font-mono);
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
 /* role="row" の行はレイアウト上は透過させ、セルを親のグリッドに並べる */
-.cal-row{display:contents;}
-.cal-dow{
-  text-align:center;font-size:var(--fs-tag);font-weight:700;color:var(--text-soft);
-  padding:.3rem 0;font-family:var(--font-mono);
+.cal-row {
+  display: contents;
 }
-.cal-cell{display:block;}
+.cal-dow {
+  text-align: center;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  padding: 0.3rem 0;
+  font-family: var(--font-mono);
+}
+.cal-cell {
+  display: block;
+}
 /* 幅は7分割で決まる（iPhone SE 相当では1列34pxしか取れない）ため、
    高さだけを上げて押しやすくする。正方形は諦めて実用を取る。 */
-.cal-day{
-  width:100%;min-height:40px;border:none;background:transparent;border-radius:8px;
-  font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;
-  padding:0;
+.cal-day {
+  width: 100%;
+  min-height: 40px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
-.cal-day.in-range{background:var(--sunny-tint);border-radius:0;}
-.cal-day.edge{background:var(--ink);color:#fff;border-radius:8px;}
-.cal-day.is-today{box-shadow:inset 0 0 0 2px var(--pink);}
-.cal-selection{
-  margin-top:.8rem;font-size:12.5px;font-weight:700;color:var(--text-soft);
-  display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;
+.cal-day.in-range {
+  background: var(--sunny-tint);
+  border-radius: 0;
 }
-.cal-clear{
-  background:none;border:none;padding:.5rem 0;font:inherit;color:var(--text-soft);
-  text-decoration:underline;font-weight:700;min-height:40px;
+.cal-day.edge {
+  background: var(--ink);
+  color: #fff;
+  border-radius: 8px;
 }
-.locate-cta{
-  display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;min-height:44px;
-  background:var(--ink);color:#fff;border:2px solid var(--ink);border-radius:999px;
-  font-size:13.5px;font-weight:700;margin-bottom:.9rem;
+.cal-day.is-today {
+  box-shadow: inset 0 0 0 2px var(--pink);
 }
-.popover-sub{
-  font-size:11px;font-weight:700;color:var(--text-soft);font-family:var(--font-mono);
-  letter-spacing:.05em;margin:0 0 .5rem;
+.cal-selection {
+  margin-top: 0.8rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
-.empty-state{grid-column:1/-1;text-align:center;padding:3rem 1rem;color:var(--text-soft);}
-.empty-state .big{font-family:var(--font-display);font-size:22px;font-weight:700;display:block;margin-bottom:.5rem;}
-.empty-state p{margin:.2rem 0 1rem;font-size:13px;}
-.empty-reset{
-  min-height:44px;padding:.5rem 1.2rem;border:3px solid var(--ink);border-radius:999px;
-  background:#fff;color:var(--ink);font-size:13.5px;font-weight:700;box-shadow:3px 3px 0 var(--ink);
+.cal-clear {
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  font: inherit;
+  color: var(--text-soft);
+  text-decoration: underline;
+  font-weight: 700;
+  min-height: 40px;
+}
+.locate-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  background: var(--ink);
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+.popover-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+.empty-state {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-soft);
+}
+.empty-state .big {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.empty-state p {
+  margin: 0.2rem 0 1rem;
+  font-size: 13px;
+}
+.empty-reset {
+  min-height: 44px;
+  padding: 0.5rem 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 /* ---------- map ---------- */
-.map-cta{background:var(--sky);border-color:var(--ink);}
-.map-area-status{
-  margin:-0.4rem 0 .9rem;padding:.55rem .7rem;border-radius:10px;
-  background:var(--sky-tint);border:1.5px solid var(--ink);font-size:12px;font-weight:500;
+.map-cta {
+  background: var(--sky);
+  border-color: var(--ink);
 }
-.map-area-status button{
-  background:none;border:none;padding:.3rem 0;margin-left:.4rem;font:inherit;
-  font-weight:700;text-decoration:underline;color:var(--ink);
+.map-area-status {
+  margin: -0.4rem 0 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--sky-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 12px;
+  font-weight: 500;
 }
-.map-sheet{position:fixed;inset:0;z-index:60;display:flex;background:rgba(20,18,15,.55);}
-.map-sheet[hidden]{display:none;}
-.map-sheet-inner{display:flex;flex-direction:column;width:100%;height:100%;background:var(--paper);overflow:hidden;}
-@media (min-width:641px){
-  .map-sheet{align-items:center;justify-content:center;padding:1.5rem 1rem;}
-  .map-sheet-inner{
-    width:min(880px,100%);height:min(88vh,780px);
-    border:4px solid var(--ink);border-radius:22px;box-shadow:8px 8px 0 var(--ink);
+.map-area-status button {
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  margin-left: 0.4rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  color: var(--ink);
+}
+.map-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: rgba(20, 18, 15, 0.55);
+}
+.map-sheet[hidden] {
+  display: none;
+}
+.map-sheet-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--paper);
+  overflow: hidden;
+}
+@media (min-width: 641px) {
+  .map-sheet {
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+  }
+  .map-sheet-inner {
+    width: min(880px, 100%);
+    height: min(88vh, 780px);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 8px 8px 0 var(--ink);
   }
 }
-.map-sheet-head{
-  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
-  padding:.85rem 1rem .6rem;border-bottom:3px solid var(--ink);background:var(--sky-tint);
+.map-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem 0.6rem;
+  border-bottom: 3px solid var(--ink);
+  background: var(--sky-tint);
 }
-.map-sheet-head h2{font-family:var(--font-display);font-weight:900;font-size:17px;margin:0;}
-.map-sheet-help{
-  margin:0;padding:.6rem 1rem;font-size:12px;color:var(--text-soft);
-  border-bottom:2px dashed var(--line);background:#fff;
+.map-sheet-head h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 17px;
+  margin: 0;
 }
-.map-canvas-wrap{position:relative;flex:1;min-height:180px;}
-.map-canvas{position:absolute;inset:0;z-index:0;background:#E4E1DA;}
-.map-ring{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
-.ring-circle{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:var(--ring-size,60%);height:var(--ring-size,60%);border-radius:50%;
-  border:3px dashed var(--ink);background:rgba(179,86,110,.10);
+.map-sheet-help {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 12px;
+  color: var(--text-soft);
+  border-bottom: 2px dashed var(--line);
+  background: #fff;
 }
-.ring-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);line-height:0;}
-.map-loading{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;margin:0;
-  max-width:min(20em,88%);text-align:center;background:#fff;border:3px solid var(--ink);
-  border-radius:14px;box-shadow:3px 3px 0 var(--ink);padding:.7rem .9rem;font-size:13px;font-weight:700;
+.map-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
 }
-.map-sheet-foot{
-  border-top:3px solid var(--ink);background:#fff;
-  padding:.7rem 1rem calc(.8rem + env(safe-area-inset-bottom,0px));
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #e4e1da;
 }
-.map-readout{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;margin-bottom:.55rem;}
-.map-radius{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--text-soft);}
-.map-hits{font-family:var(--font-display);font-size:16px;font-weight:900;color:var(--ink);}
-.map-hits b{color:var(--pink);}
-.map-actions{display:flex;gap:.45rem;flex-wrap:wrap;}
-.map-btn{
-  min-height:44px;border:2.5px solid var(--ink);border-radius:999px;
-  padding:.45rem 1rem;font-size:13px;font-weight:700;background:#fff;color:var(--ink);
+/* ピンの吹き出し（Leafletのpopup）は .map-ring より常に手前に出したい。
+   .map-ring は「常に画面上で一定の大きさ」を保つため地図の外側に置いた別要素で、
+   通常時は地図（tile/marker）より上、吹き出しより下にいてほしいが、CSSの
+   スタッキングコンテキストはDOM順で決まるため、兄弟要素である .map-ring の
+   z-index はLeaflet内部（.leaflet-popup-pane）のz-indexより常に勝ってしまい、
+   吹き出しが点線の下に隠れる不具合があった。吹き出しが開いている間だけ
+   .map-canvas 側に .map-ring を上回るz-indexを与えて解決する
+   （initMap() の popupopen/popupclose でトグルする）。 */
+.map-canvas.has-open-popup {
+  z-index: 2;
 }
-.map-btn.primary{flex:1;min-width:11em;background:var(--pink);color:#fff;font-weight:700;box-shadow:3px 3px 0 var(--ink);}
-.map-btn.primary:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink);}
-.map-btn[disabled]{opacity:.4;cursor:not-allowed;}
-@media (max-width:480px){
-  .map-btn.primary{flex:1 0 100%;min-width:0;}
+.map-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
 }
-.map-note{margin:.5rem 0 0;font-size:11px;color:var(--text-faint);}
-.leaflet-container{font-family:var(--font-body);}
-.leaflet-container .leaflet-control-attribution{font-size:11px;}
+.ring-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--ring-size, 60%);
+  height: var(--ring-size, 60%);
+  border-radius: 50%;
+  border: 3px dashed var(--ink);
+  background: rgba(179, 86, 110, 0.1);
+}
+.ring-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -100%);
+  line-height: 0;
+}
+.map-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  margin: 0;
+  max-width: min(20em, 88%);
+  text-align: center;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 0.7rem 0.9rem;
+  font-size: 13px;
+  font-weight: 700;
+}
+.map-sheet-foot {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  padding: 0.7rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+}
+.map-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+.map-radius {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.map-hits {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+}
+.map-hits b {
+  color: var(--pink);
+}
+.map-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.map-btn {
+  min-height: 44px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ink);
+}
+.map-btn.primary {
+  flex: 1;
+  min-width: 11em;
+  background: var(--pink);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.map-btn.primary:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.map-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 480px) {
+  .map-btn.primary {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+}
+.map-note {
+  margin: 0.5rem 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.leaflet-container {
+  font-family: var(--font-body);
+}
+.leaflet-container .leaflet-control-attribution {
+  font-size: 11px;
+}
+/* 「地図で範囲をえらぶ」のピンの吹き出しにある、一覧のカードへ飛ぶボタン。
+   見た目はテキストリンクだが、実体は <button>（ページ内の操作であり、
+   本当のリンク遷移ではないため）。 */
+.popup-goto-item {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--grape);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.popup-goto-item:hover,
+.popup-goto-item:focus-visible {
+  color: var(--pink);
+}
 
 /* 会場シートの情報欄 */
-.venue-info{
-  border-top:3px solid var(--ink);background:#fff;
-  padding:.75rem 1rem calc(.9rem + env(safe-area-inset-bottom,0px));
-  max-height:42vh;overflow-y:auto;
+.venue-info {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  padding: 0.75rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  max-height: 42vh;
+  overflow-y: auto;
 }
-.venue-info .vi-facts{font-family:var(--font-mono);font-size:11.5px;color:var(--text-soft);font-weight:700;margin:0 0 .5rem;}
-.venue-info .vi-site{margin:0 0 .55rem;}
-.venue-info .vi-link{font-weight:700;color:var(--grape);text-underline-offset:2px;}
-.venue-info ul{margin:0;padding-left:1.1em;font-size:12.5px;}
-.venue-info li{margin-bottom:.28rem;}
-.vi-tag{
-  display:inline-block;margin-right:.4rem;padding:.02rem .4rem;border-radius:999px;
-  border:1.5px solid var(--ink);background:var(--paper);
-  font-size:var(--fs-tag);font-weight:700;
+.venue-info .vi-facts {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
 }
-.vi-actions{margin:.7rem 0 0;}
+.venue-info .vi-site {
+  margin: 0 0 0.55rem;
+}
+.venue-info .vi-link {
+  font-weight: 700;
+  color: var(--grape);
+  text-underline-offset: 2px;
+}
+.venue-info ul {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 12.5px;
+}
+.venue-info li {
+  margin-bottom: 0.28rem;
+}
+.vi-tag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+.vi-actions {
+  margin: 0.7rem 0 0;
+}
 
 /* ---------- directory / footer ---------- */
-section.directory{background:var(--card);border-top:4px solid var(--ink);padding:2.2rem clamp(1rem,4vw,3rem) 2.6rem;}
-.directory-inner{max-width:1100px;margin:0 auto;}
-.directory h2{font-family:var(--font-display);font-weight:900;font-size:22px;margin:0 0 .25rem;}
-.directory .sub{font-size:13px;color:var(--text-soft);margin-bottom:1.3rem;}
-.dir-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.8rem;}
-.dir-card{
-  border:2.5px solid var(--ink);border-radius:14px;padding:.85rem 1rem;
-  text-decoration:none;display:block;transition:transform .12s,box-shadow .12s;box-shadow:3px 3px 0 var(--ink);
+section.directory {
+  background: var(--card);
+  border-top: 4px solid var(--ink);
+  padding: 2.2rem clamp(1rem, 4vw, 3rem) 2.6rem;
 }
-.dir-card:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);background:var(--sunny-tint);}
-.dir-name{font-family:var(--font-mono);font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:.25rem;display:flex;justify-content:space-between;}
-.dir-role{font-size:11.5px;color:var(--text-soft);}
+.directory-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.directory h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 22px;
+  margin: 0 0 0.25rem;
+}
+.directory .sub {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 1.3rem;
+}
+.dir-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.8rem;
+}
+.dir-card {
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  display: block;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.dir-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ink);
+  background: var(--sunny-tint);
+}
+.dir-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+  display: flex;
+  justify-content: space-between;
+}
+.dir-role {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
 
-footer{padding:1.6rem clamp(1rem,4vw,3rem) 2.2rem;max-width:1100px;margin:0 auto;}
-footer p{font-size:11.5px;color:var(--text-faint);max-width:60em;margin:0 0 .4rem;}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+footer {
+  padding: 1.6rem clamp(1rem, 4vw, 3rem) 2.2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+footer p {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  max-width: 60em;
+  margin: 0 0 0.4rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* ---------- toast / update bar ---------- */
-.toast{
-  position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(120%);
-  z-index:80;max-width:min(30em,92vw);
-  background:var(--ink);color:#fff;border-radius:999px;padding:.7rem 1.2rem;
-  font-size:13px;font-weight:700;box-shadow:3px 3px 0 rgba(0,0,0,.25);
-  transition:transform .22s ease,opacity .22s ease;opacity:0;pointer-events:none;
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(120%);
+  z-index: 80;
+  max-width: min(30em, 92vw);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+  opacity: 0;
+  pointer-events: none;
 }
-.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-@media (prefers-reduced-motion:reduce){.toast{transition:opacity .01s;}}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    transition: opacity 0.01s;
+  }
+}
 /* 新しい版に入れ替えている間の画面。押させずに自動で読み直すので、
    一瞬で終わっても「何が起きたか分からない」にならないよう理由を出す。 */
-.update-overlay{
-  position:fixed;inset:0;z-index:95;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--paper);
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
 }
-.update-overlay[hidden]{display:none;}
-.update-overlay-inner{
-  display:flex;flex-direction:column;align-items:center;gap:1rem;
-  background:#fff;border:3px solid var(--ink);border-radius:20px;
-  box-shadow:5px 5px 0 var(--ink);padding:1.8rem 2.2rem;
-  max-width:min(22em,88vw);text-align:center;
+.update-overlay[hidden] {
+  display: none;
 }
-.update-overlay p{margin:0;font-size:14px;font-weight:700;color:var(--ink);}
-.update-spinner{
-  width:34px;height:34px;border-radius:50%;
-  border:4px solid var(--sunny-tint);border-top-color:var(--pink);
-  animation:spin .8s linear infinite;
+.update-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: 5px 5px 0 var(--ink);
+  padding: 1.8rem 2.2rem;
+  max-width: min(22em, 88vw);
+  text-align: center;
 }
-@keyframes spin{to{transform:rotate(360deg);}}
-@media (prefers-reduced-motion:reduce){
-  .update-spinner{animation:none;border-top-color:var(--ink);}
+.update-overlay p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.update-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid var(--sunny-tint);
+  border-top-color: var(--pink);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-spinner {
+    animation: none;
+    border-top-color: var(--ink);
+  }
 }
 
-.noscript-note{
-  margin:1.5rem auto;max-width:44em;padding:1rem 1.2rem;
-  border:3px solid var(--ink);border-radius:16px;background:var(--coral-tint);font-size:14px;
+.noscript-note {
+  margin: 1.5rem auto;
+  max-width: 44em;
+  padding: 1rem 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--coral-tint);
+  font-size: 14px;
 }
 
-@media (max-width:520px){
-  .stat-chips{gap:.4rem;}
-  .stat-chip{font-size:11px;padding:.3rem .7rem;}
+@media (max-width: 520px) {
+  .stat-chips {
+    gap: 0.4rem;
+  }
+  .stat-chip {
+    font-size: 11px;
+    padding: 0.3rem 0.7rem;
+  }
 }
 
 /* ---------- print ----------
    紙に落とすときは操作系を全部落とし、カードだけを素直に並べる。 */
-@media print{
-  .controls,.popover-backdrop,.popover-panel,.map-sheet,.toast,.update-overlay,.cal-menu,
-  .skip-link,.blob,.card-actions,.tab-group,.directory{display:none !important;}
-  body{background:#fff;}
-  header.pop-header{background:#fff;border-bottom:2px solid #000;padding:1rem 0;}
-  .card{box-shadow:none;border:1px solid #000;break-inside:avoid;transform:none !important;}
-  .grid{grid-template-columns:repeat(2,1fr);gap:.8rem;}
-  .desc{display:block !important;}
-  .go-btn{box-shadow:none;filter:none;}
-  a[href]::after{content:" (" attr(href) ")";font-size:9px;word-break:break-all;}
+@media print {
+  .controls,
+  .popover-backdrop,
+  .popover-panel,
+  .map-sheet,
+  .toast,
+  .update-overlay,
+  .cal-menu,
+  .skip-link,
+  .blob,
+  .card-actions,
+  .tab-group,
+  .directory {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  header.pop-header {
+    background: #fff;
+    border-bottom: 2px solid #000;
+    padding: 1rem 0;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #000;
+    break-inside: avoid;
+    transform: none !important;
+  }
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+  .desc {
+    display: block !important;
+  }
+  .go-btn {
+    box-shadow: none;
+    filter: none;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    word-break: break-all;
+  }
 }
