@@ -22,7 +22,7 @@ import {
 } from "./data.js";
 import { matchesBaseFilters, withinArea, byDateThenRank } from "./filters.js";
 import { activeTab, curTab, curState, setPlaceFilter } from "./state.js";
-import { refreshNow } from "./render.js";
+import { refreshNow, toast } from "./render.js";
 import { closePopover, trapTab, setBackgroundInert } from "./ui-popover.js";
 import {
   geoPrecheckError,
@@ -197,6 +197,30 @@ function updateReadout(announce) {
     el.sr.textContent = `中心から半径 約${fmtKm(liveArea.radiusKm)}。この範囲に ${n} 件の${itemNoun()}があります。`;
 }
 
+/* ピンの吹き出しからは、地図を閉じて一覧の該当カードへ飛べる。
+   閉じるだけで一覧側の絞り込みは変えないので、地図の範囲プレビュー中に
+   円の外にあったピンなど、いま一覧に出ていない行のときは見つからない
+   （黙って何も起きないより、理由をトーストで伝える）。 */
+function gotoItemFromMap(key) {
+  closeMapSheet();
+  const list = document.getElementById(curTab().listId);
+  const card = list?.querySelector(`[data-key="${CSS.escape(key)}"]`);
+  if (!card) {
+    toast("いまの絞り込みでは一覧に表示されていません");
+    return;
+  }
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.remove("jump-highlight");
+  // 直前のクラスを一度剥がしてから付け直す（連続で押されてもアニメーションを再生させるため）
+  void card.offsetWidth;
+  card.classList.add("jump-highlight");
+  card.addEventListener(
+    "animationend",
+    () => card.classList.remove("jump-highlight"),
+    { once: true },
+  );
+}
+
 function refreshMarkers() {
   if (!markerLayer || !liveArea) return;
   markerLayer.clearLayers();
@@ -218,7 +242,7 @@ function refreshMarkers() {
       fillOpacity: inside ? 0.95 : 0.55,
     })
       .bindPopup(
-        `<b>${esc(it.title)}</b><br>${esc(place)}<br>${esc(it.date || "")}<br>中心から ${d.toFixed(1)}km`,
+        `<button type="button" class="popup-goto-item" data-key="${esc(it.key)}">${esc(it.title)}</button><br>${esc(place)}<br>${esc(it.date || "")}<br>中心から ${d.toFixed(1)}km`,
       )
       .addTo(markerLayer);
   });
@@ -276,6 +300,23 @@ function initMap() {
     markerLayer = L.layerGroup().addTo(map);
     map.on("move zoom", scheduleLive);
     map.on("moveend zoomend", settleMap);
+    // 吹き出し（.leaflet-popup-pane）は .map-ring と兄弟要素の関係にあり、
+    // ring 側の z-index が勝つと吹き出しが点線の下に隠れてしまうため、
+    // 開いている間だけ .map-canvas を ring より前面に出す（app.css参照）。
+    map.on("popupopen", () =>
+      map.getContainer().classList.add("has-open-popup"),
+    );
+    map.on("popupclose", () =>
+      map.getContainer().classList.remove("has-open-popup"),
+    );
+    // 吹き出し内の「このイベントへ飛ぶ」ボタン。Leafletは吹き出しの中身を
+    // クリックしても背面の地図クリックとして扱わないようpropagationを止めて
+    // いるため、外側の要素へのイベント委譲では拾えない。開くたびに直接束ねる。
+    map.on("popupopen", (e) => {
+      const btn = e.popup.getElement()?.querySelector(".popup-goto-item");
+      if (btn)
+        btn.addEventListener("click", () => gotoItemFromMap(btn.dataset.key));
+    });
   }
   el.loading.hidden = true;
   el.ring.hidden = false;
@@ -319,6 +360,10 @@ export function openMapSheet() {
 }
 
 export function closeMapSheet() {
+  // シートごと閉じるときにピンの吹き出しが開いたままだと、popupcloseが発火せず
+  // has-open-popup が残ったままになる。次に開いたときに古い状態を持ち越さない
+  // よう、ここで明示的に閉じる。
+  map?.closePopup();
   el.sheet.hidden = true;
   document.body.style.overflow = "";
   setBackgroundInert(false, [document.querySelector(".controls")]);
