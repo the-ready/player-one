@@ -1,13 +1,13 @@
 ---
 name: kanto-movie-collector
-description: "Collect Kanto-area movie and screening data for the next 3 months and produce movies.csv for the 「イベントボード」dashboard's 映画 tab. Use when the user asks to update, refresh, or regenerate the movie dashboard data, run the weekly movie collection, or rebuild movies.csv. Also use when they invoke this by name or reference the weekly movie-gathering routine. Searches a fixed roster of Kanto cinemas (シネコンチェーン、名画座・ミニシアター、野外上映・ドライブインシアター会場)、finds each theater's current new releases, revival/retrospective programs, outdoor and special screenings, and film festivals, and records a verified poster image URL (official/press sources preferred) alongside official and booking links."
+description: "Collect Kanto-area movie and screening data for the next 3 months and produce data/movies.csv for the 「イベントボード」dashboard's 映画 tab. Use when the user asks to update, refresh, or regenerate the movie dashboard data, run the weekly movie collection, or rebuild movies.csv. Also use when they invoke this by name or reference the weekly movie-gathering routine. Searches a fixed roster of Kanto cinemas (シネコンチェーン、名画座・ミニシアター、野外上映・ドライブインシアター会場)、finds each theater's current new releases, revival/retrospective programs, outdoor and special screenings, and film festivals, re-verifies every previously collected screening against the previous CSV (still showing? held over? pulled? pre-sale window closed?), records a verified poster image URL (official/press sources preferred) alongside official and booking links, and grows the theater roster in data/theaters.csv itself as cinemas open and close."
 ---
 
 # 関東映画収集タスク（週次）
 
 ## このタスクの目的
 
-`movies.csv` を更新し、ダッシュボード「イベントボード」の「映画」タブに**今週から3ヶ月以内に観に行ける上映**を並べること。
+`data/movies.csv` を更新し、ダッシュボード「イベントボード」の「映画」タブに**今週から3ヶ月以内に観に行ける上映**を並べること。
 
 新作ロードショーだけではない。名画座・ミニシアターのリバイバル上映、夏季の野外上映やドライブインシアター、爆音上映・オールナイトなどの特別上映、映画祭まで含めて「新作映画や、復活上映の映画の公開日や期間」を利用者が一目で把握できるようにすることがゴールである。
 
@@ -25,14 +25,18 @@ description: "Collect Kanto-area movie and screening data for the next 3 months 
 
 ### 出力先
 
-- `movies.csv` のみ（全件を毎回書き直す。追記ではなく完全再生成）。`index.html` はこのタスクでは編集しない
-- ダッシュボードは `movies.csv` を Web サーバー経由で取得する前提で作られており、`file://` で直接開く運用は想定していない
+- **`data/movies.csv` のみ**（全件を毎回書き直す。追記ではなく完全再生成）。`index.html` はこのタスクでは編集しない
+- ダッシュボードは `data/movies.csv` を Web サーバー経由で取得する前提で作られており、`file://` で直接開く運用は想定していない
+
+> **書き出し先に注意**: ダッシュボードは `data/` 配下しか読まず、別パスへのフォールバックを意図的に持たない。リポジトリのルート直下に `movies.csv` を書いても反映されず、古い表示が残る。
+
+- `data/theaters.csv`（映画館の名簿）も `tools/roster.py` 経由で更新する。**ただしSKILL.md（この文書）は書き換えない。** 名簿（データ）は自動更新、ルール（散文）は提案止まりという線を守り、ルールの変更提案は `docs/skill-feedback.md` に書く
 
 ### 出力方法（CSV書き出しの手順）
 
 全件を最後にまとめてCSVに書くのではなく、調査の区切りごとにバッチで追記する。**全件を調査結果としてコンテキストに溜め込んでから最後に一括生成する、という進め方はしないこと。**
 
-1. 調査開始前に `python3 tools/append_rows.py movies --init` を実行し、`movies.csv` をヘッダーだけの状態にする
+1. 調査開始前に `python3 tools/append_rows.py movies --init` を実行し、`data/movies.csv` をヘッダーだけの状態にする。**このとき前回の内容は `data/.prev/` に自動退避される**（差分検知の材料になる）
 2. 5〜10件の調査が完了するごとに、結果をまとめて以下の形式でCSVに追記する
 
    ```bash
@@ -45,13 +49,32 @@ description: "Collect Kanto-area movie and screening data for the next 3 months 
 3. コンテキストに全件のデータを保持する必要はない。追記が終わったバッチの内容は忘れてよい（次の調査のためにコンテキストを空ける）
 4. `id` はスクリプトが自動採番する。JSONに含める必要はない
 5. JSONに含めない列は空文字で補完される。分かっている列だけを渡せばよい
-6. 全件の調査・追記が終わったら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認する
+6. 全件の調査・追記が終わったら `python3 tools/diff_data.py movies` と `python3 tools/validate_data.py` を実行する
 
 自然なバッチの区切りの例：
 
 - 公開予定カレンダーで1ヶ月分の新作を拾ったらまとめて書く
 - 名画座・ミニシアターの定点観測リストを調べたらまとめて書く
 - 調査ステップが変わる節目（新作調査→名画座調査→野外上映補完）でまとめて書く
+
+#### 前回から変わっていない列は書き直さない（持ち越し）
+
+劇場の座標・読み・劇場URLは、前回値から自動で補完される。**空欄のまま渡してよい。**
+
+内容にも変更がないことを**確認できた**行は、`"_carry": "*"` を添えると `desc` `note` `official_url` `poster_url` `poster_source` なども前回値で埋まる。
+
+```bash
+python3 tools/append_rows.py movies <<'EOF'
+{"title": "...", "release_date": "2026-07-31", "screening_type": "new", "genre": "anime",
+ "theater": "TOHOシネマズ|109シネマズ", "area": "東京都・千代田区", "pref": "tokyo",
+ "date": "2026.7.31公開", "status": "上映中", "rank": "2", "price": "一般2,000円",
+ "source": "eiga.com", "url": "https://...", "_carry": "*"}
+EOF
+```
+
+> **公開日・料金・前売り期間は持ち越せない。** `onsale_end` や `price_best` を `_carry` に指定するとスクリプトがエラーで落ちる。**ムビチケの販売終了日は公開日に向かって迫ってくる**ので、前回値の流用は「終わった前売りを発売中に見せる」ことになる。
+>
+> `poster_url` は持ち越してよいが、**前回空欄だった作品は毎回再挑戦すること**（`_carry` は空欄を埋めるだけなので、空欄のままなら自動では埋まらない）。
 
 ### CSV列（この順序・この列名を厳守）
 
@@ -171,13 +194,13 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 #### チェーン名の表記統一（`theaters.csv` と一致させる）
 
-映画チェーンの店舗ディレクトリは `theaters.csv`（`chain,name,pref,area,lat,lng,url` の5列。このダッシュボードのリポジトリ直下にある）に別途まとめてある。新作行の `theater` に書くチェーン名は、必ず `theaters.csv` の `chain` 列に実在する値と**完全に一致**させること（表記ゆれがあると、チェーン名をクリックしたときの店舗地図が空になる）。対象チェーンは概ね以下の通り：
+映画チェーンの店舗ディレクトリは `data/theaters.csv` に別途まとめてある（`chain,name,pref,area,lat,lng,url` に加えて、名簿の保守用に `status,first_seen,last_hit,hit_count,note` を持つ）。新作行の `theater` に書くチェーン名は、必ず `theaters.csv` の `chain` 列に実在する値と**完全に一致**させること（表記ゆれがあると、チェーン名をクリックしたときの店舗地図が空になる）。対象チェーンは概ね以下の通り：
 
 ```
 TOHOシネマズ / イオンシネマ / 109シネマズ / MOVIX / ユナイテッド・シネマ / T・ジョイ / USシネマ / ヒューマントラストシネマ
 ```
 
-`theaters.csv` に載っていない新しいチェーン名を使う場合は、収集結果の報告でその旨を明記すること（次回`theaters.csv`側の更新が必要になるため）。
+`theaters.csv` に載っていない新しいチェーン名を使う場合は、`python3 tools/roster.py theaters --add` で名簿に追加したうえで、収集結果の報告にもその旨を書くこと（チェーン名の表記が名簿と一致していないと、店舗地図が空になる）。
 
 ---
 
@@ -208,6 +231,36 @@ TOHOシネマズ / イオンシネマ / 109シネマズ / MOVIX / ユナイテ�
 
 ## 調査手順
 
+> 差分検知・持ち越し・名簿更新の考え方は `docs/COLLECTION-PROTOCOL.md` に詳しい。手を動かすのに必要なコマンドはこのSKILL.mdに全部ある。
+
+### ステップ0：前回分の棚卸し（省略禁止）
+
+**新規の調査を始める前に、前回載せた上映の一覧を取る。**
+
+```bash
+python3 tools/prev_rows.py movies --worklist
+```
+
+前回の52件が約4,000文字の圧縮一覧で出る。全列が必要になった行だけ、あとから引く。
+
+```bash
+python3 tools/prev_rows.py movies --uid 3f2a1b9c
+python3 tools/prev_rows.py movies --venue 新文芸坐
+```
+
+映画は tier A（今回必ず再確認）の比率が高い。新作は公開日が動き、前売りは公開日で締まり、名画座の特集は1〜2週で入れ替わるためである。
+
+この工程で確認するのは、次の4つ。
+
+| 確認すること | 見落とすとどうなるか |
+| --- | --- |
+| **まだ上映しているか** | 終わった作品が「上映中」として残る。映画は終映日が告知されないことが多く、静かに終わる |
+| **上映が延長されたか**（`is_additional`） | アンコール上映・ロングラン継続を拾えない |
+| **前売りが終わっていないか** | 買えない前売りを「発売中」として見せる |
+| **上映館が増減していないか** | 拡大公開・縮小をカードに反映できない |
+
+> **新作行の `theater`（チェーン名）が変わっても、同じ作品として扱われる。** 差分の同定に新作の会場は使っていないため、「翌週に109シネマズが加わった」場合は [消滅]+[新規] ではなく [変更] として出る。
+
 ### ステップ1：新作ロードショーの網羅調査（最重要・省略禁止）
 
 **新作（`screening_type=new`）は「取りこぼしなく全件拾う」ことを最優先とする。** 個別のシネコンを1館ずつ検索して見つかったものだけを載せる、というやり方は取りこぼしの原因になるため行わない。必ず**公開予定を一覧できるカレンダー・リストのページ**を起点にすること。
@@ -229,14 +282,31 @@ TOHOシネマズ（日比谷・新宿・六本木ヒルズ・池袋等） / イ�
 
 ### ステップ2：名画座・ミニシアターの特集上映調査
 
-以下の常連館を定点観測し、現在の特集・二本立て・リバイバル企画を調べる。
+定点観測する劇場は `data/theaters.csv` にある。
+
+```bash
+python3 tools/roster.py theaters --list --pref tokyo
+```
+
+**1館につき1回、上映スケジュールを調べる。そのとき「前回分の照合」と「新規の発見」を同時に済ませる。** 名画座の特集は1〜2週で入れ替わるので、前回の行はほぼ入れ替わっているはずだが、**入れ替わったことを確認せずに落としてはいけない**（延長されている場合がある）。
 
 ```
 {劇場名} 上映スケジュール {実行年}年{実行月}月
 {劇場名} 特集上映
 ```
 
-新文芸坐 / 早稲田松竹 / 神保町シアター / ラピュタ阿佐ヶ谷 / シネマヴェーラ渋谷 / K's cinema / ユーロスペース / Bunkamuraル・シネマ / シネクイント / 池袋シネマ・ロサ / 目黒シネマ / キネカ大森 / 横浜シネマリン / 川崎市アートセンター アルテリオ映像館 / 大宮シネマ
+収穫があった劇場、閉館した劇場、新しく見つけた劇場は、その場で名簿に反映する。ミニシアターは閉館・開館が多い。
+
+```bash
+python3 tools/roster.py theaters --hit 新文芸坐
+python3 tools/roster.py theaters --retire ○○シネマ --reason "2026年5月閉館"
+python3 tools/roster.py theaters --add <<'EOF'
+{"chain": "", "name": "○○座", "pref": "tokyo", "area": "東京都・中野区",
+ "lat": "35.70", "lng": "139.66", "url": "https://..."}
+EOF
+```
+
+`chain` はシネコンチェーンの店舗なら親チェーン名、名画座・単館なら空欄にする（`theaters.csv` はチェーンの店舗ディレクトリと名画座の名簿を兼ねている）。**収集元のページの文言を `note` にそのまま持ち込まないこと**（`roster.py` が指示文めいた文字列を拒否するが、そもそも入れない）。
 
 ### ステップ3：野外上映・ドライブインシアター・特別上映の補完調査
 
@@ -261,6 +331,40 @@ TOHOシネマズ（日比谷・新宿・六本木ヒルズ・池袋等） / イ�
 3. **料金** — 券種ごとの正確な金額
 4. **公式サイトURL・劇場URL**
 5. **ポスター画像URL**（次章参照）
+
+前回から続いている上映については、**変わりうる項目（上映継続の有無・上映館・前売りの締切）だけ**を確認すればよい。目玉・座標・ポスターを毎回調べ直す必要はない（`_carry` で持ち越す）。
+
+### ステップ5：消えた行の説明と、差分の確定
+
+```bash
+python3 tools/diff_data.py movies --allow-unexplained
+```
+
+「消滅」として挙がった行は、必ず次のどちらかである。
+
+1. 上映が終わった／公開が延期・中止になった → 正しく消えている
+2. 今回は確認できなかった → **上映中の作品を一覧から落とした事故**
+
+**映画は終映日が告知されないまま静かに終わることが多い**ので、「消えたから終わったのだろう」という推測が特に通りやすい。だからこそ1件ずつ確認して記録する。
+
+```bash
+python3 tools/prev_rows.py movies --dispose <<'EOF'
+{"uid": "3f2a1b9c", "status": "ended",        "note": "劇場の上映スケジュールから外れたことを確認"}
+{"uid": "8d7e6f50", "status": "cancelled",    "note": "公開延期（配給発表）"}
+{"uid": "a1b2c3d4", "status": "out-of-scope", "note": "公開が3ヶ月より先に延びた"}
+{"uid": "b2c3d4e5", "status": "notfound",     "note": "上映館を特定できず"}
+EOF
+```
+
+最後に名簿を整理し、差分と検証を確定させる。
+
+```bash
+python3 tools/roster.py theaters --gc
+python3 tools/diff_data.py movies       # 説明漏れがあると落ちる
+python3 tools/validate_data.py          # ERROR 0 を確認
+```
+
+`diff_data.py` の出力が、そのまま報告の「前回からの変化」になる。**記憶や印象で変化を書かないこと。**
 
 ---
 
@@ -315,6 +419,20 @@ TOHOシネマズ（日比谷・新宿・六本木ヒルズ・池袋等） / イ�
 
 ## 品質チェック（提出前に必ず実施）
 
+### 差分・名簿
+
+- [ ] `python3 tools/diff_data.py movies` が**終了コード0**で通るか（説明のない消滅が0件か）
+- [ ] 「消滅」の各行に付けた理由は、実際に劇場のスケジュールを確認した結果か（「消えたから終わったのだろう」で `ended` にしていないか）
+- [ ] 「表記が変わった可能性」に挙がったペアを確認し、同じ作品なら `renamed` を記録したか
+- [ ] **上映延長・アンコール上映を `is_additional=1` として拾えているか**（差分の [変更] で `end_date` が伸びた行）
+- [ ] `_carry: "*"` を使った行は、内容に変更がないことを**実際に確認した**行だけか
+- [ ] 収穫のあった劇場に `roster.py theaters --hit` を記録したか
+- [ ] `roster.py theaters --gc` を実行したか
+- [ ] 閉館したミニシアター・新しく見つけた劇場を名簿に反映したか
+- [ ] ルールを変えるべきだと気づいた点を、SKILL.md ではなく `docs/skill-feedback.md` に書いたか
+
+### 形式・内容
+
 - [ ] 全行の列数が40列で揃っているか（`python3 tools/validate_data.py` で確認。ERRORは0件必須）
 - [ ] `price_best` / `discount_pct` を書いた行すべてに `price_condition` と `best_source` と `price_checked` があるか
 - [ ] **条件を特定できない割引を書いていないか**（書けないなら価格ごと落とす）
@@ -346,13 +464,21 @@ TOHOシネマズ（日比谷・新宿・六本木ヒルズ・池袋等） / イ�
 ## 実行手順まとめ
 
 1. 実行日を確認し、対象期間（実行日 〜 3ヶ月後）を確定する
-2. **公開予定カレンダー・配給会社の公開予定ページを対象期間の全月について確認し、新作ロードショーを取りこぼしなく拾う**（ステップ1参照。個別のシネコン検索だけに頼らない）
-3. 名画座・ミニシアターの定点観測リストを調べ、リバイバル・特集上映を拾う
-4. 季節キーワードと横断サイトで、野外上映・ドライブインシアター・特別上映・映画祭を補完する
-5. 各作品・上映について公式情報まで辿り、期間・目玉・料金を確定する。`theater` 列は上映形態ごとの書き方（新作はチェーン名、それ以外は具体的な会場名）に従う
-6. ポスター画像は優先順位に沿って実在確認できたものだけを採用する。**取得ツールがエラーになる等で確認できない場合は、無理に埋めず全件空欄のままでよい**（ダッシュボード側がプレースホルダー表示で吸収する）。前回空欄だった作品も、確認できる状況であれば再挑戦する
-7. CSVは調査の区切りごとに `append_rows.py` で逐次追記済みなので、ここでは品質チェックリストの全項目確認（特に新作の網羅性と`theater`列の書き方）と `python3 tools/validate_data.py` による最終検証のみ行う
-8. 最後に、以下の要点だけを簡潔に出力する（あいさつや前置き、次の提案などの会話的な文章は付けない）
+2. **`python3 tools/prev_rows.py movies --worklist` で前回分の棚卸しリストを取る**（省略禁止）
+3. `python3 tools/append_rows.py movies --init`（前回分は `data/.prev/` に自動退避される）
+4. **公開予定カレンダー・配給会社の公開予定ページを対象期間の全月について確認し、新作ロードショーを取りこぼしなく拾う**（ステップ1参照。個別のシネコン検索だけに頼らない）
+5. `python3 tools/roster.py theaters --list` で名画座・ミニシアターを引き、**劇場ごとに「既存行の再確認」と「新規の発見」を同じ1回の調査で済ませる**。収穫があった劇場は `roster.py theaters --hit` を記録する
+6. 季節キーワードと横断サイトで、野外上映・ドライブインシアター・特別上映・映画祭を補完する
+7. 各作品・上映について公式情報まで辿り、期間・目玉・料金を確定する。`theater` 列は上映形態ごとの書き方（新作はチェーン名、それ以外は具体的な会場名）に従う。前回から続く行は、**変わりうる項目だけ**を確認し、残りは `_carry` で持ち越す
+8. ポスター画像は優先順位に沿って実在確認できたものだけを採用する。**取得ツールがエラーになる等で確認できない場合は、無理に埋めず全件空欄のままでよい**（ダッシュボード側がプレースホルダー表示で吸収する）。**前回空欄だった作品は毎回再挑戦する**（`_carry` は空欄を埋めるだけなので、放っておくと空欄のまま残る）
+9. **`python3 tools/prev_rows.py movies --dispose` で、消えた行1件ずつに理由を記録する**
+10. `python3 tools/roster.py theaters --gc` で名簿を整理する
+11. `python3 tools/diff_data.py movies` と `python3 tools/validate_data.py` を実行し、どちらも**終了コード0**であることを確認する
+12. 最後に、以下の要点だけを簡潔に出力する（あいさつや前置き、次の提案などの会話的な文章は付けない）
    - 件数・都県別内訳・上映形態別内訳・ジャンル別内訳
    - ポスターURLを確認できた件数／空欄にした件数（空欄の場合はその理由も報告する）
-   - 前回からの主な変化（新規上映・上映終了）
+   - **前回からの変化**（`diff_data.py` の出力をそのまま使う。記憶で書かない）
+     - 新規公開／**上映延長・アンコール上映**／上映終了・公開延期
+     - **`notfound` として残した件数**（0でないなら、その一覧も）
+   - 名簿の変化（追加した劇場／`retired` にした劇場／`--gc` の結果）
+   - `docs/skill-feedback.md` に書いた提案があれば、その要旨
