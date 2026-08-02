@@ -50,13 +50,32 @@ EXPECTED_HEADERS = {
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","source","url","official_url","lat","lng","desc","note",
         "parking","nearest_station","apple_music_url"],
-    "theaters.csv": ["chain","name","pref","area","lat","lng","url"],
-    "venues.csv": ["venue","kind","pref","area","capacity","lat","lng","url"],
+    # --- 収集の「定点観測リスト」。名簿は収集タスクが roster.py 経由で育てる ---
+    # status / first_seen / last_hit / hit_count は名簿の保守用の列で、
+    # ダッシュボードは列名で引くので、末尾に足しても表示側には影響しない。
+    "theaters.csv": ["chain","name","pref","area","lat","lng","url",
+        "status","first_seen","last_hit","hit_count","note"],
+    "venues.csv": ["venue","kind","pref","area","capacity","lat","lng","url",
+        "status","closed_until","first_seen","last_hit","hit_count","note"],
+    "spots.csv": ["name","kind","pref","area","lat","lng","url",
+        "status","closed_until","first_seen","last_hit","hit_count","note"],
+    "festivals.csv": ["name","venue","pref","month_hint","url",
+        "status","first_seen","last_hit","hit_count","note"],
 }
 
 # 開始日の列名はファイルごとに違う
 START_COL = {"events.csv":"start_date", "movies.csv":"release_date", "lives.csv":"start_date"}
 SERIES_COL = {"events.csv":"series_id", "movies.csv":"series_id", "lives.csv":"tour_id"}
+
+# 名簿の「名前の列」。roster.py の ROSTERS と対応させる。
+MASTER_KEY = {"theaters.csv":"name", "venues.csv":"venue",
+              "spots.csv":"name", "festivals.csv":"name"}
+
+ROSTER_STATUS = {"", "active", "candidate", "retired"}
+
+# spots.csv の施設種別。ダッシュボードは spots.csv を読まない（収集側だけで使う）ので、
+# config.js には置かずここで定義する。
+SPOT_KINDS = {"themepark","aquazoo","museum","science","hall","theater","mall","park","landmark"}
 
 
 def load_enums():
@@ -287,11 +306,20 @@ def validate_main(name, rows, enums, rep):
 
 
 def validate_master(name, rows, enums, rep):
+    key = MASTER_KEY[name]
+    seen = {}
+    active = 0
     for i, r in enumerate(rows, start=2):
         where = f"{name}:{i}"
-        key = "name" if name == "theaters.csv" else "venue"
-        if not (r.get(key) or "").strip():
+        label = (r.get(key) or "").strip()
+        if not label:
             rep.error(where, f"{key} が空です")
+        elif label in seen:
+            rep.error(where, f"{key}={label!r} が {seen[label]}行目と重複しています"
+                             "（名簿の重複は同じ会場を二重に調べる原因になります）")
+        else:
+            seen[label] = i
+
         pref = (r.get("pref") or "").strip()
         if pref and pref not in enums["pref"]:
             rep.error(where, f"pref に未知の値 {pref!r}")
@@ -299,9 +327,29 @@ def validate_master(name, rows, enums, rep):
             kind = (r.get("kind") or "").strip()
             if kind and kind not in enums["venue_kind"]:
                 rep.error(where, f"kind に未知の値 {kind!r}")
+        if name == "spots.csv":
+            kind = (r.get("kind") or "").strip()
+            if kind and kind not in SPOT_KINDS:
+                rep.error(where, f"kind に未知の値 {kind!r}（使えるのは {sorted(SPOT_KINDS)}）")
         check_url(rep, where, "url", (r.get("url") or "").strip())
         check_num(rep, where, "lat", (r.get("lat") or "").strip(), *LAT_RANGE)
         check_num(rep, where, "lng", (r.get("lng") or "").strip(), *LNG_RANGE)
+
+        # --- 名簿の保守列 ---
+        st = (r.get("status") or "").strip()
+        if st not in ROSTER_STATUS:
+            rep.error(where, f"status に未知の値 {st!r}（{sorted(ROSTER_STATUS - {''})} のいずれか）")
+        if st in ("", "active"):
+            active += 1
+        for col in ("first_seen", "last_hit", "closed_until"):
+            if col in r:
+                check_date(rep, where, col, (r.get(col) or "").strip())
+        hc = (r.get("hit_count") or "").strip()
+        if hc and not hc.isdigit():
+            rep.error(where, f"hit_count が整数ではありません: {hc!r}")
+
+    if active == 0 and rows:
+        rep.error(name, "active な行が1つもありません（定点観測の対象が空になっています）")
 
 
 def main():

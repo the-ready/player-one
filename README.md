@@ -21,11 +21,17 @@ data/                         週次で差し替えるデータ。ここだけ�
   events.csv                  イベント
   movies.csv                  映画（新作公開・名画座リバイバル・野外上映/ドライブインシアター・特別上映・映画祭）
   lives.csv                   ライブ・フェス（ライブ・コンサート・音楽フェス）
-  theaters.csv                シネコンチェーンの関東店舗ディレクトリ（準静的なマスター）
-  venues.csv                  関東のライブ会場ディレクトリ（準静的なマスター）
+  theaters.csv                映画館の名簿（シネコン店舗ディレクトリ＋名画座）
+  venues.csv                  関東のライブ会場の名簿
+  spots.csv                   イベント施設の名簿（収集側だけで使う。表示には使わない）
+  festivals.csv               関東開催フェスの名簿（同上）
   sources.json                「調べたサイト一覧」
 .claude/skills/               3つの収集スキル（このリポジトリが正本）
-tools/validate_data.py        CSVの検証
+tools/                        収集タスク用のスクリプト
+  validate_data.py            CSVの検証
+  append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し
+  prev_rows.py / diff_data.py 前回との差分検知（詳細は docs/COLLECTION-PROTOCOL.md）
+  rowkey.py / roster.py       行の同定・名簿の保守
 sw.js                         Service Worker
 manifest.webmanifest          ホーム画面追加用
 docs/DESIGN.md                設計書。何をどう決めたかと、その理由
@@ -130,7 +136,9 @@ CSVの中身の日付（`price_checked` 等）にはフォールバックしな�
 
 `data/events.csv` の更新は `/kanto-event-collector` スキルが週次で担当する。
 
-> **書き出し先に注意**: 収集スキルはこのリポジトリの外（利用者の Claude 設定側）にあり、リポジトリの構成変更が自動では伝わらない。CSV の置き場所を変えたら、スキル側の書き出し先も併せて更新すること。ルート直下に `events.csv` が書かれても、ダッシュボードは `data/events.csv` しか読まない（取得先を1つに保つため、別パスへのフォールバックは意図的に持たせていない）。
+> **書き出し先に注意**: `.claude/skills/` が正本だが、`~/.claude/skills/` に置いたコピーは自動同期されない。CSV の置き場所を変えたら両方を更新すること。ルート直下に `events.csv` が書かれても、ダッシュボードは `data/events.csv` しか読まない（取得先を1つに保つため、別パスへのフォールバックは意図的に持たせていない）。
+
+収集は**差分方式**で動く。毎回ゼロから調べ直すのではなく、前回の結果を棚卸しして「まだやっているか・会期が延びたか・中止になっていないか」を確認しつつ、同じ調査のついでに新規を拾う。前回あって今回無い行には理由の記録が要り、説明のない消滅は `tools/diff_data.py` が検出して落とす。考え方と手順は `docs/COLLECTION-PROTOCOL.md` にまとめてある。
 
 ## 映画コーナー
 

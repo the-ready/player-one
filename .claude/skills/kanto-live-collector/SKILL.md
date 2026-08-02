@@ -1,6 +1,6 @@
 ---
 name: kanto-live-collector
-description: "Collect Kanto-area live concert and music festival data and produce data/lives.csv for the 「イベントボード」 dashboard's ライブ・フェス tab. Use when the user asks to update, refresh, or regenerate the live/festival dashboard data, run the weekly live collection, or rebuild lives.csv. Also use when they invoke this by name or reference the weekly live-gathering routine. Walks a fixed roster of Kanto live venues (domes, arenas, halls, livehouses, outdoor festival sites), checks each venue's upcoming schedule, tracks festival lineup announcements, detects newly announced and additional (追加) performances by diffing against the previous CSV, and records ticket on-sale windows and application deadlines alongside the official ticket link."
+description: "Collect Kanto-area live concert and music festival data and produce data/lives.csv for the 「イベントボード」 dashboard's ライブ・フェス tab. Use when the user asks to update, refresh, or regenerate the live/festival dashboard data, run the weekly live collection, or rebuild lives.csv. Also use when they invoke this by name or reference the weekly live-gathering routine. Walks the venue roster in data/venues.csv (domes, arenas, halls, livehouses, outdoor festival sites) to re-verify every previously collected performance (still scheduled? cancelled? on-sale window advanced? extra seats released?) while discovering new ones in the same pass, tracks festival lineup announcements from data/festivals.csv, detects newly announced and additional (追加) performances by machine-diffing against the previous CSV, records ticket on-sale windows and application deadlines alongside the official ticket link, and grows the venue and festival rosters itself as new places and events are found."
 ---
 
 # 関東ライブ・フェス収集タスク（週次）
@@ -40,7 +40,7 @@ description: "Collect Kanto-area live concert and music festival data and produc
 | **代わりに調べること**       | —                                                    | **チケットの受付経路と受付期間を「時刻まで」。** いつ発売され、いつまでに申し込めるか                                                                     |
 | **公演ごとの差**             | 同じイベントは1行                                    | **ツアーは公演ごとに販売状況が違う。** 一部の公演にだけ出る枠（見切れ席・追加席・公式リセール）を `limited_sale` に記録する                               |
 | **画像**                     | 収集しない                                           | **収集しない**（理由は下記「画像を収集しない」章。映画スキルの `poster_url` に相当する列は存在しない）                                                    |
-| **前回データとの突き合わせ** | 不要                                                 | **必須工程。** 追加公演・新規発表の検知に使う                                                                                                             |
+| **前回データとの突き合わせ** | 共通工程（3スキルとも実施する）                      | **同じ仕組みを使うが、意味が重い。** 追加公演・新規発表の検知そのものがこのタスクの主成果になる                                                           |
 
 **価格比較の工数をまるごと「受付期間の確定」と「追加公演の検知」に振り替える**、というのがこのスキルの設計である。
 
@@ -67,7 +67,8 @@ description: "Collect Kanto-area live concert and music festival data and produc
 
 - **`data/lives.csv` のみ**（全件を毎回書き直す。追記ではなく完全再生成）
 - `index.html` はこのタスクでは編集しない
-- `data/venues.csv`（会場マスター）は**準静的データなので原則として書き換えない**。ただし、収集の過程で `data/venues.csv` に無い会場が見つかった場合は、CSVには公演行をそのまま書いたうえで、**報告時に「venues.csv への追加候補」として会場名・都県・座標・キャパを列挙する**（追加そのものは人間の判断に委ねる）
+- `data/venues.csv`（会場の名簿）も更新する。以前は「追加候補として報告し、追加は人間に委ねる」としていたが、名簿はスキーマ検証つきのデータなので `tools/roster.py` 経由で**直接更新してよい**（新会場は `candidate` として登録され、2回ヒットすると `active` に昇格する）。手順はステップ1と `docs/COLLECTION-PROTOCOL.md` 第7章を参照
+- **ただしSKILL.md（この文書）は書き換えない。** 名簿（データ）は自動更新、ルール（散文）は提案止まりという線を守ること。ルールを変えたほうがよいと気づいたら `docs/skill-feedback.md` に追記する
 
 > **書き出し先に注意**: ダッシュボードは `data/lives.csv` しか読まず、別パスへのフォールバックを意図的に持たない。リポジトリのルート直下に `lives.csv` を書いても反映されない。
 
@@ -75,11 +76,8 @@ description: "Collect Kanto-area live concert and music festival data and produc
 
 全件を最後にまとめてCSVに書くのではなく、調査の区切りごとにバッチで追記する。**全件を調査結果としてコンテキストに溜め込んでから最後に一括生成する、という進め方はしないこと。**
 
-**順序が重要**: 「ステップ0：前回の `data/lives.csv` を読み込む」は、CSVを初期化する**前**に行うこと。差分検知（`announced_date` / `is_additional`）は前回データが要るため、初期化してから読もうとすると手遅れになる。
-
-1. **まずステップ0（前回の `data/lives.csv` を読み込み、差分検知用に手元に保持する）を実行する**
-2. そのうえで `python3 tools/append_rows.py lives --init` を実行し、`data/lives.csv` をヘッダーだけの状態にする
-3. 5〜10件の調査が完了するごとに、結果をまとめて以下の形式でCSVに追記する
+1. `python3 tools/append_rows.py lives --init` を実行し、`data/lives.csv` をヘッダーだけの状態にする。**前回の内容は `data/.prev/` に自動退避される**ので、差分検知の材料は失われない（以前は初期化の前に読む必要があったが、その制約は無くなった）
+2. 5〜10件の調査が完了するごとに、結果をまとめて以下の形式でCSVに追記する
 
    ```bash
    python3 tools/append_rows.py lives <<'EOF'
@@ -88,24 +86,43 @@ description: "Collect Kanto-area live concert and music festival data and produc
    EOF
    ```
 
-4. コンテキストに全件のデータを保持する必要はない。追記が終わったバッチの内容は忘れてよい（前回CSVとの差分保持は除く。次の調査のためにコンテキストを空ける）
-5. `id` はスクリプトが自動採番する。JSONに含める必要はない
-6. JSONに含めない列は空文字で補完される。分かっている列だけを渡せばよい
-7. 全件の調査・追記が終わったら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認する
+3. コンテキストに全件のデータを保持する必要はない。追記が終わったバッチの内容は忘れてよい（差分は `diff_data.py` が機械的に取るので、手元に抱える必要もない）
+4. `id` はスクリプトが自動採番する。JSONに含める必要はない
+5. JSONに含めない列は空文字で補完される。分かっている列だけを渡せばよい
+6. 全件の調査・追記が終わったら `python3 tools/diff_data.py lives` と `python3 tools/validate_data.py` を実行する
 
 自然なバッチの区切りの例：
 
 - 会場リストを5〜10会場調べたらまとめて書く
-- 関東開催フェスの固定リストを確認したらまとめて書く
+- 関東開催フェスの名簿を確認したらまとめて書く
 - 調査ステップが変わる節目（会場調査→フェス調査→プレイガイド補完）でまとめて書く
+
+#### 前回から変わっていない列は書き直さない（持ち越し）
+
+会場の座標・最寄り駅・駐車場・読みは、前回値から自動で補完される。**空欄のまま渡してよい。**同じ会場の別の公演からも引かれるので、ツアーで同じ箱が何度も出てくる場合でも書くのは1回でよい。
+
+内容にも変更がないことを**確認できた**行は、`"_carry": "*"` を添えると `desc` `artists` `official_url` `apple_music_url` なども前回値で埋まる。
+
+```bash
+python3 tools/append_rows.py lives <<'EOF'
+{"title": "...", "venue": "Kアリーナ横浜", "start_date": "2026-09-05", "date": "2026.9.5(土) 開場16:00／開演17:00",
+ "status": "公演予定", "rank": "3", "genre": "rock", "live_type": "oneman", "area": "神奈川県・横浜市西区",
+ "pref": "kanagawa", "price": "全席指定 9,800円", "source": "チケットぴあ", "url": "https://...",
+ "onsale_label": "一般発売", "onsale_start": "2026-08-09", "onsale_start_time": "10:00", "_carry": "*"}
+EOF
+```
+
+> **受付・日付・料金は持ち越せない。** `onsale_end` などを `_carry` に指定するとスクリプトがエラーで落ちる。これは「❌ 前回CSVの `onsale_end` をそのまま流用する」という後述の禁止事項を、指示文でのお願いではなく仕組みで担保したものである。**受付は進む。** 確認できないなら空欄にする。
+>
+> `"_carry": "*"` を使ってよいのは、その行の内容に変更がないことを**実際に確認できたとき**だけ。ライブでは出演者の追加・キャンセルが起きるので、`artists` の持ち越しには特に注意する。
 
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
 ```
 
-全32列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移った）。
+全35列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` が加わった）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -223,15 +240,62 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 
 起点が3系統ある。**イベント収集の「施設リスト1本」とは違い、1つのリストでは必ず取りこぼす。** 3つとも回すこと。
 
-### ステップ0：前回の `data/lives.csv` を読み込む（省略禁止）
+### ステップ0：前回分の棚卸し（省略禁止）
 
-**新規収集の前に、必ず前回のCSVを読む。** これをしないと `announced_date` と `is_additional` が埋まらず、このタスクの目玉である「追加公演の検知」が機能しない。
+**新規収集の前に、必ず前回分の一覧を取る。** これをしないと `announced_date` と `is_additional` が埋まらず、このタスクの目玉である「追加公演の検知」が機能しない。
 
-前回データを `tour_id` + `venue` + `start_date` をキーにして手元に保持しておく。
+```bash
+python3 tools/prev_rows.py lives --worklist
+```
+
+前回の103件が約9,000文字の圧縮一覧で出る（CSV全文は43,000文字あるので、そのまま読んではいけない）。全列が必要になった行だけ、あとから引く。
+
+```bash
+python3 tools/prev_rows.py lives --uid 3f2a1b9c            # その行を全列で
+python3 tools/prev_rows.py lives --venue Kアリーナ横浜      # その会場の前回分をまとめて
+```
+
+一覧には tier が付く。ライブは受付が日々進むため tier A（今回必ず再確認）の比率が高い。
+
+| tier  | 意味                                                                                                       |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| **A** | 今回必ず再確認する（締切・発売日が近い／受付状況が未確定／追加公演／`onsale_label` があるのに締切が空 等） |
+| **B** | 会場スケジュールを開いたついでに確認する                                                                   |
+| **C** | 低頻度でよい                                                                                               |
+
+**手元に前回データを抱え込む必要はない。** 突き合わせは最後に `diff_data.py` が機械的にやる。この一覧は、ステップ1で会場を回るときの照合表として使うためのものである。
 
 ### ステップ1：会場ベースの網羅調査（最優先）
 
-`data/venues.csv` の会場を上から順に、公演スケジュールを調べる。
+調査対象の会場は `data/venues.csv` にある。
+
+```bash
+python3 tools/roster.py venues --list --pref tokyo
+python3 tools/roster.py venues --list --kind livehouse
+```
+
+（`retired` の会場と**休館中の会場は自動的に除かれる**。以前このSKILL.mdに直接書いていた「さいたまスーパーアリーナは改装休館中」といった情報は、`venues.csv` の `closed_until` 列に移した。散文に書くと更新されないまま古くなるため）
+
+**1会場につき1回、その箱のスケジュールを調べる。そのとき次の3つを同時に済ませる。**
+
+1. **前回分の照合** —— ステップ0の一覧でその会場の行を確認し、**まだ予定されているか／中止・延期になっていないか／受付が次の段階に進んでいないか／追加席が出ていないか**を見る
+2. **新規の発見** —— 前回になかった公演を拾う
+3. **収穫の記録** —— `python3 tools/roster.py venues --hit {会場名}`
+
+> **行を1件ずつ再確認してはいけない。** 会場の公演カレンダーを1回開けば、既存行の確認と新規の発見は同じ取得で終わる。
+
+新しい会場・閉館した会場を見つけたら、その場で名簿に反映する（以前は「報告して人間の判断に委ねる」としていたが、名簿はスキーマ検証つきのデータなので直接更新してよい）。
+
+```bash
+python3 tools/roster.py venues --add <<'EOF'
+{"venue": "○○アリーナ", "kind": "arena", "pref": "chiba", "area": "千葉県・千葉市",
+ "capacity": "10000", "lat": "35.60", "lng": "140.10", "url": "https://..."}
+EOF
+python3 tools/roster.py venues --retire ○○ホール --reason "2026年6月閉館"
+python3 tools/roster.py venues --close ○○アリーナ --until 2027-04-01 --reason "改修工事のため休館"
+```
+
+`kind` は `dome` `arena` `hall` `livehouse` `outdoor` から選ぶ。**収集元のページの文言を `note` にそのまま持ち込まないこと**（`roster.py` が指示文めいた文字列を拒否するが、そもそも入れない）。
 
 **会場公式サイトの公演カレンダーを最優先の情報源とする。** 理由は、それが「その箱で何月何日に何があるか」の一次情報であり、**このダッシュボードの2大絞り込み軸（日付と場所）に直結する情報が、最も正確な形で載っている**ためである。まとめサイトは日付が古く、プレイガイドは受付が始まった公演しか載らない。
 
@@ -239,7 +303,7 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 > 実際の収集で、会場単位のスケジュール要約は**公演名と日付の対応がずれる**ことが繰り返し確認された（同一会場で12日連続公演と別公演が同じ日に立つ、季節の合わない公演名が混ざる、など）。
 > 会場スケジュールで拾った公演は、**必ずステップ5で公演名を軸に検索し直して、日付・会場・時刻を裏取りしてから書く**。裏が取れなければその行は落とす。
 
-> **休館中の会場に注意**: さいたまスーパーアリーナ（愛称「GMOアリーナさいたま」）は改装のため休館中で、リニューアルオープンは2027年4月予定。休館期間中は公演が組まれないので、スケジュール調査の対象から外してよい。同様に長期休館・建て替え中の会場を見つけたら、報告に含めること。
+> **休館中の会場について**: 長期休館・建て替え中の会場には公演が組まれないので、調査しても収穫がない。`roster.py venues --list` はこれらを自動的に除いて出すので、リストに出てこない会場は調べなくてよい。新たに長期休館を知ったときは `roster.py venues --close {会場名} --until {再開予定日}` で名簿に記録すること（このSKILL.mdには書かない。散文に書いた休館情報は、再開しても更新されないまま残る）。
 
 検索クエリの組み立て方：
 
@@ -259,27 +323,25 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 
 ### ステップ2：フェスの年間カレンダー調査
 
-会場リストでは拾えないのが野外フェスである。**関東開催のフェスは固定リストで毎回確認する。**
+会場リストでは拾えないのが野外フェスである。**関東開催のフェスは名簿で毎回確認する。**
 
-| フェス                                | 主な会場                                 | 時期の目安 |
-| ------------------------------------- | ---------------------------------------- | ---------- |
-| ROCK IN JAPAN FESTIVAL                | 国営ひたち海浜公園（茨城）               | 8月        |
-| SUMMER SONIC                          | ZOZOマリンスタジアム・幕張メッセ（千葉） | 8月        |
-| SUPERSONIC                            | 幕張メッセ周辺（千葉）                   | 不定期     |
-| JAPAN JAM                             | 蘇我スポーツ公園（千葉）                 | 5月        |
-| VIVA LA ROCK                          | さいたまスーパーアリーナ（埼玉）         | 5月        |
-| METROCK（METROPOLITAN ROCK FESTIVAL） | 若洲公園（東京）                         | 5月        |
-| COUNTDOWN JAPAN                       | 幕張メッセ（千葉）                       | 12月末     |
-| 氣志團万博                            | 木更津（千葉）                           | 9月        |
-| LuckyFes                              | 国営ひたち海浜公園（茨城）               | 7月        |
-| GREENROOM FESTIVAL                    | 横浜赤レンガ倉庫（神奈川）               | 5月        |
-| ULTRA JAPAN                           | お台場周辺（東京）                       | 9月        |
-| New Acoustic Camp                     | 水上高原（群馬）                         | 9月        |
-| TOKYO ISLAND                          | 海の森公園（東京）                       | 5月        |
-| ap bank fes                           | 会場は年により変動                       | 7月        |
-| 中津川・りんご音楽祭ほか              | 関東外は対象外                           | —          |
+```bash
+python3 tools/roster.py festivals --list
+```
 
-フェスは**出演者の発表が段階的**（第1弾・第2弾…）であることに注意する。前回から出演者が追加されていれば、`announced_date` を更新し、`desc` のラインナップも書き換える。
+名簿は `data/festivals.csv`（フェス名・主な会場・開催時期の目安）。以前この文書に表として書いていたが、フェスは開催地が変わり、隔年開催になり、終了する——**散文に書いた一覧は更新されないまま古くなる**ので、データに出した。
+
+収穫があったフェス、開催がなくなったフェス、新しく見つけたフェスは、その場で名簿に反映する。
+
+```bash
+python3 tools/roster.py festivals --hit "ROCK IN JAPAN FESTIVAL"
+python3 tools/roster.py festivals --retire "○○フェス" --reason "2026年をもって終了"
+python3 tools/roster.py festivals --add <<'EOF'
+{"name": "○○ROCK FES", "venue": "○○公園", "pref": "chiba", "month_hint": "10月", "url": "https://..."}
+EOF
+```
+
+フェスは**出演者の発表が段階的**（第1弾・第2弾…）であることに注意する。前回から出演者が追加されていれば、`announced_date` を更新し、`desc` のラインナップも書き換える（`artists` を `_carry` で持ち越すと、この更新を取りこぼす）。
 
 検索クエリ例：
 
@@ -289,6 +351,8 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 関東 音楽フェス {実行年}年{実行月}月
 野外フェス {実行年} 関東 チケット
 ```
+
+**名簿に無いフェスも探すこと。** 上のクエリの下2つは、そのためのものである。新しい都市型フェス・小規模フェスは毎年生まれている。
 
 ### ステップ3：プレイガイド・音楽メディアでの補完
 
@@ -324,20 +388,40 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 {フェス名} 出演者 第{n}弾
 ```
 
-そのうえで、**ステップ0で読んだ前回CSVと突き合わせる。**
+そのうえで、**機械的に取った差分と突き合わせる。**
 
-```
-前回に無く今回にある行            → announced_date に今日を入れる
-既存の tour_id に増えた公演        → is_additional = 1
-onsale_label / onsale_end が変わった行 → 値を更新する
-前回にあり今回に無い行            → 落とす（終了・中止）。中止なら報告に含める
+```bash
+python3 tools/diff_data.py lives --allow-unexplained
 ```
 
-`announced_date` は、**メディアの発表記事の日付が分かればその日付を使う**。分からない場合に限り、前回CSVとの差分で今日の日付を入れる。**分からないまま推測で古い日付を書かない。**
+前回との突き合わせを目視でやってはいけない。103行×35列を読み直すことになるうえ、見落としても誰も気づけない。**突き合わせは機械の仕事で、この工程でのモデルの仕事は、機械が拾った差分の意味を判断すること**である。
 
-**公演名そのものに「追加公演」と入っている場合**（例：`ano Hall Tour 2026 DUAL DINER 追加公演`）は、前回CSVとの差分を取るまでもなく主催者が追加公演だと言っているので、`is_additional=1` にしてよい。初回実行時（前回CSVが存在しないとき）に追加公演を拾える唯一の手がかりでもある。
+| `diff_data.py` の出力             | やること                                                                                                                      |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **[新規]** に出た行               | `announced_date` を確定する（下記）                                                                                           |
+| 既存の `tour_id` に増えた公演     | `is_additional = 1`                                                                                                           |
+| **[変更]** に `onsale_*` が出た行 | 受付が次の段階に進んだということ。値が正しく更新されているか確認する                                                          |
+| **[変更]** に `artists` が出た行  | フェスの出演者追加。`desc` のラインナップも書き換えたか確認する                                                               |
+| **[表記が変わった可能性]**        | 同じ公演なら `--dispose` に `renamed` を記録する（放置すると同じ公演が「消滅1件＋新規1件」に数えられ、NEWバッジが誤って付く） |
+| **[消滅]** の行                   | 1件ずつ理由を記録する（下記）                                                                                                 |
 
-> **初回実行時の注意**: 前回CSVが無い状態では、差分による追加公演の検知は原理的に成立しない。初回は `is_additional` が上の「タイトルに明記された分」だけになるのが正しく、**それらしく見せるために推測で立ててはならない**。2回目以降から本来の検知が働く。
+**消えた行には必ず説明をつける。**
+
+```bash
+python3 tools/prev_rows.py lives --dispose <<'EOF'
+{"uid": "3f2a1b9c", "status": "ended",     "note": "公演終了"}
+{"uid": "8d7e6f50", "status": "cancelled", "note": "アーティスト体調不良により公演中止（公式発表）"}
+{"uid": "a1b2c3d4", "status": "notfound",  "note": "会場スケジュールから消えており、中止か延期か確認できず"}
+EOF
+```
+
+> **中止・延期はライブで最も起きやすく、最も実害の大きい変化である。** 前回にあった公演が今回無いとき、それを黙って落とすと、中止を知らない利用者が会場に行くことになる。`cancelled` と `notfound` を区別して記録し、**どちらも報告に含めること**。
+
+`announced_date` は、**メディアの発表記事の日付が分かればその日付を使う**。分からない場合に限り、差分で新規と判定された行に今日の日付を入れる。**分からないまま推測で古い日付を書かない。**
+
+**公演名そのものに「追加公演」と入っている場合**（例：`ano Hall Tour 2026 DUAL DINER 追加公演`）は、差分を取るまでもなく主催者が追加公演だと言っているので、`is_additional=1` にしてよい。初回実行時（前回データが存在しないとき）に追加公演を拾える唯一の手がかりでもある。
+
+> **初回実行時の注意**: 前回データが無い状態では、差分による追加公演の検知は原理的に成立しない（`diff_data.py` は「前回データなし」と表示する）。初回は `is_additional` が上の「タイトルに明記された分」だけになるのが正しく、**それらしく見せるために推測で立ててはならない**。2回目以降から本来の検知が働く。
 
 ### ステップ5：各公演の深掘り
 
@@ -576,11 +660,25 @@ https://itunes.apple.com/search?term={アーティスト名（URLエンコード
 
 ## 品質チェック（提出前に必ず実施）
 
+### 差分・名簿
+
+- [ ] `python3 tools/diff_data.py lives` が**終了コード0**で通るか（説明のない消滅が0件か）
+- [ ] **中止・延期を `cancelled` として記録したか**（`ended` や `notfound` で片付けていないか）
+- [ ] `notfound` は、会場ページとプレイガイドの両方に当たったうえで残したものか
+- [ ] 「表記が変わった可能性」に挙がったペアを確認し、同じ公演なら `renamed` を記録したか
+- [ ] **`is_additional=1` の行が、差分または公演名の明記に基づいているか**（雰囲気で立てていないか）
+- [ ] `announced_date` を、発表記事の日付または差分に基づいて決めたか
+- [ ] `_carry: "*"` を使った行は、内容に変更がないことを**実際に確認した**行だけか（とくに `artists`）
+- [ ] 収穫のあった会場・フェスに `roster.py --hit` を記録したか
+- [ ] `roster.py venues --gc` と `roster.py festivals --gc` を実行したか
+- [ ] 名簿に無い会場・フェスを見つけたら `--add` したか（報告だけで終わらせていないか）
+- [ ] ルールを変えるべきだと気づいた点を、SKILL.md ではなく `docs/skill-feedback.md` に書いたか
+
 ### 形式
 
 - [ ] `python3 tools/validate_data.py` を実行し、ERROR が0件か
 
-- [ ] 全行が35列で揃っているか（CSVパーサで読み込んで確認）
+- [ ] 全行が35列で揃っているか（`validate_data.py` がヘッダーの不一致を検出する）
 - [ ] `parking`／`nearest_station` は会場公式サイトの「アクセス」ページ等で確認したものだけを書いているか（不明なら空欄）
 - [ ] `apple_music_url` は iTunes Search API の `artistLinkUrl` で裏取りしたものだけを書いているか（同姓同名の別アーティストと取り違えていないか）
 - [ ] `id` が1から連番になっているか
@@ -592,7 +690,7 @@ https://itunes.apple.com/search?term={アーティスト名（URLエンコード
 
 ### ライブ固有
 
-- [ ] **`venue` が `data/venues.csv` の `venue` 列と完全一致しているか**（一致しない会場は、venues.csv への追加候補として報告する）
+- [ ] **`venue` が `data/venues.csv` の `venue` 列と完全一致しているか**（一致しない会場は `roster.py venues --add` で名簿に追加する。表記ゆれなら公演行の側を名簿の表記に合わせる）
 - [ ] 同じ「会場 × 公演日」の行が重複していないか
 - [ ] **ツアーが1行にまとめられていないか**（`venue` に `|` が入っていないか）
 - [ ] 同じツアーの複数公演に、同じ `tour_id` が振られているか
@@ -631,22 +729,27 @@ https://itunes.apple.com/search?term={アーティスト名（URLエンコード
 ## 実行手順まとめ
 
 1. 実行日を確認し、対象期間（公演日3ヶ月以内 **または** 受付締切3ヶ月以内）を確定する
-2. **前回の `data/lives.csv` を読み込む**（省略禁止）
-3. `data/venues.csv` の会場を上から順に、公演スケジュールを調べる
-4. 関東開催フェスの固定リストを確認し、開催情報・出演者発表の更新を拾う
-5. プレイガイド・音楽メディアで、小箱公演・急な公演を補完する
-6. **音楽メディアの「追加公演」記事を定点観測し、前回CSVと突き合わせて `announced_date` / `is_additional` を確定する**
-7. 各公演について公式情報まで辿り、日時・会場・出演者・料金を確定する
-8. **受付の開始・締切を時刻まで確定する**（`onsale_start_time` / `onsale_end_time`）
-9. **`tour_id` 単位で全公演の受付状況を並べ、一部の公演にだけ出ている枠を `limited_sale` に記録する**
-10. 転売サイトを除外し、正規経路の `url` を選定する
-11. 駐車場・最寄り駅を会場公式サイトで確認し、メインアーティストの Apple Music アーティストページを iTunes Search API で確認する
-12. CSVは調査の区切りごとに `append_rows.py` で逐次追記済みなので、ここでは品質チェックリストの全項目確認と `python3 tools/validate_data.py` による最終検証のみ行う
-13. 最後に、以下の要点だけを簡潔に出力する（あいさつや前置き、次の提案などの会話的な文章は付けない）
+2. **`python3 tools/prev_rows.py lives --worklist` で前回分の棚卸しリストを取る**（省略禁止）
+3. `python3 tools/append_rows.py lives --init`（前回分は `data/.prev/` に自動退避される）
+4. `python3 tools/roster.py venues --list --pref {都県}` で調査対象を引き、**会場ごとに「既存行の再確認」と「新規の発見」を同じ1回の調査で済ませる**。収穫があった会場は `roster.py venues --hit` を記録する
+5. `python3 tools/roster.py festivals --list` でフェスを確認し、開催情報・出演者発表の更新を拾う。**名簿に無いフェスも探す**
+6. プレイガイド・音楽メディアで、小箱公演・急な公演を補完する
+7. **音楽メディアの「追加公演」記事を定点観測し、`diff_data.py` の差分と突き合わせて `announced_date` / `is_additional` を確定する**
+8. 各公演について公式情報まで辿り、日時・会場・出演者・料金を確定する。前回から続く行は、**変わりうる項目（受付・中止の有無・限定枠）だけ**を確認し、残りは `_carry` で持ち越す
+9. **受付の開始・締切を時刻まで確定する**（`onsale_start_time` / `onsale_end_time`）
+10. **`tour_id` 単位で全公演の受付状況を並べ、一部の公演にだけ出ている枠を `limited_sale` に記録する**
+11. 転売サイトを除外し、正規経路の `url` を選定する
+12. 駐車場・最寄り駅を会場公式サイトで確認し、メインアーティストの Apple Music アーティストページを iTunes Search API で確認する
+13. **`python3 tools/prev_rows.py lives --dispose` で、消えた公演1件ずつに理由を記録する**（中止は `cancelled`、確認できなかったものは `notfound`）
+14. `python3 tools/roster.py venues --gc` と `python3 tools/roster.py festivals --gc` で名簿を整理する
+15. `python3 tools/diff_data.py lives` と `python3 tools/validate_data.py` を実行し、どちらも**終了コード0**であることを確認する
+16. 最後に、以下の要点だけを簡潔に出力する（あいさつや前置き、次の提案などの会話的な文章は付けない）
     - 件数・都県別内訳・ジャンル別内訳・会場規模別内訳
-    - **今週あらたに発表された公演／追加公演の一覧**（このタスクの主成果）
+    - **今週あらたに発表された公演／追加公演の一覧**（このタスクの主成果。`diff_data.py` の [新規] を根拠にする）
     - **今週締切が来る受付の一覧**（日付だけでなく時刻も添えること）
     - **今週から発売が始まる公演の一覧**（発売日時つき）
+    - **受付が次の段階に進んだ公演**（`diff_data.py` の [変更] に `onsale_*` が出た行）
     - **ツアー内で販売状況が分かれている公演**（一部だけ完売／一部にだけ限定枠、など）
-    - 前回から消えた公演（終了・中止）
-    - `data/venues.csv` への**追加候補となる会場**（名称・都県・座標・キャパ）
+    - **前回から消えた公演**（`ended` / `cancelled` / `notfound` を区別して。**中止と `notfound` は件数だけでなく一覧も出す**）
+    - 名簿の変化（追加した会場・フェス／`retired` にしたもの／休館の登録／`--gc` の結果）
+    - `docs/skill-feedback.md` に書いた提案があれば、その要旨
