@@ -1913,17 +1913,6 @@ mark {
   z-index: 0;
   background: #e4e1da;
 }
-/* ピンの吹き出し（Leafletのpopup）は .map-ring より常に手前に出したい。
-   .map-ring は「常に画面上で一定の大きさ」を保つため地図の外側に置いた別要素で、
-   通常時は地図（tile/marker）より上、吹き出しより下にいてほしいが、CSSの
-   スタッキングコンテキストはDOM順で決まるため、兄弟要素である .map-ring の
-   z-index はLeaflet内部（.leaflet-popup-pane）のz-indexより常に勝ってしまい、
-   吹き出しが点線の下に隠れる不具合があった。吹き出しが開いている間だけ
-   .map-canvas 側に .map-ring を上回るz-indexを与えて解決する
-   （initMap() の popupopen/popupclose でトグルする）。 */
-.map-canvas.has-open-popup {
-  z-index: 2;
-}
 .map-ring {
   position: absolute;
   inset: 0;
@@ -1948,6 +1937,28 @@ mark {
   top: 50%;
   transform: translate(-50%, -100%);
   line-height: 0;
+}
+/* ピンをタップしたときの吹き出し。Leaflet標準のpopupは使わない。
+   標準popupは.map-canvasの内側にあり、常に画面中央に固定される.map-ring
+   （地図の外側に別要素として重ねてある）より前面に出せないうえ、地図が動く
+   たびに全ピンを描き直す仕組み（refreshMarkers）とかみ合って、自動追従で
+   地図が動いた瞬間に自分自身が消えてしまっていた。.map-ringと同じく地図の
+   外側の要素として持ち、位置だけをピンの画面座標に合わせることで両方を解決
+   する（ui-map.js の openMarkerPopup / positionPopup）。 */
+.map-popup {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  max-width: min(15em, 78%);
+  transform: translate(-50%, calc(-100% - 16px));
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 0.6rem 0.75rem;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 .map-loading {
   position: absolute;
