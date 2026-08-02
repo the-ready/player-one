@@ -2,3 +2,4 @@
 # コミットしない（コミットすると、ローカルで編集中でも古い日付が優先されてしまう）。
 data/updated.json
 .DS_Store
+logs

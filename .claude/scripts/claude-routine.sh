@@ -10,7 +10,12 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROUTINE_FILE="$PROJECT_DIR/routines/event.txt"
-LOG_FILE="$PROJECT_DIR/claude-routine.log"
+
+# ログは専用フォルダ(logs/)に、日付別のファイルで保存する。
+# 同じ日に複数回実行された場合は同じファイルに追記される。
+LOG_DIR="$PROJECT_DIR/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/routine_$(date '+%Y-%m-%d').log"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
@@ -19,6 +24,7 @@ log() {
 log "===== スクリプト開始 ====="
 log "SCRIPT_DIR  = $SCRIPT_DIR"
 log "PROJECT_DIR = $PROJECT_DIR"
+log "LOG_FILE    = $LOG_FILE"
 
 source ~/.bashrc
 
