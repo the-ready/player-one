@@ -1,301 +1,665 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="color-scheme" content="light">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>イベントボード｜関東のイベント・映画・ライブをまとめて探す</title>
-<meta name="description" content="関東エリアのイベント・映画・ライブ/フェスを1画面で横断検索できるダッシュボード。日程・エリア・カテゴリでしぼりこみ、地図の範囲や現在地からも探せます。毎週土曜更新。">
-<meta name="theme-color" content="#F1E6CC">
-<link rel="manifest" href="manifest.webmanifest">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>イベントボード｜関東のイベント・映画・ライブをまとめて探す</title>
+    <meta
+      name="description"
+      content="関東エリアのイベント・映画・ライブ/フェスを1画面で横断検索できるダッシュボード。日程・エリア・カテゴリでしぼりこみ、地図の範囲や現在地からも探せます。毎週土曜更新。"
+    />
+    <meta name="theme-color" content="#F1E6CC" />
+    <link rel="manifest" href="manifest.webmanifest" />
 
-<!-- 共有したときにタイトルすら出ない状態だったので、OGP/Twitter Card を持たせる。
+    <!-- 共有したときにタイトルすら出ない状態だったので、OGP/Twitter Card を持たせる。
      画像は絶対URLでないと多くのサービスが拾わないため、公開URLを直接書く。 -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="イベントボード">
-<meta property="og:title" content="イベントボード｜関東のイベント・映画・ライブをまとめて探す">
-<meta property="og:description" content="関東のイベント・映画・ライブ/フェスを1画面で横断検索。日程・エリア・地図の範囲でしぼりこめます。">
-<meta property="og:url" content="https://the-ready.github.io/dashboard-for-movie-music-activities/">
-<meta property="og:image" content="https://the-ready.github.io/dashboard-for-movie-music-activities/assets/apple-touch-icon.png">
-<meta name="twitter:card" content="summary">
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="イベントボード" />
+    <meta
+      property="og:title"
+      content="イベントボード｜関東のイベント・映画・ライブをまとめて探す"
+    />
+    <meta
+      property="og:description"
+      content="関東のイベント・映画・ライブ/フェスを1画面で横断検索。日程・エリア・地図の範囲でしぼりこめます。"
+    />
+    <meta property="og:url" content="https://the-ready.github.io/player-one/" />
+    <meta
+      property="og:image"
+      content="https://the-ready.github.io/player-one/assets/apple-touch-icon.png"
+    />
+    <meta name="twitter:card" content="summary" />
 
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
-<link rel="icon" href="assets/favicon.ico" sizes="any">
-<!-- iOS/iPadOS/macOS(Safari)のホーム画面追加・Dock追加用アイコン -->
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/favicon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="assets/favicon-16.png"
+    />
+    <link rel="icon" href="assets/favicon.ico" sizes="any" />
+    <!-- iOS/iPadOS/macOS(Safari)のホーム画面追加・Dock追加用アイコン -->
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- 実際に使っているウェイトだけを取る。日本語フォントはウェイトごとに
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- 実際に使っているウェイトだけを取る。日本語フォントはウェイトごとに
      サブセット一式が付くので、使っていない4ウェイトを外すと転送量が大きく減る。
      （Zen Maru Gothic の 400/500、Zen Kaku Gothic New の 900、JetBrains Mono の 500 は未使用だった） -->
-<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/app.css">
-<script type="module" src="assets/js/main.js"></script>
-</head>
-<body>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/app.css" />
+    <script type="module" src="assets/js/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#mainContent">本文へスキップ</a>
 
-<a class="skip-link" href="#mainContent">本文へスキップ</a>
-
-<header class="pop-header">
-  <span class="blob b1" aria-hidden="true"></span>
-  <span class="blob b2" aria-hidden="true"></span>
-  <span class="blob b3" aria-hidden="true"></span>
-  <span class="blob b4" aria-hidden="true"></span>
-  <div class="header-inner">
-    <span class="kicker-pop">EVENT RADAR</span>
-    <h1 class="pop-title">イベントボード</h1>
-    <p class="pop-sub">映画、イベント、ライブ・フェスを探すことができます。ボタンをタップして行きたいところを探そう。</p>
-    <p class="pop-disclaimer">生成AIによる調査結果を自動でまとめたものであり、内容が正確でない場合があります。<br>情報は毎週土曜日の午前中に更新予定です。</p>
-    <div class="stat-chips">
-      <!-- role="tab" に aria-pressed は許可されていない（選択状態は aria-selected だけで表す）。
+    <header class="pop-header">
+      <span class="blob b1" aria-hidden="true"></span>
+      <span class="blob b2" aria-hidden="true"></span>
+      <span class="blob b3" aria-hidden="true"></span>
+      <span class="blob b4" aria-hidden="true"></span>
+      <div class="header-inner">
+        <span class="kicker-pop">EVENT RADAR</span>
+        <h1 class="pop-title">イベントボード</h1>
+        <p class="pop-sub">
+          映画、イベント、ライブ・フェスを探すことができます。ボタンをタップして行きたいところを探そう。
+        </p>
+        <p class="pop-disclaimer">
+          生成AIによる調査結果を自動でまとめたものであり、内容が正確でない場合があります。<br />情報は毎週土曜日の午前中に更新予定です。
+        </p>
+        <div class="stat-chips">
+          <!-- role="tab" に aria-pressed は許可されていない（選択状態は aria-selected だけで表す）。
            左右キーでの移動は main.js の keydown で受ける。 -->
-      <div class="tab-group" role="tablist" aria-label="表示する項目">
-        <button type="button" class="tab-chip" id="tabEventBtn" role="tab" aria-selected="true" aria-controls="eventPane">イベント</button>
-        <button type="button" class="tab-chip" id="tabMovieBtn" role="tab" aria-selected="false" aria-controls="moviePane" tabindex="-1">映画</button>
-        <button type="button" class="tab-chip" id="tabLiveBtn" role="tab" aria-selected="false" aria-controls="livePane" tabindex="-1">ライブ・フェス</button>
-      </div>
-      <!-- 表示中のタブのデータの更新日。タブを切り替えると中身が変わるので、
+          <div class="tab-group" role="tablist" aria-label="表示する項目">
+            <button
+              type="button"
+              class="tab-chip"
+              id="tabEventBtn"
+              role="tab"
+              aria-selected="true"
+              aria-controls="eventPane"
+            >
+              イベント
+            </button>
+            <button
+              type="button"
+              class="tab-chip"
+              id="tabMovieBtn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="moviePane"
+              tabindex="-1"
+            >
+              映画
+            </button>
+            <button
+              type="button"
+              class="tab-chip"
+              id="tabLiveBtn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="livePane"
+              tabindex="-1"
+            >
+              ライブ・フェス
+            </button>
+          </div>
+          <!-- 表示中のタブのデータの更新日。タブを切り替えると中身が変わるので、
            何の更新日なのかが読み上げからも分かるよう aria-label を付け直す。 -->
-      <span class="stat-chip" id="statUpdatedChip">最終更新日 <b id="statUpdated">–</b></span>
-    </div>
-    <p class="offline-note" id="offlineNote" role="status" hidden>オフラインのため、端末に保存された内容を表示しています。最新の情報は通信できる状態で開きなおしてください。</p>
-  </div>
-</header>
-
-<div class="controls" role="search" aria-label="イベント・映画・ライブの検索と絞り込み">
-  <div class="controls-inner">
-    <div class="controls-flex" id="controlsFlex">
-      <div class="search-row">
-        <div class="search-wrap">
-          <label for="q" class="sr-only" id="qLabel">イベント名・会場・エリアで検索</label>
-          <input type="search" id="q" autocomplete="off" placeholder="イベント名・会場・エリアで検索">
+          <span class="stat-chip" id="statUpdatedChip"
+            >最終更新日 <b id="statUpdated">–</b></span
+          >
         </div>
+        <p class="offline-note" id="offlineNote" role="status" hidden>
+          オフラインのため、端末に保存された内容を表示しています。最新の情報は通信できる状態で開きなおしてください。
+        </p>
       </div>
-      <div class="control-row" role="group" aria-label="並び替え・絞り込み">
-        <button type="button" class="sort-btn" id="sortDateBtn" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="popoverPanel">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
-          <span>日程</span>
-          <span class="dir-arrow" id="dateArrow" aria-hidden="true">▾</span>
-        </button>
-        <button type="button" class="sort-btn" id="sortLocBtn" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="popoverPanel">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-          <span>エリア</span>
-          <span class="dir-arrow" id="locArrow" aria-hidden="true">▾</span>
-        </button>
-        <button type="button" class="sort-btn" id="catBtn" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="popoverPanel">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.5 7.5v6l-3 1.5v-7.5z"/></svg>
-          <span>絞り込み</span>
-          <span class="dir-arrow" id="catArrow" aria-hidden="true">▾</span>
-        </button>
-        <!-- 操作バーが縮んだときに出る検索ボタン。以前は入力欄そのものを
+    </header>
+
+    <div
+      class="controls"
+      role="search"
+      aria-label="イベント・映画・ライブの検索と絞り込み"
+    >
+      <div class="controls-inner">
+        <div class="controls-flex" id="controlsFlex">
+          <div class="search-row">
+            <div class="search-wrap">
+              <label for="q" class="sr-only" id="qLabel"
+                >イベント名・会場・エリアで検索</label
+              >
+              <input
+                type="search"
+                id="q"
+                autocomplete="off"
+                placeholder="イベント名・会場・エリアで検索"
+              />
+            </div>
+          </div>
+          <div class="control-row" role="group" aria-label="並び替え・絞り込み">
+            <button
+              type="button"
+              class="sort-btn"
+              id="sortDateBtn"
+              aria-pressed="false"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="popoverPanel"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <line x1="8" y1="3" x2="8" y2="7" />
+                <line x1="16" y1="3" x2="16" y2="7" />
+              </svg>
+              <span>日程</span>
+              <span class="dir-arrow" id="dateArrow" aria-hidden="true">▾</span>
+            </button>
+            <button
+              type="button"
+              class="sort-btn"
+              id="sortLocBtn"
+              aria-pressed="false"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="popoverPanel"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              <span>エリア</span>
+              <span class="dir-arrow" id="locArrow" aria-hidden="true">▾</span>
+            </button>
+            <button
+              type="button"
+              class="sort-btn"
+              id="catBtn"
+              aria-pressed="false"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="popoverPanel"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 5h16l-6.5 7.5v6l-3 1.5v-7.5z" />
+              </svg>
+              <span>絞り込み</span>
+              <span class="dir-arrow" id="catArrow" aria-hidden="true">▾</span>
+            </button>
+            <!-- 操作バーが縮んだときに出る検索ボタン。以前は入力欄そのものを
              32pxに潰していたため、入力欄が消えたように見えていた。 -->
-        <button type="button" class="search-toggle" id="searchToggle" aria-label="検索欄をひらく">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.4" y2="16.4"/></svg>
-        </button>
-      </div>
-    </div>
+            <button
+              type="button"
+              class="search-toggle"
+              id="searchToggle"
+              aria-label="検索欄をひらく"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.4" y2="16.4" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-    <!-- モーダルにしない。開いたまま隣のボタンへ移れることを優先する（ui-popover.js の冒頭を参照） -->
-    <div class="popover-panel" id="popoverPanel" role="dialog" hidden>
-      <div class="popover-body" id="datePopoverBody" hidden>
-        <div class="popover-head"><span>期間でしぼる</span><button type="button" class="popover-close" id="datePopoverClose" aria-label="閉じる">×</button></div>
-        <!-- 並び順の切り替え。以前はライブタブだけに出していたが、
+        <!-- モーダルにしない。開いたまま隣のボタンへ移れることを優先する（ui-popover.js の冒頭を参照） -->
+        <div class="popover-panel" id="popoverPanel" role="dialog" hidden>
+          <div class="popover-body" id="datePopoverBody" hidden>
+            <div class="popover-head">
+              <span>期間でしぼる</span
+              ><button
+                type="button"
+                class="popover-close"
+                id="datePopoverClose"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <!-- 並び順の切り替え。以前はライブタブだけに出していたが、
              「今週なにが増えたか」はイベント・映画でも独立した探し方になる。 -->
-        <div class="sort-row">
-          <span class="chip-label">並び順</span>
-          <button type="button" class="chip" id="sortDateChip" aria-pressed="true">日程が近い順</button>
-          <button type="button" class="chip" id="sortAnnouncedChip" aria-pressed="false">新着順</button>
-        </div>
-        <div class="cal-presets" id="calPresets"></div>
-        <div class="cal-nav">
-          <button type="button" id="calPrev" aria-label="前の月">‹</button>
-          <span class="cal-month" id="calMonth"></span>
-          <button type="button" id="calNext" aria-label="次の月">›</button>
-        </div>
-        <div class="cal-grid" id="calGrid" role="grid" aria-label="開催期間を選ぶカレンダー"></div>
-        <div class="cal-selection">
-          <span id="calSelectionText" aria-live="polite">開始日を選んでください</span>
-          <button type="button" class="cal-clear" id="calClear">期間を解除</button>
-        </div>
-      </div>
+            <div class="sort-row">
+              <span class="chip-label">並び順</span>
+              <button
+                type="button"
+                class="chip"
+                id="sortDateChip"
+                aria-pressed="true"
+              >
+                日程が近い順
+              </button>
+              <button
+                type="button"
+                class="chip"
+                id="sortAnnouncedChip"
+                aria-pressed="false"
+              >
+                新着順
+              </button>
+            </div>
+            <div class="cal-presets" id="calPresets"></div>
+            <div class="cal-nav">
+              <button type="button" id="calPrev" aria-label="前の月">‹</button>
+              <span class="cal-month" id="calMonth"></span>
+              <button type="button" id="calNext" aria-label="次の月">›</button>
+            </div>
+            <div
+              class="cal-grid"
+              id="calGrid"
+              role="grid"
+              aria-label="開催期間を選ぶカレンダー"
+            ></div>
+            <div class="cal-selection">
+              <span id="calSelectionText" aria-live="polite"
+                >開始日を選んでください</span
+              >
+              <button type="button" class="cal-clear" id="calClear">
+                期間を解除
+              </button>
+            </div>
+          </div>
 
-      <div class="popover-body" id="locPopoverBody" hidden>
-        <div class="popover-head"><span>場所でしぼる</span><button type="button" class="popover-close" id="locPopoverClose" aria-label="閉じる">×</button></div>
-        <button type="button" class="locate-cta" id="useMyLocationBtn">現在地から近い順にならべる</button>
-        <button type="button" class="locate-cta map-cta" id="openMapBtn">地図で範囲をえらぶ</button>
-        <p class="map-area-status" id="mapAreaStatus" hidden></p>
-        <!-- 会場・都県・地図の範囲はいずれも「場所の絞り込み」なので三者排他。 -->
-        <div class="venue-picker" id="venuePicker">
-          <p class="popover-sub" id="venuePickerLabel">会場でしぼる</p>
-          <label for="venueQ" class="sr-only" id="venueQLabel">会場名で検索</label>
-          <!-- type="text" にしてあるのは意図的。この入力欄は .controls の内側にあり、
+          <div class="popover-body" id="locPopoverBody" hidden>
+            <div class="popover-head">
+              <span>場所でしぼる</span
+              ><button
+                type="button"
+                class="popover-close"
+                id="locPopoverClose"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <button type="button" class="locate-cta" id="useMyLocationBtn">
+              現在地から近い順にならべる
+            </button>
+            <button type="button" class="locate-cta map-cta" id="openMapBtn">
+              地図で範囲をえらぶ
+            </button>
+            <p class="map-area-status" id="mapAreaStatus" hidden></p>
+            <!-- 会場・都県・地図の範囲はいずれも「場所の絞り込み」なので三者排他。 -->
+            <div class="venue-picker" id="venuePicker">
+              <p class="popover-sub" id="venuePickerLabel">会場でしぼる</p>
+              <label for="venueQ" class="sr-only" id="venueQLabel"
+                >会場名で検索</label
+              >
+              <!-- type="text" にしてあるのは意図的。この入力欄は .controls の内側にあり、
                type="search" だと操作バーが縮んだときの #q 用のルールを巻き添えで受ける。 -->
-          <input type="text" id="venueQ" class="venue-search" autocomplete="off" placeholder="会場名を入力">
-          <div class="venue-kinds" id="venueKinds"></div>
-          <div class="venue-list" id="venueList"></div>
-        </div>
-        <p class="popover-sub">または関東のエリアで絞り込む</p>
-        <div class="region-row" id="regionRow"></div>
-        <div class="locate-msg" id="locateMsg" aria-live="polite"></div>
-      </div>
+              <input
+                type="text"
+                id="venueQ"
+                class="venue-search"
+                autocomplete="off"
+                placeholder="会場名を入力"
+              />
+              <div class="venue-kinds" id="venueKinds"></div>
+              <div class="venue-list" id="venueList"></div>
+            </div>
+            <p class="popover-sub">または関東のエリアで絞り込む</p>
+            <div class="region-row" id="regionRow"></div>
+            <div class="locate-msg" id="locateMsg" aria-live="polite"></div>
+          </div>
 
-      <div class="popover-body" id="catPopoverBody" hidden>
-        <div class="popover-head"><span id="catPopoverTitle">絞り込み</span><button type="button" class="popover-close" id="catPopoverClose" aria-label="閉じる">×</button></div>
-        <!-- チップの並びはタブ宣言（assets/js/config.js）から組み立てる。
+          <div class="popover-body" id="catPopoverBody" hidden>
+            <div class="popover-head">
+              <span id="catPopoverTitle">絞り込み</span
+              ><button
+                type="button"
+                class="popover-close"
+                id="catPopoverClose"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+            <!-- チップの並びはタブ宣言（assets/js/config.js）から組み立てる。
              件数つきで描き、0件の選択肢は無効化する。 -->
-        <div id="catBody"></div>
+            <div id="catBody"></div>
+          </div>
+        </div>
+
+        <!-- いま効いている絞り込み。1タップで外せる。縮んだ操作バーでも消さない。 -->
+        <div
+          class="applied-bar"
+          id="appliedBar"
+          aria-label="適用中の絞り込み"
+          hidden
+        ></div>
+        <p class="result-count" id="resultCount" role="status"></p>
+      </div>
+    </div>
+    <div class="popover-backdrop" id="popoverBackdrop" hidden></div>
+
+    <noscript>
+      <p class="noscript-note">
+        このページはJavaScriptでデータを読み込んで一覧を組み立てています。ブラウザのJavaScriptを有効にしてから開きなおしてください。元データは
+        <a href="data/events.csv">data/events.csv</a>・<a href="data/movies.csv"
+          >data/movies.csv</a
+        >・<a href="data/lives.csv">data/lives.csv</a>
+        にCSVとして置いてあり、そのままダウンロードして表計算ソフトで開けます。
+      </p>
+    </noscript>
+
+    <!-- 表示中のタブだけが可視。<main> はページに1つだけ置き、その中にタブパネルを並べる。 -->
+    <main id="mainContent">
+      <div id="eventPane" role="tabpanel" aria-labelledby="tabEventBtn">
+        <div class="pane-main">
+          <h2 class="sr-only">本日・近日開催のイベント一覧</h2>
+          <div class="grid" id="list">
+            <div class="empty-state"><span class="big">読み込み中…</span></div>
+          </div>
+        </div>
+
+        <section class="directory" aria-label="イベント情報の調査元サイト">
+          <div class="directory-inner">
+            <h2>調べたサイト一覧</h2>
+            <p class="sub">
+              イベント情報の調査で確認した全<span id="dirCount">–</span
+              >サイト。掲載イベントがないサイトも、そのまま各サイトへ移動できます。
+            </p>
+            <div class="dir-grid" id="dirGrid"></div>
+          </div>
+        </section>
+
+        <footer aria-label="イベント情報の注記">
+          <p>
+            掲載イベントは各サイトの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。日程・料金・予約状況は変更される場合があるため、最新情報とご予約は各「予約する」ボタンの先でご確認ください。
+          </p>
+          <p>
+            申込の受付期間・締切は確認した時点のものです。<strong>締切は予告なく変わることがあります。</strong>締切間際のお申し込みは、必ず申込ページで最終確認をお願いします。
+          </p>
+          <p>
+            価格は調査時点のスナップショットです。割引・クーポンに適用条件（会員限定・曜日限定など）がある場合はカードに条件を併記していますが、最終的な金額は必ず予約画面でご確認ください。
+          </p>
+          <p>
+            会場の位置情報はおおよその代表地点です。「現在地から近い順」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。「行きたい」に登録した内容もこの端末の中だけに保存され、外部へは送信されません。
+          </p>
+          <p>
+            「地図で範囲をえらぶ」で表示する地図は
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              >OpenStreetMap</a
+            >
+            の地図タイルを利用しています（&copy; OpenStreetMap
+            contributors）。地図は初めて開いたときにだけ読み込まれ、円の中に入るかどうかの判定もこの端末上で行います。
+          </p>
+          <p>
+            本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。
+          </p>
+        </footer>
+      </div>
+
+      <div id="moviePane" role="tabpanel" aria-labelledby="tabMovieBtn" hidden>
+        <div class="pane-main">
+          <h2 class="sr-only">新作・上映中の映画一覧</h2>
+          <div class="grid" id="movieList"></div>
+        </div>
+
+        <section class="directory" aria-label="映画情報の調査元サイト">
+          <div class="directory-inner">
+            <h2>調べたサイト一覧</h2>
+            <p class="sub">
+              映画情報の調査で確認した全<span id="movieDirCount">–</span
+              >サイト。掲載作品がないサイトも、そのまま各サイトへ移動できます。
+            </p>
+            <div class="dir-grid" id="movieDirGrid"></div>
+          </div>
+        </section>
+
+        <footer aria-label="映画情報の注記">
+          <p>
+            掲載作品・上映情報は各劇場・配給会社・映画情報サイトの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。上映期間・料金・座席状況は変更される場合があるため、最新情報とご予約は各「上映情報を見る」ボタンの先でご確認ください。
+          </p>
+          <p>
+            前売り券（ムビチケ等）の販売期間は確認した時点のものです。<strong>公開日の前日で販売を終える券種が多く、劇場・作品によって異なります。</strong>購入前に必ず販売ページでご確認ください。
+          </p>
+          <p>
+            割引料金には適用条件（会員限定・特定の曜日・時間帯など）があるものが含まれます。条件はカードに併記していますが、条件を満たすかどうかは必ず劇場のページでご確認ください。
+          </p>
+          <p>
+            劇場・上映会場の位置情報はおおよその代表地点です（ドライブインシアター等の臨時会場を含む）。「現在地から近い映画館」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。
+          </p>
+          <p>
+            ポスター画像が登録されている作品は、各作品の公式サイト・配給会社サイト・映画情報サイトの画像を直接参照して表示します（画像ファイルの複製・保存は行っていません）。未登録の作品や画像を読み込めなかった場合は、プレースホルダーを表示します。
+          </p>
+          <p>
+            本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。
+          </p>
+        </footer>
+      </div>
+
+      <div id="livePane" role="tabpanel" aria-labelledby="tabLiveBtn" hidden>
+        <div class="pane-main">
+          <h2 class="sr-only">これから開催されるライブ・フェス一覧</h2>
+          <div class="grid" id="liveList"></div>
+        </div>
+
+        <section
+          class="directory"
+          aria-label="ライブ・フェス情報の調査元サイト"
+        >
+          <div class="directory-inner">
+            <h2>調べたサイト一覧</h2>
+            <p class="sub">
+              ライブ・フェス情報の調査で確認した全<span id="liveDirCount"
+                >–</span
+              >サイト。掲載公演がないサイトも、そのまま各サイトへ移動できます。
+            </p>
+            <div class="dir-grid" id="liveDirGrid"></div>
+          </div>
+        </section>
+
+        <footer aria-label="ライブ・フェス情報の注記">
+          <p>
+            掲載公演は各アーティスト・主催者の公式サイト、会場の公演スケジュール、正規プレイガイドの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。公演日時・出演者・チケットの受付状況は変更される場合があるため、最新情報とお申し込みは各「チケットを見る」ボタンの先でご確認ください。
+          </p>
+          <p>
+            チケットの受付期間・締切は確認した時点のものです。<strong>先行受付の締切は予告なく変わることがあり、また複数の受付が並行していることもあります。</strong>締切間際のお申し込みは、必ず販売ページで最終確認をお願いします。
+          </p>
+          <p>
+            掲載しているのは公式サイトおよび正規プレイガイドの販売ページのみで、二次流通・転売を仲介するサイトへは一切リンクしていません。完売した公演も「SOLD
+            OUT」と明示したうえで掲載しています（公式リセールや当日券の可能性があるためです）。
+          </p>
+          <p>
+            このコーナーではアーティスト写真・ツアーキービジュアル・フェスのポスター画像を表示していません。これらは権利者が第三者サイトへの転載および画像への直リンクを明示的に禁じている場合があるためで、カード上部には出演者名のみを掲載しています。
+          </p>
+          <p>
+            会場の位置情報はおおよその代表地点です。「現在地から近い順」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。
+          </p>
+          <p>
+            本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。
+          </p>
+        </footer>
+      </div>
+    </main>
+
+    <!-- 範囲えらび -->
+    <div
+      class="map-sheet"
+      id="mapSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mapSheetTitle"
+      hidden
+    >
+      <div class="map-sheet-inner">
+        <div class="map-sheet-head">
+          <h2 id="mapSheetTitle">地図で範囲をえらぶ</h2>
+          <button
+            type="button"
+            class="popover-close"
+            id="mapSheetClose"
+            aria-label="地図をとじる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="map-sheet-help" id="mapSheetHelp">
+          地図をドラッグして中心を決め、ピンチや ＋ −
+          ボタンで円の広さを変えられます。
+        </p>
+        <div class="map-canvas-wrap">
+          <div id="mapCanvas" class="map-canvas"></div>
+          <div class="map-ring" id="mapRing" aria-hidden="true" hidden>
+            <span class="ring-circle"></span>
+            <span class="ring-pin">
+              <svg
+                width="26"
+                height="34"
+                viewBox="0 0 26 34"
+                aria-hidden="true"
+              >
+                <path
+                  d="M13 1.5c-6 0-10.5 4.4-10.5 10.2C2.5 19.3 13 32.5 13 32.5S23.5 19.3 23.5 11.7C23.5 5.9 19 1.5 13 1.5z"
+                  fill="#B3566E"
+                  stroke="#33302B"
+                  stroke-width="2.5"
+                  stroke-linejoin="round"
+                />
+                <circle
+                  cx="13"
+                  cy="11.6"
+                  r="3.6"
+                  fill="#fff"
+                  stroke="#33302B"
+                  stroke-width="2"
+                />
+              </svg>
+            </span>
+          </div>
+          <p class="map-loading" id="mapLoading">地図を読み込んでいます…</p>
+        </div>
+        <div class="map-sheet-foot">
+          <div class="map-readout">
+            <span class="map-radius" id="mapRadiusText" aria-hidden="true"
+              >半径 –</span
+            >
+            <span class="map-hits" id="mapHitsText" aria-hidden="true"
+              >この範囲に <b>–</b> 件</span
+            >
+          </div>
+          <p
+            class="sr-only"
+            id="mapSrStatus"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <div class="map-actions">
+            <button type="button" class="map-btn" id="mapLocateBtn">
+              現在地へ
+            </button>
+            <button type="button" class="map-btn" id="mapClearBtn">
+              範囲を解除
+            </button>
+            <button type="button" class="map-btn primary" id="mapApplyBtn">
+              この範囲でしぼりこむ
+            </button>
+          </div>
+          <p class="map-note" id="mapNote" hidden></p>
+        </div>
       </div>
     </div>
 
-    <!-- いま効いている絞り込み。1タップで外せる。縮んだ操作バーでも消さない。 -->
-    <div class="applied-bar" id="appliedBar" aria-label="適用中の絞り込み" hidden></div>
-    <p class="result-count" id="resultCount" role="status"></p>
-  </div>
-</div>
-<div class="popover-backdrop" id="popoverBackdrop" hidden></div>
-
-<noscript>
-  <p class="noscript-note">このページはJavaScriptでデータを読み込んで一覧を組み立てています。ブラウザのJavaScriptを有効にしてから開きなおしてください。元データは <a href="data/events.csv">data/events.csv</a>・<a href="data/movies.csv">data/movies.csv</a>・<a href="data/lives.csv">data/lives.csv</a> にCSVとして置いてあり、そのままダウンロードして表計算ソフトで開けます。</p>
-</noscript>
-
-<!-- 表示中のタブだけが可視。<main> はページに1つだけ置き、その中にタブパネルを並べる。 -->
-<main id="mainContent">
-<div id="eventPane" role="tabpanel" aria-labelledby="tabEventBtn">
-<div class="pane-main">
-  <h2 class="sr-only">本日・近日開催のイベント一覧</h2>
-  <div class="grid" id="list"><div class="empty-state"><span class="big">読み込み中…</span></div></div>
-</div>
-
-<section class="directory" aria-label="イベント情報の調査元サイト">
-  <div class="directory-inner">
-    <h2>調べたサイト一覧</h2>
-    <p class="sub">イベント情報の調査で確認した全<span id="dirCount">–</span>サイト。掲載イベントがないサイトも、そのまま各サイトへ移動できます。</p>
-    <div class="dir-grid" id="dirGrid"></div>
-  </div>
-</section>
-
-<footer aria-label="イベント情報の注記">
-  <p>掲載イベントは各サイトの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。日程・料金・予約状況は変更される場合があるため、最新情報とご予約は各「予約する」ボタンの先でご確認ください。</p>
-  <p>申込の受付期間・締切は確認した時点のものです。<strong>締切は予告なく変わることがあります。</strong>締切間際のお申し込みは、必ず申込ページで最終確認をお願いします。</p>
-  <p>価格は調査時点のスナップショットです。割引・クーポンに適用条件（会員限定・曜日限定など）がある場合はカードに条件を併記していますが、最終的な金額は必ず予約画面でご確認ください。</p>
-  <p>会場の位置情報はおおよその代表地点です。「現在地から近い順」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。「行きたい」に登録した内容もこの端末の中だけに保存され、外部へは送信されません。</p>
-  <p>「地図で範囲をえらぶ」で表示する地図は <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> の地図タイルを利用しています（&copy; OpenStreetMap contributors）。地図は初めて開いたときにだけ読み込まれ、円の中に入るかどうかの判定もこの端末上で行います。</p>
-  <p>本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。</p>
-</footer>
-</div>
-
-<div id="moviePane" role="tabpanel" aria-labelledby="tabMovieBtn" hidden>
-<div class="pane-main">
-  <h2 class="sr-only">新作・上映中の映画一覧</h2>
-  <div class="grid" id="movieList"></div>
-</div>
-
-<section class="directory" aria-label="映画情報の調査元サイト">
-  <div class="directory-inner">
-    <h2>調べたサイト一覧</h2>
-    <p class="sub">映画情報の調査で確認した全<span id="movieDirCount">–</span>サイト。掲載作品がないサイトも、そのまま各サイトへ移動できます。</p>
-    <div class="dir-grid" id="movieDirGrid"></div>
-  </div>
-</section>
-
-<footer aria-label="映画情報の注記">
-  <p>掲載作品・上映情報は各劇場・配給会社・映画情報サイトの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。上映期間・料金・座席状況は変更される場合があるため、最新情報とご予約は各「上映情報を見る」ボタンの先でご確認ください。</p>
-  <p>前売り券（ムビチケ等）の販売期間は確認した時点のものです。<strong>公開日の前日で販売を終える券種が多く、劇場・作品によって異なります。</strong>購入前に必ず販売ページでご確認ください。</p>
-  <p>割引料金には適用条件（会員限定・特定の曜日・時間帯など）があるものが含まれます。条件はカードに併記していますが、条件を満たすかどうかは必ず劇場のページでご確認ください。</p>
-  <p>劇場・上映会場の位置情報はおおよその代表地点です（ドライブインシアター等の臨時会場を含む）。「現在地から近い映画館」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。</p>
-  <p>ポスター画像が登録されている作品は、各作品の公式サイト・配給会社サイト・映画情報サイトの画像を直接参照して表示します（画像ファイルの複製・保存は行っていません）。未登録の作品や画像を読み込めなかった場合は、プレースホルダーを表示します。</p>
-  <p>本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。</p>
-</footer>
-</div>
-
-<div id="livePane" role="tabpanel" aria-labelledby="tabLiveBtn" hidden>
-<div class="pane-main">
-  <h2 class="sr-only">これから開催されるライブ・フェス一覧</h2>
-  <div class="grid" id="liveList"></div>
-</div>
-
-<section class="directory" aria-label="ライブ・フェス情報の調査元サイト">
-  <div class="directory-inner">
-    <h2>調べたサイト一覧</h2>
-    <p class="sub">ライブ・フェス情報の調査で確認した全<span id="liveDirCount">–</span>サイト。掲載公演がないサイトも、そのまま各サイトへ移動できます。</p>
-    <div class="dir-grid" id="liveDirGrid"></div>
-  </div>
-</section>
-
-<footer aria-label="ライブ・フェス情報の注記">
-  <p>掲載公演は各アーティスト・主催者の公式サイト、会場の公演スケジュール、正規プレイガイドの公開情報をもとに、手作業で抜粋・要約したものです（自動取得・リアルタイム更新ではありません）。公演日時・出演者・チケットの受付状況は変更される場合があるため、最新情報とお申し込みは各「チケットを見る」ボタンの先でご確認ください。</p>
-  <p>チケットの受付期間・締切は確認した時点のものです。<strong>先行受付の締切は予告なく変わることがあり、また複数の受付が並行していることもあります。</strong>締切間際のお申し込みは、必ず販売ページで最終確認をお願いします。</p>
-  <p>掲載しているのは公式サイトおよび正規プレイガイドの販売ページのみで、二次流通・転売を仲介するサイトへは一切リンクしていません。完売した公演も「SOLD OUT」と明示したうえで掲載しています（公式リセールや当日券の可能性があるためです）。</p>
-  <p>このコーナーではアーティスト写真・ツアーキービジュアル・フェスのポスター画像を表示していません。これらは権利者が第三者サイトへの転載および画像への直リンクを明示的に禁じている場合があるためで、カード上部には出演者名のみを掲載しています。</p>
-  <p>会場の位置情報はおおよその代表地点です。「現在地から近い順」機能はブラウザの位置情報を使い、この端末上だけで距離を計算します（外部送信はありません）。</p>
-  <p>本ページはこの会話内での調査結果をもとに構成した試作ダッシュボードです。</p>
-</footer>
-</div>
-</main>
-
-<!-- 範囲えらび -->
-<div class="map-sheet" id="mapSheet" role="dialog" aria-modal="true" aria-labelledby="mapSheetTitle" hidden>
-  <div class="map-sheet-inner">
-    <div class="map-sheet-head">
-      <h2 id="mapSheetTitle">地図で範囲をえらぶ</h2>
-      <button type="button" class="popover-close" id="mapSheetClose" aria-label="地図をとじる">×</button>
-    </div>
-    <p class="map-sheet-help" id="mapSheetHelp">地図をドラッグして中心を決め、ピンチや ＋ − ボタンで円の広さを変えられます。</p>
-    <div class="map-canvas-wrap">
-      <div id="mapCanvas" class="map-canvas"></div>
-      <div class="map-ring" id="mapRing" aria-hidden="true" hidden>
-        <span class="ring-circle"></span>
-        <span class="ring-pin">
-          <svg width="26" height="34" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 1.5c-6 0-10.5 4.4-10.5 10.2C2.5 19.3 13 32.5 13 32.5S23.5 19.3 23.5 11.7C23.5 5.9 19 1.5 13 1.5z" fill="#B3566E" stroke="#33302B" stroke-width="2.5" stroke-linejoin="round"/><circle cx="13" cy="11.6" r="3.6" fill="#fff" stroke="#33302B" stroke-width="2"/></svg>
-        </span>
+    <!-- 会場シート（会場・劇場チェーンの場所と、そこでのこれからの予定） -->
+    <div
+      class="map-sheet"
+      id="placeSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="placeSheetTitle"
+      hidden
+    >
+      <div class="map-sheet-inner">
+        <div class="map-sheet-head">
+          <h2 id="placeSheetTitle">会場</h2>
+          <button
+            type="button"
+            class="popover-close"
+            id="placeSheetClose"
+            aria-label="とじる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="map-sheet-help" id="placeSheetHelp"></p>
+        <div class="map-canvas-wrap">
+          <div id="placeMapCanvas" class="map-canvas"></div>
+          <p class="map-loading" id="placeMapLoading">
+            地図を読み込んでいます…
+          </p>
+        </div>
+        <div class="venue-info" id="placeInfo" hidden></div>
       </div>
-      <p class="map-loading" id="mapLoading">地図を読み込んでいます…</p>
     </div>
-    <div class="map-sheet-foot">
-      <div class="map-readout">
-        <span class="map-radius" id="mapRadiusText" aria-hidden="true">半径 –</span>
-        <span class="map-hits" id="mapHitsText" aria-hidden="true">この範囲に <b>–</b> 件</span>
-      </div>
-      <p class="sr-only" id="mapSrStatus" role="status" aria-live="polite"></p>
-      <div class="map-actions">
-        <button type="button" class="map-btn" id="mapLocateBtn">現在地へ</button>
-        <button type="button" class="map-btn" id="mapClearBtn">範囲を解除</button>
-        <button type="button" class="map-btn primary" id="mapApplyBtn">この範囲でしぼりこむ</button>
-      </div>
-      <p class="map-note" id="mapNote" hidden></p>
-    </div>
-  </div>
-</div>
 
-<!-- 会場シート（会場・劇場チェーンの場所と、そこでのこれからの予定） -->
-<div class="map-sheet" id="placeSheet" role="dialog" aria-modal="true" aria-labelledby="placeSheetTitle" hidden>
-  <div class="map-sheet-inner">
-    <div class="map-sheet-head">
-      <h2 id="placeSheetTitle">会場</h2>
-      <button type="button" class="popover-close" id="placeSheetClose" aria-label="とじる">×</button>
-    </div>
-    <p class="map-sheet-help" id="placeSheetHelp"></p>
-    <div class="map-canvas-wrap">
-      <div id="placeMapCanvas" class="map-canvas"></div>
-      <p class="map-loading" id="placeMapLoading">地図を読み込んでいます…</p>
-    </div>
-    <div class="venue-info" id="placeInfo" hidden></div>
-  </div>
-</div>
+    <p class="toast" id="toast" role="status" aria-live="polite"></p>
 
-<p class="toast" id="toast" role="status" aria-live="polite"></p>
-
-<!-- Service Worker が新しい版を用意したとき。押させずに自動で入れ替える。
+    <!-- Service Worker が新しい版を用意したとき。押させずに自動で入れ替える。
      絞り込みの状態はURLに載っているので、読み直しても条件とタブは保たれる。 -->
-<div class="update-overlay" id="updateOverlay" role="status" aria-live="polite" hidden>
-  <div class="update-overlay-inner">
-    <span class="update-spinner" aria-hidden="true"></span>
-    <p>新しい情報に更新しています…</p>
-  </div>
-</div>
-
-</body>
+    <div
+      class="update-overlay"
+      id="updateOverlay"
+      role="status"
+      aria-live="polite"
+      hidden
+    >
+      <div class="update-overlay-inner">
+        <span class="update-spinner" aria-hidden="true"></span>
+        <p>新しい情報に更新しています…</p>
+      </div>
+    </div>
+  </body>
 </html>
