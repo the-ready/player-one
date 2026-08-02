@@ -82,6 +82,7 @@ let mapReturnFocus = null;
 export function initMapSheet() {
   el.sheet = document.getElementById("mapSheet");
   el.ring = document.getElementById("mapRing");
+  el.popup = document.getElementById("mapPopup");
   el.loading = document.getElementById("mapLoading");
   el.radius = document.getElementById("mapRadiusText");
   el.hits = document.getElementById("mapHitsText");
@@ -101,10 +102,18 @@ export function initMapSheet() {
   el.sheet.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      closeMapSheet();
+      // 吹き出しが開いていれば、まずそれだけを閉じる（シートはそのまま）。
+      if (popupItem) closeMarkerPopup();
+      else closeMapSheet();
       return;
     }
     trapTab(el.sheet, e);
+  });
+  // 吹き出し内の「このイベントへ飛ぶ」ボタン。DOMを1つだけ持ち回すので、
+  // Leaflet標準popupのように開くたびリスナーを張り直す必要がない。
+  el.popup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".popup-goto-item");
+    if (btn) gotoItemFromMap(btn.dataset.key);
   });
 
   el.apply.addEventListener("click", () => {
@@ -221,6 +230,33 @@ function gotoItemFromMap(key) {
   );
 }
 
+/* ---- ピンの吹き出し（.map-ringと同じく地図の外側に持つ自前のポップアップ） ---- */
+
+let popupItem = null; // 開いている吹き出しの対象。無ければ null
+
+function openMarkerPopup(it) {
+  popupItem = it;
+  const place = [venueNames(it).join("・"), it.area].filter(Boolean).join("／");
+  const d = liveArea
+    ? haversineKm(liveArea.lat, liveArea.lng, it.lat, it.lng).toFixed(1) + "km"
+    : "";
+  el.popup.innerHTML = `<button type="button" class="popup-goto-item" data-key="${esc(it.key)}">${esc(it.title)}</button><br>${esc(place)}<br>${esc(it.date || "")}${d ? `<br>中心から ${d}` : ""}`;
+  el.popup.hidden = false;
+  positionPopup();
+}
+function closeMarkerPopup() {
+  popupItem = null;
+  el.popup.hidden = true;
+}
+// 開いている吹き出しを、いまのピンの画面座標に合わせ直す。
+// ドラッグ・ズームのたびに呼べば、地図の動きに吹き出しが追従する。
+function positionPopup() {
+  if (!popupItem || !map) return;
+  const p = map.latLngToContainerPoint([popupItem.lat, popupItem.lng]);
+  el.popup.style.left = `${p.x}px`;
+  el.popup.style.top = `${p.y}px`;
+}
+
 function refreshMarkers() {
   if (!markerLayer || !liveArea) return;
   markerLayer.clearLayers();
@@ -230,10 +266,6 @@ function refreshMarkers() {
     if (it.lat == null || it.lng == null) return;
     if (!matchesBaseFilters(tab, st, it)) return;
     const inside = withinArea(it, liveArea);
-    const d = haversineKm(liveArea.lat, liveArea.lng, it.lat, it.lng);
-    const place = [venueNames(it).join("・"), it.area]
-      .filter(Boolean)
-      .join("／");
     L.circleMarker([it.lat, it.lng], {
       radius: inside ? 6 : 4,
       weight: inside ? 2 : 1.5,
@@ -241,9 +273,10 @@ function refreshMarkers() {
       fillColor: inside ? "#B3566E" : "#FFFFFF",
       fillOpacity: inside ? 0.95 : 0.55,
     })
-      .bindPopup(
-        `<button type="button" class="popup-goto-item" data-key="${esc(it.key)}">${esc(it.title)}</button><br>${esc(place)}<br>${esc(it.date || "")}<br>中心から ${d.toFixed(1)}km`,
-      )
+      .on("click", (e) => {
+        L.DomEvent.stopPropagation(e); // マーカーのクリックを地図本体のクリックにしない
+        openMarkerPopup(it);
+      })
       .addTo(markerLayer);
   });
 }
@@ -258,6 +291,7 @@ function scheduleLive() {
     const c = map.getCenter();
     liveArea = { lat: c.lat, lng: c.lng, radiusKm: currentRadiusKm() };
     updateReadout(false);
+    positionPopup(); // ドラッグ・ズーム中も吹き出しをピンに追従させる
   });
 }
 function settleMap() {
@@ -267,6 +301,7 @@ function settleMap() {
   lastView = { center: [c.lat, c.lng], zoom: map.getZoom() };
   updateReadout(true);
   refreshMarkers();
+  positionPopup();
 }
 
 function startView() {
@@ -300,23 +335,7 @@ function initMap() {
     markerLayer = L.layerGroup().addTo(map);
     map.on("move zoom", scheduleLive);
     map.on("moveend zoomend", settleMap);
-    // 吹き出し（.leaflet-popup-pane）は .map-ring と兄弟要素の関係にあり、
-    // ring 側の z-index が勝つと吹き出しが点線の下に隠れてしまうため、
-    // 開いている間だけ .map-canvas を ring より前面に出す（app.css参照）。
-    map.on("popupopen", () =>
-      map.getContainer().classList.add("has-open-popup"),
-    );
-    map.on("popupclose", () =>
-      map.getContainer().classList.remove("has-open-popup"),
-    );
-    // 吹き出し内の「このイベントへ飛ぶ」ボタン。Leafletは吹き出しの中身を
-    // クリックしても背面の地図クリックとして扱わないようpropagationを止めて
-    // いるため、外側の要素へのイベント委譲では拾えない。開くたびに直接束ねる。
-    map.on("popupopen", (e) => {
-      const btn = e.popup.getElement()?.querySelector(".popup-goto-item");
-      if (btn)
-        btn.addEventListener("click", () => gotoItemFromMap(btn.dataset.key));
-    });
+    map.on("click", closeMarkerPopup); // ピン以外（地図の背景）を押したら吹き出しを閉じる
   }
   el.loading.hidden = true;
   el.ring.hidden = false;
@@ -360,10 +379,7 @@ export function openMapSheet() {
 }
 
 export function closeMapSheet() {
-  // シートごと閉じるときにピンの吹き出しが開いたままだと、popupcloseが発火せず
-  // has-open-popup が残ったままになる。次に開いたときに古い状態を持ち越さない
-  // よう、ここで明示的に閉じる。
-  map?.closePopup();
+  closeMarkerPopup(); // シートごと閉じるときに吹き出しも一緒に閉じる
   el.sheet.hidden = true;
   document.body.style.overflow = "";
   setBackgroundInert(false, [document.querySelector(".controls")]);
