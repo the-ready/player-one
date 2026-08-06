@@ -26,7 +26,8 @@ log "SCRIPT_DIR  = $SCRIPT_DIR"
 log "PROJECT_DIR = $PROJECT_DIR"
 log "LOG_FILE    = $LOG_FILE"
 
-source ~/.bashrc
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
 # --- 依存コマンドの確認 ---
 if ! command -v claude >/dev/null 2>&1; then
