@@ -135,13 +135,8 @@ def parse_jsonl(raw):
 
 # ---------------------------------------------------------------- carryover
 
-def build_prev_index(name, headers):
-    """(uid→行, 会場名→会場の事実) を作る。前回データが無ければ空。"""
-    rows, _ = prevmod.load_prev(name)
-    by_uid, by_place = {}, {}
-    place_col = "theater" if name == "movies.csv" else "venue"
+def _fold_places(rows, headers, by_place, place_col):
     for r in rows:
-        by_uid[row_uid(name, r)] = r
         place = (r.get(place_col) or "").strip()
         if not place:
             continue
@@ -149,6 +144,25 @@ def build_prev_index(name, headers):
         for col in VENUE_FACTS:
             if col in headers and (r.get(col) or "").strip() and col not in slot:
                 slot[col] = r[col].strip()
+
+
+def build_prev_index(name, headers, current_path=None):
+    """(uid→行, 会場名→会場の事実) を作る。前回データが無ければ空。"""
+    rows, _ = prevmod.load_prev(name)
+    by_uid, by_place = {}, {}
+    place_col = "theater" if name == "movies.csv" else "venue"
+    for r in rows:
+        by_uid[row_uid(name, r)] = r
+    _fold_places(rows, headers, by_place, place_col)
+
+    # 今回このセッションで既に書いた行からも、会場の事実を引けるようにする。
+    # 名簿にも前回にも無い新しい会場では、1公演目で調べた駐車場・最寄り駅を
+    # 2公演目以降に書き写す作業が発生していた。会場の属性なのだから、
+    # 同じ会場の行が既にCSVにあるなら、そこから引けばよい。
+    if current_path and os.path.exists(current_path):
+        with open(current_path, newline="", encoding="utf-8") as f:
+            _fold_places(list(csv.DictReader(f)), headers, by_place, place_col)
+
     return by_uid, by_place
 
 
@@ -232,7 +246,7 @@ def main():
         if unknown:
             print(f"WARNING: {i}件目に {name} にない列があります（無視します）: {unknown}", file=sys.stderr)
 
-    by_uid, by_place = build_prev_index(name, headers)
+    by_uid, by_place = build_prev_index(name, headers, current_path=path)
     filled, misses = apply_carryover(name, headers, records, by_uid, by_place)
 
     start_id = read_last_id(path) + 1

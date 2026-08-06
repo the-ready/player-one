@@ -48,6 +48,9 @@
 
     # いま調べるべき先を出す（retired と休館中を除いた一覧）
     python3 tools/roster.py spots --list --pref tokyo
+
+    # 調査先を「名前とURL」で出す（検索せずに直接開くため）
+    python3 tools/roster.py spots --list --pref tokyo --urls
 """
 
 import argparse
@@ -228,7 +231,9 @@ def do_list(rows, key, args, today):
             continue
         if args.pref and (r.get("pref") or "") != args.pref:
             continue
-        if args.kind and (r.get("kind") or "") != args.kind:
+        # theaters.csv は kind を持たず chain が種別にあたる。表示側が
+        # kind or chain を出しているので、絞り込みも同じ列で引けるようにする。
+        if args.kind and (r.get("kind") or r.get("chain") or "") != args.kind:
             continue
         closed = _date(r.get("closed_until"))
         if closed and closed > today and not args.all:
@@ -254,6 +259,8 @@ def main():
     p.add_argument("--pref", help="--list を都県で絞る")
     p.add_argument("--kind", help="--list を種別で絞る")
     p.add_argument("--all", action="store_true", help="--list に retired・休館中も含める")
+    p.add_argument("--urls", action="store_true",
+                   help="--list にURLも出す（検索せずに直接開くため）")
     p.add_argument("--today", help="基準日 YYYY-MM-DD（試験用）")
     args = p.parse_args()
 
@@ -328,8 +335,19 @@ def main():
         hits = do_list(rows, key, args, today)
         for r in hits:
             extra = f" [{r.get('status')}]" if (r.get("status") or "active") != "active" else ""
-            print(f"{r[key]}\t{r.get('kind') or r.get('chain') or ''}\t{r.get('pref','')}{extra}")
-        print(f"# {len(hits)}件", file=sys.stderr)
+            cols = [r[key], r.get("kind") or r.get("chain") or "", r.get("pref", "") + extra]
+            if args.urls:
+                # URLを知っている調査先は、検索せずに直接開ける。
+                # 検索回数はセッションあたりの有限資源なので、
+                # 「知っているURLを検索し直す」のが最も無自覚に消える分になる。
+                cols.append(r.get("url") or "-")
+            print("\t".join(cols))
+        if args.urls:
+            missing = sum(1 for r in hits if not (r.get("url") or "").strip())
+            print(f"# {len(hits)}件（うちURL不明 {missing}件＝この分だけ検索が要る）",
+                  file=sys.stderr)
+        else:
+            print(f"# {len(hits)}件", file=sys.stderr)
 
     if not dirty and not args.list:
         p.print_help()
