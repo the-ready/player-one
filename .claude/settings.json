@@ -2,8 +2,7 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "Edit(data/**)",
-      "Write(data/**)"
+      "Edit(data/**)"
     ],
     "deny": [
       "Bash(rm:*)",
@@ -13,12 +12,16 @@
     ]
   },
   "hooks": {
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
-      }]
-    }]
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
+          }
+        ]
+      }
+    ]
   }
 }
