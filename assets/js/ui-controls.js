@@ -33,12 +33,21 @@ export function initControls() {
   el.q.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && el.controls.classList.contains("search-open")) {
       e.preventDefault();
+      // 閉じるならフォーカスも手放す。入力欄に居座ったままだと、
+      // 縮んだバーの中で表示だけ消えた入力欄にフォーカスが残ってしまう。
+      el.q.blur();
       closeSearch();
     }
   });
-  el.q.addEventListener("blur", () => {
-    if (!el.q.value) closeSearch();
-  });
+  // 入力欄に触れて開いた場合も「開いている」状態にする。虫めがね経由でないと
+  // search-open が付かないままだったため、直後に compact が付くと
+  // .controls.compact .search-row（display:none）で入力欄ごと消えていた。
+  el.q.addEventListener("focus", openSearch);
+  // 手を離したら閉じる。入力が残っていても開いたままにはしない。開いたまま
+  // スクロールで縮むと .controls.compact.search-open が日程・エリア・絞り込みを
+  // visibility:hidden で隠してしまう。入力した語は「絞り込み中」のチップに
+  // 出ているので、閉じても何で絞ったかは分かる。
+  el.q.addEventListener("blur", closeSearch);
 
   el.toggle.addEventListener("click", openSearch);
 
@@ -162,14 +171,20 @@ export function syncSearchForTab() {
 /* ---------- スクロール時の縮小 ----------
    監視は常に登録する。以前は prefers-reduced-motion のときリスナごと付けて
    いなかったため、バーの縮小だけでなく「スクロールしたらポップアップを閉じる」も
-   効かなくなっていた。動きを減らすのは compact の付け外しだけに限定する。 */
+   効かなくなっていた。動きを減らすのは compact の付け外しだけに限定する。
+
+   入力中はバーの形を変えない。スマホで検索欄をタップするとキーボードが上がり、
+   端末が入力欄を見せようとしてページを勝手に下へ送る。その動きを「ユーザーが
+   下スクロールした」と読んで compact を付けてしまうと、狭い画面では
+   .controls.compact .search-row が display:none になり、入力欄ごと消えて
+   フォーカスが外れる（＝キーボードが一瞬で引っ込む）。 */
 function initScroll() {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let lastY = window.scrollY,
     ticking = false;
   const onScroll = () => {
     const y = window.scrollY;
-    if (!reduced) {
+    if (!reduced && document.activeElement !== el.q) {
       if (y < 32) el.controls.classList.remove("compact");
       else if (y > lastY + 2) el.controls.classList.add("compact");
       else if (y < lastY - 2) el.controls.classList.remove("compact");
