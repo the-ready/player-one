@@ -426,21 +426,32 @@ input[type="search"]:focus-visible {
   .controls.compact .search-row {
     display: none;
   }
+  /* 開いている間は横1行に詰め込まず、検索欄を上・ボタンを下に積む。
+     以前は検索欄を絶対配置でバーに重ね、下敷きになる日程・エリア・絞り込みを
+     visibility:hidden で隠していた。開いているあいだずっとボタンが消えるため、
+     検索したあとそのまま絞り込みへ進めなくなっていた。 */
+  .controls.compact.search-open .controls-flex {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
   .controls.compact.search-open .search-row {
     display: flex;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    z-index: 40;
+    order: 1;
+    margin-bottom: 0.45rem;
+  }
+  .controls.compact.search-open .control-row {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  /* 入力欄が出ているあいだは虫めがねは要らない */
+  .controls.compact.search-open .search-toggle {
+    display: none;
   }
   .controls.compact.search-open input[type="search"] {
     min-height: 38px;
     font-size: 16px;
     border-width: 2px;
-  }
-  .controls.compact.search-open .control-row {
-    visibility: hidden;
   }
 }
 .control-row {

@@ -43,11 +43,11 @@ export function initControls() {
   // search-open が付かないままだったため、直後に compact が付くと
   // .controls.compact .search-row（display:none）で入力欄ごと消えていた。
   el.q.addEventListener("focus", openSearch);
-  // 手を離したら閉じる。入力が残っていても開いたままにはしない。開いたまま
-  // スクロールで縮むと .controls.compact.search-open が日程・エリア・絞り込みを
-  // visibility:hidden で隠してしまう。入力した語は「絞り込み中」のチップに
-  // 出ているので、閉じても何で絞ったかは分かる。
-  el.q.addEventListener("blur", closeSearch);
+  // 入力が残っているあいだは開いたままにして、何で検索したかを見えるようにする。
+  // 開いたまま縮んでも、いまは検索欄とボタンが縦に積まれるだけで何も隠れない。
+  el.q.addEventListener("blur", () => {
+    if (!el.q.value) closeSearch();
+  });
 
   el.toggle.addEventListener("click", openSearch);
 
