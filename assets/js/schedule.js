@@ -100,14 +100,20 @@ function daysBetween(from, to) {
  * 「8.10・11・14・16 開催」の8.12に「開催中」と出すのは、その日に行ける人を
  * 空振りさせる嘘なので、開催日でない日は gap（本日は休み）として分ける。
  *
- * 予備日（`backupDate`）は判定に入れない。本開催で終われば使われない日であり、
- * 「順延されたかどうか」を画面は知らないため、先回りして会期を延ばさない。
+ * 予備日（`backupDate`）は会期を延ばさない。本開催が成立すれば使われずに終わる日
+ * だからである。ただし**予備日当日だけは別扱い**にする：本開催が流れていれば今日
+ * やる日なのに、会期を過ぎたという理由だけで「終了」と出すのは、その日に行ける人に
+ * 対して早すぎる。順延されたかどうかを画面は知らないので、「今日は予備日である」と
+ * いう確かな事実だけを出して、あとは公式サイトに委ねる。
  */
 export function schedulePhase(it, ref = TODAY()) {
   const days = it.dates && it.dates.length ? it.dates : null;
   const s = days ? days[0] : it.startDate;
   const e = days ? days[days.length - 1] : it.endDate;
   if (!s && !e) return null;
+  // 予備日は会期の外にしか置けない（validate_data.py が中にある行を止める）ので、
+  // 会期との前後関係を見るより先に決めてよい。
+  if ((it.backupDate || []).includes(ref)) return "backup";
   if (e && e < ref) return "ended";
   if (s && s > ref) {
     const d = daysBetween(ref, s);

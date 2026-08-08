@@ -102,6 +102,11 @@ function matchesQuery(st, it) {
 
 function matchesDate(st, it) {
   if (!(st.rangeStart && st.rangeEnd)) return true;
+  // 予備日は会期の外にあるが、その日に開催されうる日ではある。
+  // バッジが「本日予備日」と言っているのに、日程で今日を選ぶと消える——
+  // という食い違いを作らないよう、ここでも拾う。
+  if ((it.backupDate || []).some((d) => d >= st.rangeStart && d <= st.rangeEnd))
+    return true;
   // 飛び日程の行は、会期の端ではなく**実際にやっている日**で判定する。
   // 「8.10・11・14・16 開催」を8.12で絞った人に出すのは、その日に行けると
   // 言っているのと同じで、開催状況のバッジ（本日は休み）とも食い違う。
@@ -175,8 +180,16 @@ export function effectiveDate(st, it) {
    CSVが1週間古いだけでも終わった催しが一覧に混じるようになった（以前は
    収集した日の判定が書き置かれていたので、古いデータでも「開催中」に見えていた）。
    終わったことを隠すのではなく、**現役の下に置いて、終了バッジを付けて出す**。
-   隠すのは「載っていない」と「終わった」の区別を利用者から奪う。 */
-const hasEnded = (it) => !!(it.endDate && it.endDate < TODAY());
+   隠すのは「載っていない」と「終わった」の区別を利用者から奪う。
+
+   予備日がまだ残っている行は、会期を過ぎていても終わったことにしない
+   （本開催が流れていればその日にやる。schedule.js の backup 段階と同じ理由）。 */
+const hasEnded = (it) =>
+  !!(
+    it.endDate &&
+    it.endDate < TODAY() &&
+    !(it.backupDate || []).some((d) => d >= TODAY())
+  );
 
 export function byDateThenRank(st) {
   return (a, b) => {

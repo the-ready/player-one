@@ -65,6 +65,7 @@ export const LIVE_TYPES = {
    「いま行ける順」に並べておくこと。ラベルは schedule.js が日付から毎回選ぶ。 */
 export const EVENT_STATUS_STYLE = {
   本日まで: { c: "#fff", bg: "var(--coral)" },
+  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
   本日は休み: { c: "var(--ink)", bg: "var(--sunny-tint)" },
@@ -74,6 +75,7 @@ export const EVENT_STATUS_STYLE = {
 };
 export const MOVIE_STATUS_STYLE = {
   本日が最終上映: { c: "#fff", bg: "var(--coral)" },
+  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
   まもなく公開: { c: "#fff", bg: "var(--sunny)" },
   上映中: { c: "#fff", bg: "var(--grape)" },
   本日は上映なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
@@ -82,6 +84,7 @@ export const MOVIE_STATUS_STYLE = {
 };
 export const LIVE_STATUS_STYLE = {
   本日開催: { c: "#fff", bg: "var(--coral)" },
+  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
   本日は公演なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
@@ -94,6 +97,7 @@ export const LIVE_STATUS_STYLE = {
    画面に出るので、データを差し替えなくても日付をまたげば表示が変わる。
 
      ended   … 終了日を過ぎた
+     backup  … 今日が予備日（本開催が流れていれば今日やる）
      last    … 今日が最終日（単日開催なら「今日」そのもの）
      opening … 今日が初日で、まだ続く
      ongoing … 会期の途中
@@ -104,6 +108,7 @@ export const LIVE_STATUS_STYLE = {
 export const STATUS_BY_PHASE = {
   event: {
     ended: "終了",
+    backup: "本日予備日",
     last: "本日まで",
     opening: "開催中",
     ongoing: "開催中",
@@ -114,6 +119,7 @@ export const STATUS_BY_PHASE = {
   },
   movie: {
     ended: "上映終了",
+    backup: "本日予備日",
     last: "本日が最終上映",
     opening: "上映中",
     ongoing: "上映中",
@@ -125,6 +131,7 @@ export const STATUS_BY_PHASE = {
   // 複数日開催のフェスは初日と最終日を「本日開催」、中日を「開催中」と呼び分ける。
   live: {
     ended: "終了",
+    backup: "本日予備日",
     last: "本日開催",
     opening: "本日開催",
     ongoing: "開催中",
