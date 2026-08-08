@@ -95,10 +95,18 @@ function daysBetween(from, to) {
  * 判定は日付の単位で行う。開演時刻を持っている行でも「開演を過ぎたら終了」とは
  * しない：終演時刻はほとんどの行で未登録で、公演中も物販も続いているのに
  * 「終了」と出すほうが、当日の来場者にとっては有害なため。
+ *
+ * 飛び日程（`dates`）を持つ行では、会期の端ではなく**実際の開催日**で判定する。
+ * 「8.10・11・14・16 開催」の8.12に「開催中」と出すのは、その日に行ける人を
+ * 空振りさせる嘘なので、開催日でない日は gap（本日は休み）として分ける。
+ *
+ * 予備日（`backupDate`）は判定に入れない。本開催で終われば使われない日であり、
+ * 「順延されたかどうか」を画面は知らないため、先回りして会期を延ばさない。
  */
 export function schedulePhase(it, ref = TODAY()) {
-  const s = it.startDate,
-    e = it.endDate;
+  const days = it.dates && it.dates.length ? it.dates : null;
+  const s = days ? days[0] : it.startDate;
+  const e = days ? days[days.length - 1] : it.endDate;
   if (!s && !e) return null;
   if (e && e < ref) return "ended";
   if (s && s > ref) {
@@ -106,9 +114,17 @@ export function schedulePhase(it, ref = TODAY()) {
     return d != null && d <= SOON_DAYS ? "soon" : "far";
   }
   if (!e) return "openrun"; // 始まっているが終了日が未定
+  if (days && !days.includes(ref)) return "gap";
   if (e === ref) return "last";
   if (s === ref) return "opening";
   return "ongoing";
+}
+
+/** 飛び日程の行で、今日を含めて次に開催される日。無ければ null。 */
+export function nextOpenDay(it, ref = TODAY()) {
+  const days = it.dates && it.dates.length ? it.dates : null;
+  if (!days) return null;
+  return days.find((d) => d >= ref) || null;
 }
 
 /**

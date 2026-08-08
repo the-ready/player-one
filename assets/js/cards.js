@@ -8,6 +8,7 @@ import {
   safeUrl,
   highlight,
   fmtDateWd,
+  fmtDateWdShort,
   fmtWhen,
   haversineKm,
 } from "./util.js";
@@ -30,6 +31,7 @@ import {
   seriesSiblings,
   seriesHighlights,
 } from "./filters.js";
+import { schedulePhase, nextOpenDay } from "./schedule.js";
 import { isFav } from "./state.js";
 
 /* ---------- 小さな部品 ---------- */
@@ -281,6 +283,35 @@ function venueDetailHtml(it) {
   return rows.length ? `<p class="venue-detail">${rows.join("")}</p>` : "";
 }
 
+/* 日程の補足（予備日・次の開催日）。カード表面の日付欄ではなく「くわしく」に置く。
+
+   予備日を日付欄に出さないのは、**多くの場合それが使われずに終わる日**だからである。
+   「2026.8.8(土)（予備日8.9）」と並べて書くと、本開催の日付と同じ強さで目に入り、
+   8/9も何かある日のように読める。予備日が意味を持つのは荒天のときだけで、そのときは
+   利用者はどのみち公式サイトを見に行く。カードの一等地は「いつ行くか」に使う。 */
+function scheduleDetailHtml(it) {
+  const rows = [];
+  const next = schedulePhase(it) === "gap" ? nextOpenDay(it) : null;
+  if (next)
+    rows.push(
+      `<span class="vd-row"><span class="vd-label">次の開催</span>${esc(fmtDateWd(next))}</span>`,
+    );
+  const backup = it.backupDate || [];
+  if (backup.length) {
+    const txt = backup
+      .map((d, i) =>
+        i === 0 ? fmtDateWd(d) : fmtDateWdShort(d, backup[i - 1]),
+      )
+      .filter(Boolean)
+      .join("・");
+    if (txt)
+      rows.push(
+        `<span class="vd-row"><span class="vd-label">予備日</span>${esc(txt)}（荒天などで順延された場合）</span>`,
+      );
+  }
+  return rows.length ? `<p class="fact-list">${rows.join("")}</p>` : "";
+}
+
 /* ライブ・フェスのメインアーティストの Apple Music アーティストページへのリンク。
    appleMusicUrl は events.csv / movies.csv には列が無く常に undefined → safeUrl(undefined) は
    null になるため、tab を判定しなくてもライブ以外では自然に何も出ない。 */
@@ -424,6 +455,7 @@ export function cardHtml(tab, it, st, terms) {
 
   const detailBody = [
     it.desc ? `<p class="desc-body">${highlight(it.desc, terms)}</p>` : "",
+    scheduleDetailHtml(it),
     appleMusicLinkHtml(it),
     venueDetailHtml(it),
     tab.hasPrice ? priceBlock(it) : "",

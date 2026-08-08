@@ -102,6 +102,11 @@ function matchesQuery(st, it) {
 
 function matchesDate(st, it) {
   if (!(st.rangeStart && st.rangeEnd)) return true;
+  // 飛び日程の行は、会期の端ではなく**実際にやっている日**で判定する。
+  // 「8.10・11・14・16 開催」を8.12で絞った人に出すのは、その日に行けると
+  // 言っているのと同じで、開催状況のバッジ（本日は休み）とも食い違う。
+  if (it.dates && it.dates.length)
+    return it.dates.some((d) => d >= st.rangeStart && d <= st.rangeEnd);
   // 期間が重なっていれば表示。開始/終了が空欄＝不明または無期限として扱い、
   // その端は制約なしとみなす（不明を理由に取りこぼさないため）。
   if (it.endDate && it.endDate < st.rangeStart) return false;

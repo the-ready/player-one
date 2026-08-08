@@ -178,10 +178,10 @@ EOF
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
 ```
 
-全40列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` が加わった）。
+全41列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` が加わった）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -204,7 +204,7 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 | `end_date`          |  ✓   | 最終日 `YYYY-MM-DD`。複数日開催（フェス・同一会場での連日公演）はその最終日、**単日公演は `start_date` と同じ日**。空欄は「終了日が未定」の意味になり、公演が終わっても「開催中」と表示され続ける                                                                     |
 | `open_time`         |      | 開場時刻 `H:MM`。**公演の価値の半分はここにある**——下記「日程の書き方」                                                                                                                                                                                               |
 | `start_time`        |      | 開演時刻 `H:MM`                                                                                                                                                                                                                                                       |
-| 日程のその他の列    |      | `dates` `end_time` `date_note` `date` `status` `rank` は下記「日程の書き方」を参照。**表示用の日時文字列は書かない**                                                                                                                                                  |
+| 日程のその他の列    |      | `dates` `end_time` `date_note` `backup_date` `date` `status` `rank` は下記「日程の書き方」を参照。**表示用の日時文字列は書かない**                                                                                                                                    |
 | `announced_date`    |      | 公演・追加公演が**発表された日** `YYYY-MM-DD`。分かる範囲で。7日以内なら画面に「NEW」バッジが出る                                                                                                                                                                     |
 | `is_additional`     |      | 追加公演・追加席開放なら `1`。それ以外は空欄                                                                                                                                                                                                                          |
 | `onsale_label`      |      | 直近の受付の名称（例：`オフィシャル先行`／`一般発売`）。受付が無い/終了なら `受付終了` `SOLD OUT` `当日券あり` `入場無料` などの状態語でもよい                                                                                                                        |
@@ -229,15 +229,16 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 **画面に出る日付の文字列も、`開催中` `まもなく開催` といった開催状況のバッジも、
 ダッシュボードが表示のたびに組み立てる。** ここで書くのは、機械が読める事実だけである。
 
-| 列                | 規則                                                                                                                                                                                                                                    |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dates`           | **飛び日程**（連続していない複数日）の実開催日を `\|` 区切りで全部並べる。例：`2026-08-10\|2026-08-11\|2026-08-14`。**連続した会期では空欄**（開始日〜終了日で足りる）。書くときは先頭を開始日と、末尾を `end_date` と一致させること    |
-| `open_time`       | 開場時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
-| `start_time`      | 開演時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
-| `end_time`        | 終了時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
-| `date_note`       | 上のどれにも収まらない但し書き（例：`オールナイト` `9.13は予備日` `土日祝のみ` `荒天時は8/30に順延` `1週間限定`）。**日付や時刻そのものをここに書き写さない**——構造化列に入れれば画面が組み立てる                                       |
-| `date`            | **原則として空欄。** ISOの日付に落とすと持っていない精度を騙ることになる日程（`2026年10月中旬〜下旬（見頃予想）` `8月の毎週土日` など）だけ、ここに自由記述で書く。**書いた行はこの文字列がそのまま表示され、上の構造化列は使われない** |
-| `status` / `rank` | **原則として空欄。** 日付から毎回計算される。開始日も `end_date` も持たない行——つまり `date` に自由記述を書いた行——でだけ、下の表から選んで書く                                                                                         |
+| 列                | 規則                                                                                                                                                                                                                                                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dates`           | **飛び日程**（連続していない複数日）の実開催日を `\|` 区切りで全部並べる。例：`2026-08-10\|2026-08-11\|2026-08-14`。**連続した会期では空欄**（開始日〜終了日で足りる）。書くときは先頭を開始日と、末尾を `end_date` と一致させること。**この列があると、開催しない日は「本日は休み」と表示され、日程の絞り込みからも外れる** |
+| `open_time`       | 開場時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                |
+| `start_time`      | 開演時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                |
+| `end_time`        | 終了時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                |
+| `date_note`       | 上のどれにも収まらない但し書き（例：`オールナイト` `土日祝のみ` `1週間限定` `毎朝10時開始`）。**日付や時刻そのものをここに書き写さない**——構造化列に入れれば画面が組み立てる                                                                                                                                                 |
+| `backup_date`     | **予備日**（雨天・荒天で順延したときの日）を `\|` 区切りで。**会期には含めない**——本開催で終わればこの日は使われないので、`end_date` を1日延ばすと「まだやっている」と嘘をつくことになる。カードの日付欄ではなく「くわしく」の中に出る                                                                                       |
+| `date`            | **原則として空欄。** ISOの日付に落とすと持っていない精度を騙ることになる日程（`2026年10月中旬〜下旬（見頃予想）` `8月の毎週土日` など）だけ、ここに自由記述で書く。**書いた行はこの文字列がそのまま表示され、上の構造化列は使われない**                                                                                      |
+| `status` / `rank` | **原則として空欄。** 日付から毎回計算される。開始日も `end_date` も持たない行——つまり `date` に自由記述を書いた行——でだけ、下の表から選んで書く                                                                                                                                                                              |
 
 以前は `date` に `2026.9.5(土) 開場16:00／開演17:00` のような表示用の文字列を、`status` に収集を実行した日の
 判定を書いていた。やめた理由は2つある。

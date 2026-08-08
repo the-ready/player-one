@@ -1249,7 +1249,10 @@ mark {
 
 /* 会場のくわしい情報（駐車場・最寄り駅）。desc-body と同じ地の文トーンで、
    価格比較やクーポンのような色付きブロックにはしない（事実情報であって注意喚起ではないため）。 */
-.venue-detail {
+/* ラベル＋値の小さな一覧。会場の補足（最寄り駅・駐車場）と
+   日程の補足（予備日・次の開催日）で共用する。 */
+.venue-detail,
+.fact-list {
   margin: 0.5rem 0 0;
   display: flex;
   flex-direction: column;

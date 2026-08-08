@@ -36,19 +36,19 @@ LNG_RANGE = (138.0, 141.5)
 
 EXPECTED_HEADERS = {
     "events.csv": ["id","title","kana","cats","area","venue","venue_url","pref","start_date","end_date",
-        "date","dates","open_time","start_time","end_time","date_note","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
+        "date","dates","open_time","start_time","end_time","date_note","backup_date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
         "onsale_start_time","onsale_end","onsale_end_time","limited_sale","price","price_official",
         "price_best","discount_pct","best_source","coupon_note","price_checked","price_condition",
         "source","url","official_url","lat","lng","desc","note","parking","nearest_station"],
     "movies.csv": ["id","title","kana","genre","screening_type","area","theater","theater_url","pref",
         "release_date","end_date","date","dates","open_time","start_time","end_time","date_note",
-        "status","rank","series_id","announced_date","is_additional",
+        "backup_date","status","rank","series_id","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","price_official","price_best","discount_pct","best_source","coupon_note","price_checked",
         "price_condition","poster_url","poster_source","source","url","official_url","lat","lng","desc","note"],
     "lives.csv": ["id","tour_id","title","kana","artists","genre","live_type","area","venue","venue_url",
         "pref","start_date","end_date","date","dates","open_time","start_time","end_time","date_note",
-        "status","rank","announced_date","is_additional",
+        "backup_date","status","rank","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","source","url","official_url","lat","lng","desc","note",
         "parking","nearest_station","apple_music_url"],
@@ -218,6 +218,16 @@ def check_schedule(rep, where, name, r, start_col, start, end):
         rep.warn(where, "end_time だけがあり start_time がありません")
     if ot and st_ and ot > st_ and len(ot) == len(st_):
         rep.warn(where, f"open_time({ot}) が start_time({st_}) より後です（開場と開演の取り違えを確認してください）")
+
+    # 予備日は会期には含めない。本開催で終われば使われない日なので、
+    # start/end に混ぜると「まだやっている」と1日長く見せることになる。
+    for tok in [x.strip() for x in (r.get("backup_date") or "").split("|") if x.strip()]:
+        d = check_date(rep, where, "backup_date", tok)
+        if d and start and end and start <= d <= end:
+            rep.error(where, f"backup_date({d}) が会期({start}〜{end})の中にあります。"
+                             "予備日は本開催が流れたときの日なので、会期には含めません")
+        if d and start and d < start:
+            rep.warn(where, f"backup_date({d}) が開始日({start})より前です")
 
     # date は「ISOの日付に落とせない日程」のための逃げ道で、常用する列ではない。
     # 埋まっている行は表記の統一から外れるので、残す判断をしたことが分かるよう毎回出す。

@@ -65,7 +65,7 @@ CARRY_ALWAYS = ["kana"] + VENUE_FACTS
 
 # 持ち越しを絶対に許さない列。日付・金額・受付は毎回確認するか、空欄にするかの二択。
 CARRY_NEVER = {
-    "id", "title", "date", "dates", "date_note", "status", "rank",
+    "id", "title", "date", "dates", "date_note", "backup_date", "status", "rank",
     "open_time", "start_time", "end_time",
     "start_date", "release_date", "end_date", "announced_date", "is_additional",
     "onsale_label", "onsale_start", "onsale_start_time", "onsale_end", "onsale_end_time",

@@ -102,13 +102,13 @@ node tools/smoke_test.mjs          # BASE=... で公開URLにも当てられる
 
 ## データの更新
 
-`data/events.csv` を差し替えるだけでよい。列は以下の44列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
+`data/events.csv` を差し替えるだけでよい。列は以下の45列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
 ```
 
-**日程の列は「機械が読める事実」だけを書く。** 画面に出る日付の文字列（`2026.9.5(土) 開場16:00／開演18:00`）も、`開催中` `まもなく開催` といった開催状況も、表示のたびに `start_date`／`end_date`／`dates`／`open_time`／`start_time`／`end_time`／`date_note` と**そのとき の日本時間**から組み立てられる。つまり **CSVを差し替えなくても、日付をまたげば表示が追いつく**。`date` 列は「10月中旬〜下旬（見頃予想）」のようにISOの日付へ落とせない日程だけを書く逃げ道で、通常は空欄。`status` / `rank` も、日付を1つも持たない行以外は空欄でよい（書いても無視される）。単日開催では `end_date` に `start_date` と同じ日を入れること——空欄は「終了日が未定」という別の意味になる。詳しくは `docs/DESIGN.md` 第3.9節。
+**日程の列は「機械が読める事実」だけを書く。** 画面に出る日付の文字列（`2026.9.5(土) 開場16:00／開演18:00`）も、`開催中` `まもなく開催` といった開催状況も、表示のたびに `start_date`／`end_date`／`dates`／`open_time`／`start_time`／`end_time`／`date_note` と**そのとき の日本時間**から組み立てられる。つまり **CSVを差し替えなくても、日付をまたげば表示が追いつく**。`date` 列は「10月中旬〜下旬（見頃予想）」のようにISOの日付へ落とせない日程だけを書く逃げ道で、通常は空欄。`status` / `rank` も、日付を1つも持たない行以外は空欄でよい（書いても無視される）。単日開催では `end_date` に `start_date` と同じ日を入れること——空欄は「終了日が未定」という別の意味になる。`dates`（飛び日程）を書いた行では、開催しない日は「本日は休み」と表示され、日程の絞り込みからも外れる。`backup_date`（予備日）は**会期に含めず**、カードの「くわしく」の中に出す——本開催で終われば使われない日なので、`end_date` を1日延ばすと「まだやっている」と嘘をつくことになる。詳しくは `docs/DESIGN.md` 第3.9節。
 
 `kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。`parking` は駐車場情報（例：`あり（有料・120台）`）、`nearest_station` は最寄り駅と徒歩時間（例：`上野駅（徒歩10分）`）で、どちらも「くわしく」の中に表示される。会場公式サイトで確認できなければ空欄でよい（憶測で埋めない）。
 
@@ -158,10 +158,10 @@ CSVの中身の日付（`price_checked` 等）にはフォールバックしな�
 
 画像が読み込めない場合（URLが無効・ホットリンクを拒否された等）は `onerror` でチケット風のプレースホルダー表示に自動的に切り替わる（壊れた画像アイコンは出さない）。`poster_source` 列に出典を記録し、カード上にも小さくクレジット表示する。
 
-### `data/movies.csv` の列（45列固定）
+### `data/movies.csv` の列（46列固定）
 
 ```
-id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,poster_url,poster_source,source,url,official_url,lat,lng,desc,note
+id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,poster_url,poster_source,source,url,official_url,lat,lng,desc,note
 ```
 
 `onsale_*` は前売り券（ムビチケ等）の販売期間。`series_id` は特集上映・映画祭のプログラムをまとめるキー。`price_official` 〜 `price_condition` は料金の比較レイヤーで、**映画の割引はほとんどが条件付き**（会員限定・特定曜日・時間帯）なので `price_condition` は必須扱い。条件を特定できない割引は書かずに落とす。
@@ -209,10 +209,10 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 `url` に入るのは公式サイトと正規プレイガイド（チケットぴあ／イープラス／ローソンチケット／楽天チケット／ticket board／LivePocket／ZAIKO／teket 等）のみ。完売公演も掲載するが、`onsale_label` を `SOLD OUT` にして取れるように見せない（公式リセールや当日券の可能性があり、「何をやっているか」自体が情報のため）。
 
-### `data/lives.csv` の列（40列固定）
+### `data/lives.csv` の列（41列固定）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
 ```
 
 **このタブは価格比較レイヤーを持たない。** `price_official` / `price_best` / `discount_pct` の列は存在しない。チケットは定価固定で、プレイガイドを横断しても値段が変わらないため。

@@ -62,11 +62,12 @@ export const LIVE_TYPES = {
 };
 
 /* 開催状況のバッジ。**並び順がそのまま rank（並べ替えの優先度）になる**ので、
-   「いま行ける順」に並べておくこと。ラベルは status.js が日付から毎回選ぶ。 */
+   「いま行ける順」に並べておくこと。ラベルは schedule.js が日付から毎回選ぶ。 */
 export const EVENT_STATUS_STYLE = {
   本日まで: { c: "#fff", bg: "var(--coral)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
+  本日は休み: { c: "var(--ink)", bg: "var(--sunny-tint)" },
   発売中: { c: "#fff", bg: "var(--sky)" },
   通年予約可: { c: "var(--ink)", bg: "#EFEFF2" },
   終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
@@ -75,6 +76,7 @@ export const MOVIE_STATUS_STYLE = {
   本日が最終上映: { c: "#fff", bg: "var(--coral)" },
   まもなく公開: { c: "#fff", bg: "var(--sunny)" },
   上映中: { c: "#fff", bg: "var(--grape)" },
+  本日は上映なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
   前売り券発売中: { c: "#fff", bg: "var(--sky)" },
   上映終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
@@ -82,6 +84,7 @@ export const LIVE_STATUS_STYLE = {
   本日開催: { c: "#fff", bg: "var(--coral)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
+  本日は公演なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
   公演予定: { c: "#fff", bg: "var(--sky)" },
   終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
@@ -94,6 +97,7 @@ export const LIVE_STATUS_STYLE = {
      last    … 今日が最終日（単日開催なら「今日」そのもの）
      opening … 今日が初日で、まだ続く
      ongoing … 会期の途中
+     gap     … 会期の中だが、今日は開催日でない（`dates` を持つ飛び日程だけ）
      openrun … 始まっているが終了日が未定
      soon    … 開始まで SOON_DAYS 日以内
      far     … それより先 */
@@ -103,6 +107,7 @@ export const STATUS_BY_PHASE = {
     last: "本日まで",
     opening: "開催中",
     ongoing: "開催中",
+    gap: "本日は休み",
     openrun: "開催中",
     soon: "まもなく開催",
     far: "発売中",
@@ -112,6 +117,7 @@ export const STATUS_BY_PHASE = {
     last: "本日が最終上映",
     opening: "上映中",
     ongoing: "上映中",
+    gap: "本日は上映なし",
     openrun: "上映中",
     soon: "まもなく公開",
     far: "前売り券発売中",
@@ -122,6 +128,7 @@ export const STATUS_BY_PHASE = {
     last: "本日開催",
     opening: "本日開催",
     ongoing: "開催中",
+    gap: "本日は公演なし",
     openrun: "開催中",
     soon: "まもなく開催",
     far: "公演予定",
@@ -211,6 +218,9 @@ const COMMON_COLUMNS = {
   startTime: ["start_time", txt],
   endTime: ["end_time", txt],
   dateNote: ["date_note", txt],
+  // 予備日（雨天順延の候補日）。会期には含めない——本開催で終わればこの日は使われない。
+  // カードの日付欄ではなく「くわしく」の中に出す。
+  backupDate: ["backup_date", list],
   // status / rank は日付から計算する。CSVの値は「日付を持たない行」の予備でしかない
   // ので、そのまま status / rank と名乗らせない（data.js で同名のゲッタを生やす）。
   csvStatus: ["status", txt],
