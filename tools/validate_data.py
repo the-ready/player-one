@@ -36,17 +36,19 @@ LNG_RANGE = (138.0, 141.5)
 
 EXPECTED_HEADERS = {
     "events.csv": ["id","title","kana","cats","area","venue","venue_url","pref","start_date","end_date",
-        "date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
+        "date","dates","open_time","start_time","end_time","date_note","backup_date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
         "onsale_start_time","onsale_end","onsale_end_time","limited_sale","price","price_official",
         "price_best","discount_pct","best_source","coupon_note","price_checked","price_condition",
         "source","url","official_url","lat","lng","desc","note","parking","nearest_station"],
     "movies.csv": ["id","title","kana","genre","screening_type","area","theater","theater_url","pref",
-        "release_date","end_date","date","status","rank","series_id","announced_date","is_additional",
+        "release_date","end_date","date","dates","open_time","start_time","end_time","date_note",
+        "backup_date","status","rank","series_id","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","price_official","price_best","discount_pct","best_source","coupon_note","price_checked",
         "price_condition","poster_url","poster_source","source","url","official_url","lat","lng","desc","note"],
     "lives.csv": ["id","tour_id","title","kana","artists","genre","live_type","area","venue","venue_url",
-        "pref","start_date","end_date","date","status","rank","announced_date","is_additional",
+        "pref","start_date","end_date","date","dates","open_time","start_time","end_time","date_note",
+        "backup_date","status","rank","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","source","url","official_url","lat","lng","desc","note",
         "parking","nearest_station","apple_music_url"],
@@ -93,10 +95,16 @@ def load_enums():
         return set(re.findall(r'^\s*"?([A-Za-z0-9_-]+)"?\s*:', m.group(1), re.M))
 
     def string_keys_of(name):
+        # 日本語のキーは JS の識別子として妥当なので、prettier は引用符を外す
+        # （`"開催中":` → `開催中:`）。どちらの書き方でも拾えるようにしておく。
         m = re.search(r"export const %s = \{(.*?)\n\};" % name, src, re.S)
         if not m:
             raise SystemExit(f"ERROR: config.js から {name} を読めませんでした")
-        return set(re.findall(r'^\s*"([^"]+)"\s*:', m.group(1), re.M))
+        keys = set(re.findall(r'^\s*"([^"]+)"\s*:', m.group(1), re.M))
+        keys |= set(re.findall(r"^\s*([^\s\"':,{}]+)\s*:", m.group(1), re.M))
+        if not keys:
+            raise SystemExit(f"ERROR: config.js の {name} からキーを1つも読めませんでした")
+        return keys
 
     return {
         "cats": keys_of("CATS"),
@@ -108,7 +116,8 @@ def load_enums():
         "event_status": string_keys_of("EVENT_STATUS_STYLE"),
         "movie_status": string_keys_of("MOVIE_STATUS_STYLE"),
         "live_status": string_keys_of("LIVE_STATUS_STYLE"),
-        "pref": set(re.findall(r'\{key:"([a-z]+)"', src)),
+        # PREFS は `{key:"tokyo", ...}` とも `{ key: "tokyo", ... }` とも書かれうる（prettier）
+        "pref": set(re.findall(r'\{\s*key:\s*"([a-z]+)"', src)),
     }
 
 
@@ -175,6 +184,83 @@ def check_num(rep, where, col, raw, lo=None, hi=None):
     return v
 
 
+def check_schedule(rep, where, name, r, start_col, start, end):
+    """日程の構造化列（dates / *_time / date_note / date）を見る。
+
+    表示に出る日付文字列と開催ステータスは、この4組＋開始日・終了日から
+    画面側が毎回組み立てる（assets/js/schedule.js）。ここが崩れると、
+    「終わった催しがいつまでも開催中に見える」たぐいの、読み手には
+    見破れない嘘になるので、書式のずれは黙って通さない。
+    """
+    days = []
+    raw_days = (r.get("dates") or "").strip()
+    if raw_days:
+        for tok in [x.strip() for x in raw_days.split("|") if x.strip()]:
+            d = check_date(rep, where, "dates", tok)
+            if d:
+                days.append(d)
+        if len(days) < 2:
+            rep.warn(where, "dates は飛び日程（連続していない複数日）のための列です。"
+                            "1日だけなら空にして start/end で表してください")
+        if days != sorted(days):
+            rep.warn(where, "dates が日付順に並んでいません")
+        if days and start and days[0] != start:
+            rep.error(where, f"dates の最初の日({days[0]})が {start_col}({start}) と違います")
+        if days and end and days[-1] != end:
+            rep.error(where, f"dates の最後の日({days[-1]})が end_date({end}) と違います")
+
+    for col in ("open_time", "start_time", "end_time"):
+        v = (r.get(col) or "").strip()
+        if v and not TIME_RE.match(v):
+            rep.error(where, f"{col} の書式が H:MM ではありません: {v!r}")
+    ot, st_, et = ((r.get(c) or "").strip() for c in ("open_time", "start_time", "end_time"))
+    if et and not st_:
+        rep.warn(where, "end_time だけがあり start_time がありません")
+    if ot and st_ and ot > st_ and len(ot) == len(st_):
+        rep.warn(where, f"open_time({ot}) が start_time({st_}) より後です（開場と開演の取り違えを確認してください）")
+
+    # 予備日は会期には含めない。本開催で終われば使われない日なので、
+    # start/end に混ぜると「まだやっている」と1日長く見せることになる。
+    for tok in [x.strip() for x in (r.get("backup_date") or "").split("|") if x.strip()]:
+        d = check_date(rep, where, "backup_date", tok)
+        if d and start and end and start <= d <= end:
+            rep.error(where, f"backup_date({d}) が会期({start}〜{end})の中にあります。"
+                             "予備日は本開催が流れたときの日なので、会期には含めません")
+        if d and start and d < start:
+            rep.warn(where, f"backup_date({d}) が開始日({start})より前です")
+
+    # date は「ISOの日付に落とせない日程」のための逃げ道で、常用する列ではない。
+    # 埋まっている行は表記の統一から外れるので、残す判断をしたことが分かるよう毎回出す。
+    free = (r.get("date") or "").strip()
+    if free:
+        rep.warn(where, f"date に自由記述が残っています（この行だけ日付表記が統一されません）: {free[:40]}")
+
+    # 単日公演の end_date 空欄は「終了日が未定」の意味になり、
+    # 終わったあともいつまでも「開催中」と表示され続ける。
+    if name == "lives.csv" and start and not end:
+        rep.warn(where, "end_date が空です。単日公演なら start_date と同じ日を書いてください"
+                        "（空欄は『終了日未定』の意味で、いつまでも開催中と表示されます）")
+
+
+def check_status(rep, where, r, allowed, start, end):
+    """status / rank は表示側が日付から毎回計算する（assets/js/schedule.js）。
+
+    CSVのこの2列は、日付を1つも持たない行——「会期は公式サイト参照」のように
+    ISOの日付に落とせない催し——のためだけに残してある予備で、日付がある行に
+    書いても無視される。書いてあるのに画面に出ないのが一番たちが悪いので、
+    「無視される値が入っている」ことをここで知らせる。
+    """
+    st = (r.get("status") or "").strip()
+    rank = (r.get("rank") or "").strip()
+    if st and st not in allowed:
+        rep.warn(where, f"status に未知の値 {st!r}（バッジは灰色になります）")
+    if (start or end) and (st or rank):
+        rep.warn(where, "status / rank は日付から計算されるので、日付のある行では無視されます。"
+                        "空欄にしてください")
+    if not start and not end and not st:
+        rep.warn(where, "日付が無く status も空です（開催状況のバッジも絞り込みも出ません）")
+
+
 def validate_main(name, rows, enums, rep):
     start_col = START_COL[name]
     series_col = SERIES_COL[name]
@@ -201,6 +287,7 @@ def validate_main(name, rows, enums, rep):
         if not start and not end:
             rep.warn(where, f"{start_col} も end_date も空です（日程での絞り込みに一切かかりません）")
         check_date(rep, where, "announced_date", (r.get("announced_date") or "").strip())
+        check_schedule(rep, where, name, r, start_col, start, end)
 
         # 受付期間
         os_start = check_date(rep, where, "onsale_start", (r.get("onsale_start") or "").strip())
@@ -222,21 +309,15 @@ def validate_main(name, rows, enums, rep):
             check_enum(rep, where, "cats", (r.get("cats") or "").strip(), enums["cats"])
             if not (r.get("cats") or "").strip():
                 rep.warn(where, "cats が空です（カテゴリで絞り込めません）")
-            st = (r.get("status") or "").strip()
-            if st and st not in enums["event_status"]:
-                rep.warn(where, f"status に未知の値 {st!r}（バッジは灰色になります）")
+            check_status(rep, where, r, enums["event_status"], start, end)
         elif name == "movies.csv":
             check_enum(rep, where, "genre", (r.get("genre") or "").strip(), enums["movie_genre"])
             check_enum(rep, where, "screening_type", (r.get("screening_type") or "").strip(), enums["screening_type"])
-            st = (r.get("status") or "").strip()
-            if st and st not in enums["movie_status"]:
-                rep.warn(where, f"status に未知の値 {st!r}")
+            check_status(rep, where, r, enums["movie_status"], start, end)
         else:
             check_enum(rep, where, "genre", (r.get("genre") or "").strip(), enums["live_genre"])
             check_enum(rep, where, "live_type", (r.get("live_type") or "").strip(), enums["live_type"])
-            st = (r.get("status") or "").strip()
-            if st and st not in enums["live_status"]:
-                rep.warn(where, f"status に未知の値 {st!r}")
+            check_status(rep, where, r, enums["live_status"], start, end)
 
         pref = (r.get("pref") or "").strip()
         if pref and pref not in enums["pref"]:

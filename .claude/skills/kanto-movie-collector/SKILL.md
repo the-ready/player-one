@@ -64,7 +64,7 @@ description: "Collect Kanto-area movie and screening data for the next 3 months 
 1. 調査済みで未追記の行を `append_rows.py` で書き切る
 2. `python3 tools/diff_data.py movies --allow-unexplained` で、まだ処理していない前回行を出す
 3. 残った行を片付ける（**ここから先は検索を使わない**）
-   - まだ上映が続いていると判断できる行 → `python3 tools/prev_rows.py movies --uid <uid>` で前回値を引き、`status`/`rank` を今日の日付で計算し直して書き戻す（tier C の持ち越し。**`onsale_*` は空欄にする**）
+   - まだ上映が続いていると判断できる行 → `python3 tools/prev_rows.py movies --uid <uid>` で前回値を引き、そのまま書き戻す（tier C の持ち越し。`status`/`rank` は表示側が日付から計算するので触らなくてよい。**`onsale_*` は空欄にする**）
    - 判断できない行 → `--dispose` に `notfound` として記録する
 4. 終了工程の 2〜6 を通す
 5. 報告に「どの工程を、どの理由で打ち切ったか」「持ち越した行数」「`notfound` の件数」「上映劇場を特定できずに落とした作品の件数」を書く
@@ -125,7 +125,7 @@ description: "Collect Kanto-area movie and screening data for the next 3 months 
 python3 tools/append_rows.py movies <<'EOF'
 {"title": "...", "release_date": "2026-07-31", "screening_type": "new", "genre": "anime",
  "theater": "TOHOシネマズ|109シネマズ", "area": "東京都・千代田区", "pref": "tokyo",
- "date": "2026.7.31公開", "status": "上映中", "rank": "2", "price": "一般2,000円",
+ "price": "一般2,000円",
  "source": "eiga.com", "url": "https://...", "_carry": "*"}
 EOF
 ```
@@ -137,10 +137,10 @@ EOF
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,poster_url,poster_source,source,url,official_url,lat,lng,desc,note
+id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,poster_url,poster_source,source,url,official_url,lat,lng,desc,note
 ```
 
-全40列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
+全46列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -154,9 +154,7 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 | `theater`                   | 下記「`theater`列の書き方」を厳守すること。不明なら `-`                                                                                                                                                                                                                                              |
 | `pref`                      | `tokyo` `kanagawa` `saitama` `chiba` `ibaraki` `tochigi` `gunma` のいずれか                                                                                                                                                                                                                          |
 | `release_date` / `end_date` | `YYYY-MM-DD`。**不明なら必ず空欄。推測で埋めない**。新作ロードショーは終了日未定のことが多く、その場合 `end_date` は空欄でよい                                                                                                                                                                       |
-| `date`                      | 表示用の日付文字列（例：`2026.8.1公開` `2026.8.15〜8.21`）                                                                                                                                                                                                                                           |
-| `status`                    | `本日が最終上映` `まもなく公開` `上映中` `前売り券発売中` のいずれか                                                                                                                                                                                                                                 |
-| `rank`                      | `本日が最終上映`=0 / `まもなく公開`=1 / `上映中`=2 / `前売り券発売中`=3                                                                                                                                                                                                                              |
+| 日程のその他の列            | `dates` `open_time` `start_time` `end_time` `date_note` `backup_date` `date` `status` `rank` は下記「日程の書き方」を参照。**表示用の日付文字列は書かない**                                                                                                                                          |
 | `price`                     | 実際の料金（例：`一般2,000円/大学生1,500円/高校生以下1,000円`）。不明なら `要問合せ`                                                                                                                                                                                                                 |
 | `poster_url`                | **実在すると確認できたポスター画像への直リンクURL**（下記「ポスター画像の取り扱い」参照）。確認できなければ空欄                                                                                                                                                                                      |
 | `poster_source`             | ポスター画像の出典（例：`公式サイト` `配給会社サイト` `TMDb` `eiga.com`）。`poster_url` が空欄ならこれも空欄                                                                                                                                                                                         |
@@ -167,6 +165,35 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 | `lat` / `lng`               | 劇場・会場の代表座標（小数4桁程度）。**`theaters.csv` に載っている劇場は空欄で渡す**（名簿と前回値から自動補完されるので調べない）。**調べるのは、名簿にも前回にも無い会場——野外上映・ドライブインシアターの臨時会場など——だけ**で、そこは地図検索・現在地検索のためにできる限り埋める。不明なら空欄 |
 | `desc`                      | 100〜150字程度。**何が目玉かを具体的に書く**（下記「descの書き方」参照）                                                                                                                                                                                                                             |
 | `note`                      | 日時指定制、整理券制、雨天中止、字幕/吹替の別など、料金以外の実務的な注意事項。なければ空欄                                                                                                                                                                                                          |
+
+#### 日程の書き方（3つの収集スキルで共通）
+
+**画面に出る日付の文字列も、`開催中` `まもなく開催` といった開催状況のバッジも、
+ダッシュボードが表示のたびに組み立てる。** ここで書くのは、機械が読める事実だけである。
+
+| 列                | 規則                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dates`           | **飛び日程**（連続していない複数日）の実開催日を `\|` 区切りで全部並べる。例：`2026-08-10\|2026-08-11\|2026-08-14`。**連続した会期では空欄**（開始日〜終了日で足りる）。書くときは先頭を開始日と、末尾を `end_date` と一致させること。**この列があると、開催しない日は「本日は休み」と表示され、日程の絞り込みからも外れる**                                           |
+| `open_time`       | 開場時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                                                          |
+| `start_time`      | 上映開始時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                                                      |
+| `end_time`        | 終了時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                                                                                                                                                          |
+| `date_note`       | 上のどれにも収まらない但し書き（例：`オールナイト` `土日祝のみ` `1週間限定` `毎朝10時開始`）。**日付や時刻そのものをここに書き写さない**——構造化列に入れれば画面が組み立てる                                                                                                                                                                                           |
+| `backup_date`     | **予備日**（雨天・荒天で順延したときの日）を `\|` 区切りで。**会期には含めない**——本開催で終わればこの日は使われないので、`end_date` を1日延ばすと「まだやっている」と嘘をつくことになる。カードの日付欄ではなく「くわしく」の中に出る。**予備日の当日は「本日予備日」バッジが出る**ので、順延が実際に起きたら開始日・終了日を新しい日に書き換えてこの列を空にすること |
+| `date`            | **原則として空欄。** ISOの日付に落とすと持っていない精度を騙ることになる日程（`2026年10月中旬〜下旬（見頃予想）` `8月の毎週土日` など）だけ、ここに自由記述で書く。**書いた行はこの文字列がそのまま表示され、上の構造化列は使われない**                                                                                                                                |
+| `status` / `rank` | **原則として空欄。** 日付から毎回計算される。開始日も `end_date` も持たない行——つまり `date` に自由記述を書いた行——でだけ、下の表から選んで書く                                                                                                                                                                                                                        |
+
+以前は `date` に `2026.8.8(土)23:00〜(オールナイト)` のような表示用の文字列を、`status` に収集を実行した日の
+判定を書いていた。やめた理由は2つある。
+
+- **書き手ごとに表記がそろわなかった。** 同じ会期が `2026.8.1〜9.30` にも
+  `2026-08-01〜2026-09-30` にも `2026年8月1日〜9月30日` にもなり、曜日の有無も
+  行ごとに違っていた。毎週ゼロから書き起こす以上、書式を決めても必ず崩れる。
+- **収集した日で時間が止まっていた。** 週の後半に見た人には、始まっている上映が
+  「まもなく開催」のままで、終わった上映が「開催中」のまま残る。
+  データが古いほど、画面の嘘が増えていく。
+
+どちらも「計算できる値を、計算せずに書き置いた」ことが原因である。
+書いた値が画面に出ないのは気持ちが悪いかもしれないが、**書かないほうが正しい**。
 
 #### 新しく追加された列（以前の版には無かったもの）
 
@@ -327,12 +354,12 @@ python3 tools/roster.py theaters --list --urls | awk -F'\t' '$2==""'   # 名画�
 
 **必須列が揃った行は、そこで調査を終える。**
 
-| 区分                          | 列                                                                                                                           | 扱い                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **これが揃ったら終わり**      | `title` `genre` `screening_type` `area` `theater` `pref` `release_date` `date` `status` `rank` `price` `source` `url` `desc` | 揃った時点で次の行へ移る                                             |
-| **ついでに拾うだけ**          | `kana` `note` `theater_url` `series_id` `announced_date` `is_additional` `onsale_*`                                          | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
-| **調べない**                  | `lat` / `lng`                                                                                                                | `theaters.csv` と前回値から自動で補完される。**空欄で渡す**          |
-| **1回で見つからなければ空欄** | `poster_url` / `poster_source`                                                                                               | 1作品1回まで。**別の出典を探して粘らない**                           |
+| 区分                          | 列                                                                                                               | 扱い                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **これが揃ったら終わり**      | `title` `genre` `screening_type` `area` `theater` `pref` `release_date`/`end_date` `price` `source` `url` `desc` | 揃った時点で次の行へ移る                                             |
+| **ついでに拾うだけ**          | `kana` `note` `theater_url` `series_id` `announced_date` `is_additional` `onsale_*`                              | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
+| **調べない**                  | `lat` / `lng`                                                                                                    | `theaters.csv` と前回値から自動で補完される。**空欄で渡す**          |
+| **1回で見つからなければ空欄** | `poster_url` / `poster_source`                                                                                   | 1作品1回まで。**別の出典を探して粘らない**                           |
 
 **具体的にやってはいけないこと**
 
@@ -364,7 +391,7 @@ python3 tools/roster.py theaters --list --urls | awk -F'\t' '$2==""'   # 名画�
 
 **目標件数に届かないことより、未検証の行を足すことのほうが重い失敗である。** 打ち切ったら、その事実と工程名を報告に書く。
 
-再確認まで手が回らなかった tier C の行は、**消さずに前回値のまま書き直してよい**（`prev_rows.py --uid` で全列を引ける）。ただし `status`/`rank` は今日の日付から計算し直し、**`onsale_*` は空欄にする**（ムビチケの販売終了日は公開日に向かって迫ってくるので、前回値の流用は禁じられている）。詳細は `docs/COLLECTION-PROTOCOL.md` 第8.5節。使った行数は報告に含めること。
+再確認まで手が回らなかった tier C の行は、**消さずに前回値のまま書き直してよい**（`prev_rows.py --uid` で全列を引ける）。ただし **`onsale_*` は空欄にする**（ムビチケの販売終了日は公開日に向かって迫ってくるので、前回値の流用は禁じられている）。詳細は `docs/COLLECTION-PROTOCOL.md` 第8.5節。使った行数は報告に含めること。
 
 ---
 
@@ -484,7 +511,7 @@ EOF
 
 #### 深掘りを打ち切る基準
 
-**必須列（`title` `genre` `screening_type` `area` `theater` `pref` `release_date` `date` `status` `rank` `price` `source` `url` `desc`）が揃った時点で、その行の調査を終える。**
+**必須列（`title` `genre` `screening_type` `area` `theater` `pref` `release_date`/`end_date` `price` `source` `url` `desc`）が揃った時点で、その行の調査を終える。**
 
 - **料金は「一般◯◯円」が確認できれば十分**である。割引の適用条件を特定するために検索を重ねない——**条件を書けない割引は価格ごと落とす**のがこのスキルの規則なので、掘っても書けない
 - **ポスターは1回で見つからなければ空欄**。出典を変えて探し続けない
@@ -607,7 +634,7 @@ python3 tools/validate_data.py          # ERROR 0 を確認
 - [ ] 補助列（`kana` `series_id` 等）を埋めるために追加の検索をしていないか
 - [ ] 工程ごとの検索回数を控え、報告に含めたか
 - [ ] 予算切れで工程を打ち切った場合、その事実を報告に書いたか（件数を埋めるために未検証の行を足していないか）
-- [ ] 再確認できずに前回値で持ち越した tier C の行について、`status`/`rank` を今日の日付で計算し直し、**`onsale_*` は空欄にした**か
+- [ ] 再確認できずに前回値で持ち越した tier C の行について、**`onsale_*` を空欄にした**か
 
 ### 差分・名簿
 

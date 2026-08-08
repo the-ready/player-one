@@ -42,7 +42,8 @@ DATA = os.path.join(ROOT, "data")
 # 変化したら報告する列。desc のような長い列は「変わった」事実だけを出し、中身は出さない
 # （差分報告そのものがコンテキストを食っては本末転倒なため）。
 WATCH = [
-    "start_date", "release_date", "end_date", "date", "status",
+    "start_date", "release_date", "end_date", "dates", "date", "date_note", "backup_date",
+    "open_time", "start_time", "end_time",
     "onsale_label", "onsale_start", "onsale_end", "limited_sale",
     "price", "price_best", "discount_pct", "coupon_note",
     "artists", "venue", "theater", "is_additional", "url",

@@ -9,3 +9,8 @@ logs
 # 退避が無い場合は prev_rows.py が git の HEAD から復元する。
 data/.prev/
 tools/__pycache__/
+# smoke_test.mjs を動かすためだけに入れる playwright。
+# ページ本体は依存を持たない（第15章）ので、コミットしない。
+node_modules/
+package.json
+package-lock.json

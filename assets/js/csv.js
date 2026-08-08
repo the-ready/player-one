@@ -8,42 +8,67 @@
    自前で持つほうが依存も速度も素直になる。 */
 
 /** RFC 4180 準拠の最小パーサ。戻り値は行の配列（各行はセルの配列）。 */
-export function parseCsv(text){
+export function parseCsv(text) {
   const rows = [];
-  let row = [], cell = "", quoted = false;
+  let row = [],
+    cell = "",
+    quoted = false;
   // BOM は先頭の列名を壊すので落とす
   const s = String(text || "").replace(/^﻿/, "");
 
-  for(let i = 0; i < s.length; i++){
+  for (let i = 0; i < s.length; i++) {
     const c = s[i];
-    if(quoted){
-      if(c === '"'){
-        if(s[i+1] === '"'){ cell += '"'; i++; }   // "" はエスケープされた "
+    if (quoted) {
+      if (c === '"') {
+        if (s[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } // "" はエスケープされた "
         else quoted = false;
       } else cell += c;
       continue;
     }
-    if(c === '"'){ quoted = true; continue; }
-    if(c === ","){ row.push(cell); cell = ""; continue; }
-    if(c === "\r"){ continue; }                   // CRLF の CR は捨てる
-    if(c === "\n"){ row.push(cell); rows.push(row); row = []; cell = ""; continue; }
+    if (c === '"') {
+      quoted = true;
+      continue;
+    }
+    if (c === ",") {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+    if (c === "\r") {
+      continue;
+    } // CRLF の CR は捨てる
+    if (c === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
     cell += c;
   }
   // 末尾に改行が無いファイルの最終行を取りこぼさない
-  if(cell !== "" || row.length){ row.push(cell); rows.push(row); }
+  if (cell !== "" || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
 
   // 完全な空行（区切りも値も無い行）は落とす
-  return rows.filter(r => !(r.length === 1 && r[0].trim() === ""));
+  return rows.filter((r) => !(r.length === 1 && r[0].trim() === ""));
 }
 
 /** ヘッダー行を見て、1行 = 1オブジェクトに畳む。 */
-export function parseCsvObjects(text){
+export function parseCsvObjects(text) {
   const rows = parseCsv(String(text || "").trim());
-  if(!rows.length) return [];
-  const header = rows[0].map(h => h.trim());
-  return rows.slice(1).map(cells => {
+  if (!rows.length) return [];
+  const header = rows[0].map((h) => h.trim());
+  return rows.slice(1).map((cells) => {
     const o = {};
-    header.forEach((h, i) => { o[h] = cells[i] != null ? cells[i] : ""; });
+    header.forEach((h, i) => {
+      o[h] = cells[i] != null ? cells[i] : "";
+    });
     return o;
   });
 }
@@ -56,12 +81,12 @@ export function parseCsvObjects(text){
  *
  * columns: { 出力プロパティ名: [CSVの列名, 変換関数] }
  */
-export function mapRows(text, columns, extra){
+export function mapRows(text, columns, extra) {
   const objects = parseCsvObjects(text);
   const entries = Object.entries(columns);
   return objects.map((row, i) => {
     const out = {};
-    for(const [prop, [col, cast]] of entries) out[prop] = cast(row[col]);
+    for (const [prop, [col, cast]] of entries) out[prop] = cast(row[col]);
     return extra ? extra(out, row, i) : out;
   });
 }

@@ -240,7 +240,7 @@ function openMarkerPopup(it) {
   const d = liveArea
     ? haversineKm(liveArea.lat, liveArea.lng, it.lat, it.lng).toFixed(1) + "km"
     : "";
-  el.popup.innerHTML = `<button type="button" class="popup-goto-item" data-key="${esc(it.key)}">${esc(it.title)}</button><br>${esc(place)}<br>${esc(it.date || "")}${d ? `<br>中心から ${d}` : ""}`;
+  el.popup.innerHTML = `<button type="button" class="popup-goto-item" data-key="${esc(it.key)}">${esc(it.title)}</button><br>${esc(place)}<br>${esc(it.dateText || "")}${d ? `<br>中心から ${d}` : ""}`;
   el.popup.hidden = false;
   positionPopup();
 }
@@ -560,7 +560,7 @@ export function openPlaceSheet(name) {
     <p class="vi-facts">ここでのこれからの予定（${upcoming.length}件）</p>
     ${
       shown.length
-        ? `<ul>${shown.map((o) => `<li><span class="vi-tag">${esc(TABS[o.tab].label)}</span>${esc([o.date, o.title].filter(Boolean).join("　"))}</li>`).join("")}</ul>
+        ? `<ul>${shown.map((o) => `<li><span class="vi-tag">${esc(TABS[o.tab].label)}</span>${esc([o.dateText, o.title].filter(Boolean).join("　"))}</li>`).join("")}</ul>
          ${upcoming.length > shown.length ? `<p class="venue-empty">ほか${upcoming.length - shown.length}件</p>` : ""}`
         : `<p class="venue-empty">登録されている予定はありません。</p>`
     }
