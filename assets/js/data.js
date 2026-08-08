@@ -7,12 +7,17 @@
 import { txt, num, int, fold, stableUid } from "./util.js";
 import { mapRows, parseCsvObjects } from "./csv.js";
 import { TABS, TAB_ORDER, venueNames } from "./config.js";
-import { statusOf, rankOf, displayDate } from "./schedule.js";
+import {
+  statusOf,
+  rankOf,
+  displayDate,
+  refreshToday as refreshTodayRaw,
+} from "./schedule.js";
 
-/* 「本日」と、そこから決まる開催ステータスは schedule.js が持つ。
-   ここから再輸出しているのは、呼び出し側（絞り込み・カレンダー・描画）にとっては
-   データ層の一部に見えていたほうが自然で、import 元を分けるほどの区別ではないため。 */
-export { TODAY, refreshToday } from "./schedule.js";
+/* 「本日」は schedule.js が持つ。ここから再輸出しているのは、呼び出し側
+   （絞り込み・カレンダー・描画）にとってはデータ層の一部に見えていたほうが
+   自然で、import 元を分けるほどの区別ではないため。 */
+export { TODAY } from "./schedule.js";
 
 /* 「最終更新日」は日本時間の日付で表示する。
    閲覧者のタイムゾーンで換算すると、同じデータを見ている人どうしで表示が
@@ -109,6 +114,27 @@ function searchHay(tab, it) {
       .filter(Boolean)
       .join(" "),
   );
+}
+
+/* schedule.js の refreshToday() をラップし、日付が変わったときに検索インデックス
+   （_fold）も塗り直す。
+
+   status/rank/dateText はゲッタなので日付をまたげば自然に新しくなるが、_fold は
+   ロード時に1回だけ作る前計算（打鍵のたびに全件を畳み込まないための最適化）で、
+   その中には status のラベル文字列（例：「まもなく開催」）も畳み込んで入っている。
+   ラベルだけが日付とともに変わるのに _fold を作り直さなければ、バッジは
+   「本日まで」に変わっているのに検索窓に「本日まで」と打っても見つからない、
+   という食い違いが起きる——ここで直そうとしていた「収集した日で時間が止まる」
+   問題を、キャッシュの形を変えて再生産することになる。 */
+export function refreshToday() {
+  if (!refreshTodayRaw()) return false;
+  TAB_ORDER.forEach((key) => {
+    const tab = TABS[key];
+    ITEMS[key].forEach((it) => {
+      it._fold = searchHay(tab, it);
+    });
+  });
+  return true;
 }
 
 /* 日程から決まる3つの値は、読むたびに計算する。
