@@ -11,9 +11,9 @@
 ## 手順
 
 1. 実行日の曜日を確認し、実行するスキルを1つ決める（スキルは `.claude/skills/` 配下にある）。
-   - 木曜日 → `kanto-live-collector`
-   - 金曜日 → `kanto-movie-collector`
-   - 土曜日 → `kanto-event-collector`
+   - 水曜日 → `kanto-live-collector`
+   - 木曜日 → `kanto-movie-collector`
+   - 金曜日 → `kanto-event-collector`
    - それ以外の曜日 → テスト実行の可能性が高い。ユーザから特段の指示がなければ `kanto-event-collector` を実行する
 2. 選んだスキルを、SKILL.md の「実行手順まとめ」の**最後の項目まで**実行する。
    - 調査（探索・深掘り）は、予算切れ・コンテキスト逼迫・情報源への到達失敗などを理由に**打ち切ってよい**
