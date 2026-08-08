@@ -205,7 +205,7 @@ window.addEventListener("popstate", () => {
 });
 
 /* ---------- 日付をまたいだとき ----------
-   ページを開きっぱなしにしていると「本日まで」「あと0日」がずれる。
+   ページを開きっぱなしにしていると「本日開催」「あと0日」がずれる。
    タブに戻ってきたタイミングで今日を採り直し、変わっていれば塗り直す。 */
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;

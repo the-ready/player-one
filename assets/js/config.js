@@ -64,7 +64,7 @@ export const LIVE_TYPES = {
 /* 開催状況のバッジ。**並び順がそのまま rank（並べ替えの優先度）になる**ので、
    「いま行ける順」に並べておくこと。ラベルは schedule.js が日付から毎回選ぶ。 */
 export const EVENT_STATUS_STYLE = {
-  本日まで: { c: "#fff", bg: "var(--coral)" },
+  本日開催: { c: "#fff", bg: "var(--coral)" },
   本日予備日: { c: "#fff", bg: "var(--tangerine)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
@@ -109,7 +109,7 @@ export const STATUS_BY_PHASE = {
   event: {
     ended: "終了",
     backup: "本日予備日",
-    last: "本日まで",
+    last: "本日開催",
     opening: "開催中",
     ongoing: "開催中",
     gap: "本日は休み",

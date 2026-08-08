@@ -44,7 +44,7 @@ const JST_DATE_FMT = new Intl.DateTimeFormat("en-CA", {
 
 export const todayJst = () => JST_DATE_FMT.format(new Date());
 
-/* ページを開きっぱなしで日付をまたぐと「本日まで」「あと0日」がずれるので、
+/* ページを開きっぱなしで日付をまたぐと「本日開催」「あと0日」がずれるので、
    タブに戻ってきたタイミングで refreshToday() を呼んで採り直す（main.js）。 */
 let today = todayJst();
 export const TODAY = () => today;
@@ -145,7 +145,7 @@ export function statusOf(it) {
 
 /**
  * 並べ替えの優先度。ステータス表の並び順がそのまま順位になる
- * （「本日まで」= 0 が先頭、「終了」= 末尾）。表に無いラベルの行は
+ * （「本日開催」= 0 が先頭、「終了」= 末尾）。表に無いラベルの行は
  * CSVの rank に戻し、それも無ければ末尾に寄せる。
  */
 export function rankOf(it) {

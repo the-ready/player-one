@@ -209,7 +209,7 @@ function ticketBlockHtml(tab, it) {
     const endWhen = fmtWhen(it.onsaleEnd, it.onsaleEndTime);
     if (endWhen)
       rows.push(
-        `<span class="ti-row">締切 <b>${esc(endWhen)}</b>${d != null ? `（${d === 0 ? "本日まで" : `あと${d}日`}）` : ""}</span>`,
+        `<span class="ti-row">締切 <b>${esc(endWhen)}</b>${d != null ? `（${d === 0 ? "本日開催" : `あと${d}日`}）` : ""}</span>`,
       );
   }
   if (it.limitedSale)
