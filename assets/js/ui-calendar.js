@@ -133,13 +133,15 @@ function pickDate(dateStr) {
   const st = curState();
   focusDate = dateStr;
   if (!pendingStart) {
+    // 1クリック目で単日として即絞り込む。別の日を続けて押せば、その日までの
+    // 期間に広がる（開始日だけ選んだ状態でフィルターが効かないままなのを防ぐ）。
     pendingStart = dateStr;
-    st.rangeStart = null;
-    st.rangeEnd = null;
+    st.rangeStart = dateStr;
+    st.rangeEnd = dateStr;
     document.getElementById("calSelectionText").textContent =
-      `${fmtDateDots(dateStr)} 〜 終了日を選んでください`;
+      `${fmtDateDots(dateStr)}（別の日を選ぶと期間になります）`;
     renderCalendar();
-    refreshNow({ push: false });
+    refreshNow({ push: true });
     return;
   }
   st.rangeStart = dateStr < pendingStart ? dateStr : pendingStart;
