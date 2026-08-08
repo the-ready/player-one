@@ -30,6 +30,10 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TIME_RE = re.compile(r"^\d{1,2}:\d{2}$")
 BOOL_OK = {"", "0", "1", "true", "false", "yes", "no"}
 
+# date（自由記述）の中に月・季節を推測できる語があるか。
+# 「会期は公式サイト参照」のような、本当に何も分からない行は拾わない。
+MONTHLY_HINT = re.compile(r"\d{1,2}月|[春夏秋冬]")
+
 # 関東＋近縁のゆるい外接矩形。ここを外れる座標は緯度経度の取り違えを疑う。
 LAT_RANGE = (34.5, 37.5)
 LNG_RANGE = (138.0, 141.5)
@@ -234,6 +238,16 @@ def check_schedule(rep, where, name, r, start_col, start, end):
     free = (r.get("date") or "").strip()
     if free:
         rep.warn(where, f"date に自由記述が残っています（この行だけ日付表記が統一されません）: {free[:40]}")
+
+        # 「10月中旬〜下旬」「2026年夏」のように月・季節が読み取れるのに
+        # start_date/end_date が両方空だと、日程の絞り込みが「無期限」として
+        # 素通りし、まったく無関係な日で絞っても表示されてしまう
+        # （例: 8月で絞っているのに10月開催のコキアが出る）。
+        # 完全に日付が読めない行（「会期は公式サイト参照」等）とは区別する。
+        if not start and not end and MONTHLY_HINT.search(free):
+            rep.warn(where, f"date に月・季節が書かれていますが start_date/end_date が空です: {free[:40]!r}"
+                            "（日程の絞り込みで無関係な日にも表示されてしまいます。"
+                            "少なくとも該当する月を start_date/end_date に設定してください）")
 
     # 単日公演の end_date 空欄は「終了日が未定」の意味になり、
     # 終わったあともいつまでも「開催中」と表示され続ける。
