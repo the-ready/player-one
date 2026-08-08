@@ -4,24 +4,15 @@
    意図的に持たない——「今表示されているのがどのファイルの中身か」が分からなく
    なるほうが、読み込み失敗をそのままエラーとして見せるより有害なため。 */
 
-import { txt, num, int, fold, iso, stableUid } from "./util.js";
+import { txt, num, int, fold, stableUid } from "./util.js";
 import { mapRows, parseCsvObjects } from "./csv.js";
-import { TABS, TAB_ORDER, RANK_FALLBACK, venueNames } from "./config.js";
+import { TABS, TAB_ORDER, venueNames } from "./config.js";
+import { statusOf, rankOf, displayDate } from "./schedule.js";
 
-/* 「本日」はカレンダーの初期表示・プリセット期間・並べ替えの起点に使う。
-   定数で埋め込むとCSVを差し替えるたびにコード側も直す必要があるので、実際の今日を見る。
-   ページを開きっぱなしで日付をまたぐと「本日まで」「あと0日」がずれるため、
-   タブに戻ってきたタイミングで refreshToday() を呼んで採り直す。 */
-let today = iso(new Date());
-export const TODAY = () => today;
-export function refreshToday() {
-  const now = iso(new Date());
-  if (now === today) {
-    return false;
-  }
-  today = now;
-  return true;
-}
+/* 「本日」と、そこから決まる開催ステータスは schedule.js が持つ。
+   ここから再輸出しているのは、呼び出し側（絞り込み・カレンダー・描画）にとっては
+   データ層の一部に見えていたほうが自然で、import 元を分けるほどの区別ではないため。 */
+export { TODAY, refreshToday } from "./schedule.js";
 
 /* 「最終更新日」は日本時間の日付で表示する。
    閲覧者のタイムゾーンで換算すると、同じデータを見ている人どうしで表示が
@@ -120,12 +111,26 @@ function searchHay(tab, it) {
   );
 }
 
+/* 日程から決まる3つの値は、読むたびに計算する。
+
+   読み込み時に1回だけ計算して持たせると、ページを開いたままにしている間だけ
+   時間が止まる——CSVの `status` 列が「収集した日の判定」で止まっていたのと
+   同じ壊れ方を、寿命を1日縮めただけで繰り返すことになる。ゲッタにしておけば
+   日付をまたいだあとの再描画（main.js の visibilitychange）で自然に新しくなる。 */
+function defineDerived(out) {
+  Object.defineProperties(out, {
+    status: { get: () => statusOf(out), enumerable: true },
+    rank: { get: () => rankOf(out), enumerable: true },
+    dateText: { get: () => displayDate(out), enumerable: true },
+  });
+}
+
 function finalize(tab, out, row, i) {
   out.key = `${tab.keyPrefix}${i}`; // DOMのid用（CSVのidの欠損・重複に影響されない）
   out.title =
     out.title || (tab.key === "live" ? "(公演名未設定)" : "(タイトル未設定)");
-  out.rank = out.rank != null ? out.rank : RANK_FALLBACK;
   out.tab = tab.key;
+  defineDerived(out);
   // お気に入りは週次でCSVが差し替わっても残ってほしいので、行番号でも id でもなく
   // 内容から決まる安定キーを使う（id は収集のたびに振り直されることがある）。
   out.uid = `${tab.key}:${stableUid([out.title, out.startDate, out.venue])}`;

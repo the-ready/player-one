@@ -166,8 +166,18 @@ export function effectiveDate(st, it) {
   return anchor;
 }
 
+/* 終了日を過ぎている行。開催状況を「本日」から計算するようにしたことで、
+   CSVが1週間古いだけでも終わった催しが一覧に混じるようになった（以前は
+   収集した日の判定が書き置かれていたので、古いデータでも「開催中」に見えていた）。
+   終わったことを隠すのではなく、**現役の下に置いて、終了バッジを付けて出す**。
+   隠すのは「載っていない」と「終わった」の区別を利用者から奪う。 */
+const hasEnded = (it) => !!(it.endDate && it.endDate < TODAY());
+
 export function byDateThenRank(st) {
   return (a, b) => {
+    const ea = hasEnded(a),
+      eb = hasEnded(b);
+    if (ea !== eb) return ea ? 1 : -1;
     const da = effectiveDate(st, a),
       db = effectiveDate(st, b);
     if (da !== db) return da < db ? -1 : 1;

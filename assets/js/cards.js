@@ -259,7 +259,7 @@ function seriesOthersHtml(tab, it) {
           const lim = o.limitedSale
             ? `<span class="ts-tag limited">限定・追加販売</span>`
             : "";
-          return `<li>${esc([fmtDateWd(o.startDate) || o.date, ...venueNames(o)].filter(Boolean).join("／"))}${tag}${lim}</li>`;
+          return `<li>${esc([fmtDateWd(o.startDate) || o.dateText, ...venueNames(o)].filter(Boolean).join("／"))}${tag}${lim}</li>`;
         })
         .join("")}</ul>
     </div>`;
@@ -459,7 +459,7 @@ export function cardHtml(tab, it, st, terms) {
     ${header}
     <div class="${tab.bodyClass}">
       <div class="top-row">
-        <span class="date-txt${tab.key === "live" ? " live-date" : ""}">${esc(it.date || "")}</span>
+        <span class="date-txt${tab.key === "live" ? " live-date" : ""}">${esc(it.dateText || "")}</span>
         <span class="badge-stack">
           ${it.isAdditional ? `<span class="add-badge">${esc(tab.additionalLabel)}</span>` : ""}
           ${it.status ? `<span class="status-badge" style="background:${badge.bg};color:${badge.c}">${esc(it.status)}</span>` : ""}

@@ -72,7 +72,7 @@ description: "Collect Kanto-area event data for the next 3 months and produce da
 1. 調査済みで未追記の行を `append_rows.py` で書き切る
 2. `python3 tools/diff_data.py events --allow-unexplained` で、まだ処理していない前回行を出す
 3. 残った行を片付ける（**ここから先は検索を使わない**）
-   - まだ載せるべき行 → `python3 tools/prev_rows.py events --uid <uid>` で前回値を引き、`status`/`rank` を今日の日付で計算し直して書き戻す（tier C の持ち越し。`price_checked` は前回の日付のまま）
+   - まだ載せるべき行 → `python3 tools/prev_rows.py events --uid <uid>` で前回値を引き、そのまま書き戻す（tier C の持ち越し。`status`/`rank` は表示側が日付から計算するので触らなくてよい。`price_checked` は前回の日付のまま）
    - 判断できない行 → `--dispose` に `notfound` として記録する
 4. 終了工程の 2〜6 を通す
 5. 報告に「どの工程を、どの理由で打ち切ったか」「持ち越した行数」「`notfound` の件数」を書く
@@ -132,22 +132,22 @@ description: "Collect Kanto-area event data for the next 3 months and produce da
 ```bash
 python3 tools/append_rows.py events <<'EOF'
 {"title": "...", "venue": "国立西洋美術館", "start_date": "2026-07-07", "end_date": "2026-09-23",
- "date": "2026.7.7〜9.23", "status": "開催中", "rank": "2", "cats": "art", "area": "東京都・台東区",
+ "cats": "art", "area": "東京都・台東区",
  "pref": "tokyo", "price": "一般2,300円", "source": "公式サイト", "url": "https://...", "_carry": "*"}
 EOF
 ```
 
-> **日付・料金・受付・クーポンは持ち越せない。** `onsale_end` や `price_best` を `_carry` に指定するとスクリプトがエラーで落ちる。前回の締切をそのまま書き写すことは、このスキルが禁じている「確認していない値を書く」そのものだからである。確認できないなら空欄にする。
+> **日付・時刻・料金・受付・クーポンは持ち越せない。** `onsale_end` や `price_best` を `_carry` に指定するとスクリプトがエラーで落ちる。前回の締切をそのまま書き写すことは、このスキルが禁じている「確認していない値を書く」そのものだからである。確認できないなら空欄にする。
 >
 > `"_carry": "*"` を使ってよいのは、その行の内容に変更がないことを**実際に確認できたとき**だけである。「たぶん変わっていない」で使わない。
 
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
 ```
 
-全39列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
+全44列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -159,10 +159,8 @@ id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,ran
 | `area`                    | 表示用の地名（例：`東京都・江東区`）                                                                                                                                                                                                                                                                                                |
 | `venue`                   | 会場・施設名。不明なら `-`                                                                                                                                                                                                                                                                                                          |
 | `pref`                    | `tokyo` `kanagawa` `saitama` `chiba` `ibaraki` `tochigi` `gunma` のいずれか                                                                                                                                                                                                                                                         |
-| `start_date` / `end_date` | `YYYY-MM-DD`。**不明なら必ず空欄。推測で埋めない**                                                                                                                                                                                                                                                                                  |
-| `date`                    | 表示用の日付文字列（例：`2026.8.1〜9.30`）                                                                                                                                                                                                                                                                                          |
-| `status`                  | `本日まで` `まもなく開催` `開催中` `発売中` `通年予約可`                                                                                                                                                                                                                                                                            |
-| `rank`                    | `本日まで`=0 / `まもなく開催`(2週間以内)=1 / `開催中`=2 / `発売中`=3 / `通年予約可`=4                                                                                                                                                                                                                                               |
+| `start_date` / `end_date` | `YYYY-MM-DD`。**不明なら必ず空欄。推測で埋めない**。**単日開催なら両方に同じ日を書く**——`end_date` の空欄は「終了日が未定（まだ続く）」の意味になり、終わったあとも「開催中」と表示され続ける                                                                                                                                       |
+| 日程のその他の列          | `dates` `open_time` `start_time` `end_time` `date_note` `date` `status` `rank` は下記「日程の書き方」を参照。**表示用の日付文字列は書かない**                                                                                                                                                                                       |
 | `price`                   | 実際の料金（例：`おとな2,800円／小中学生1,300円`）。不明なら `要問合せ`                                                                                                                                                                                                                                                             |
 | `source`                  | 出典サイト名。**URLではなく、人間が読める短いサイト名を書くこと**（例：`asoview!` `Klook` `公式サイト` `ウォーカープラス`）。ダッシュボードはこの値をボタンのラベル「{source}で予約する」にそのまま使うため、URLを書くと「https://...で予約する」と表示されてしまう。複数の出典がある場合は、`url` に採用したサイトの名前だけを書く |
 | `url`                     | **最安で予約できるページ**（下記「最安リンクの選定」参照）                                                                                                                                                                                                                                                                          |
@@ -177,6 +175,34 @@ id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,status,ran
 | `lat` / `lng`             | 会場の代表座標（小数4桁程度）。**`data/spots.csv` に載っている会場は空欄で渡す**（名簿と前回値から自動補完されるので調べない）。**調べるのは、名簿にも前回にも無い新しい会場だけ**——手順は下記「会場の座標（`lat`/`lng`）の調べ方」。書くときは**両方そろえること**（片方だけでは地図に出せない）                                   |
 | `desc`                    | 100〜150字程度。**目玉が何かを具体的に書く**（下記「descの書き方」参照）                                                                                                                                                                                                                                                            |
 | `note`                    | 利用者への注意書き（例：`雨天中止` `未就学児は入場不可`）。無ければ空欄                                                                                                                                                                                                                                                             |
+
+#### 日程の書き方（3つの収集スキルで共通）
+
+**画面に出る日付の文字列も、`開催中` `まもなく開催` といった開催状況のバッジも、
+ダッシュボードが表示のたびに組み立てる。** ここで書くのは、機械が読める事実だけである。
+
+| 列                | 規則                                                                                                                                                                                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dates`           | **飛び日程**（連続していない複数日）の実開催日を `\|` 区切りで全部並べる。例：`2026-08-10\|2026-08-11\|2026-08-14`。**連続した会期では空欄**（開始日〜終了日で足りる）。書くときは先頭を開始日と、末尾を `end_date` と一致させること    |
+| `open_time`       | 開場時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `start_time`      | 開始時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `end_time`        | 終了時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `date_note`       | 上のどれにも収まらない但し書き（例：`オールナイト` `9.13は予備日` `土日祝のみ` `荒天時は8/30に順延` `1週間限定`）。**日付や時刻そのものをここに書き写さない**——構造化列に入れれば画面が組み立てる                                       |
+| `date`            | **原則として空欄。** ISOの日付に落とすと持っていない精度を騙ることになる日程（`2026年10月中旬〜下旬（見頃予想）` `8月の毎週土日` など）だけ、ここに自由記述で書く。**書いた行はこの文字列がそのまま表示され、上の構造化列は使われない** |
+| `status` / `rank` | **原則として空欄。** 日付から毎回計算される。開始日も `end_date` も持たない行——つまり `date` に自由記述を書いた行——でだけ、下の表から選んで書く                                                                                         |
+
+以前は `date` に `2026-08-28（荒天時8/30に順延）19:00~20:00` のような表示用の文字列を、`status` に収集を実行した日の
+判定を書いていた。やめた理由は2つある。
+
+- **書き手ごとに表記がそろわなかった。** 同じ会期が `2026.8.1〜9.30` にも
+  `2026-08-01〜2026-09-30` にも `2026年8月1日〜9月30日` にもなり、曜日の有無も
+  行ごとに違っていた。毎週ゼロから書き起こす以上、書式を決めても必ず崩れる。
+- **収集した日で時間が止まっていた。** 週の後半に見た人には、始まっているイベントが
+  「まもなく開催」のままで、終わったイベントが「開催中」のまま残る。
+  データが古いほど、画面の嘘が増えていく。
+
+どちらも「計算できる値を、計算せずに書き置いた」ことが原因である。
+書いた値が画面に出ないのは気持ちが悪いかもしれないが、**書かないほうが正しい**。
 
 #### 新しく追加された列（以前の版には無かったもの）
 
@@ -283,11 +309,11 @@ python3 tools/prev_rows.py events --venue 東京国立博物館   # 前回の of
 **必須列が揃った行は、そこで調査を終える。** すでに「行くかどうか」を判断できる情報が
 揃っているのに調べ続けるのは、品質ではなく消費である。
 
-| 区分                     | 列                                                                                                                | 扱い                                                                 |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **これが揃ったら終わり** | `title` `cats` `area` `pref` `venue` `start_date`/`end_date` `date` `status` `rank` `price` `source` `url` `desc` | 揃った時点で次の行へ移る                                             |
-| **ついでに拾うだけ**     | `kana` `note` `venue_url` `series_id` `announced_date` `is_additional` `parking` `nearest_station`                | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
-| **調べない**             | `lat` / `lng`                                                                                                     | 名簿と前回値から自動で補完される（下記）                             |
+| 区分                     | 列                                                                                                 | 扱い                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **これが揃ったら終わり** | `title` `cats` `area` `pref` `venue` `start_date`/`end_date` `price` `source` `url` `desc`         | 揃った時点で次の行へ移る                                             |
+| **ついでに拾うだけ**     | `kana` `note` `venue_url` `series_id` `announced_date` `is_additional` `parking` `nearest_station` | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
+| **調べない**             | `lat` / `lng`                                                                                      | 名簿と前回値から自動で補完される（下記）                             |
 
 **具体的にやってはいけないこと**
 
@@ -311,8 +337,8 @@ python3 tools/prev_rows.py events --venue 東京国立博物館   # 前回の of
 打ち切ったら、その事実と工程名を報告に書く。
 
 再確認まで手が回らなかった tier C の行は、**消さずに前回値のまま書き直してよい**
-（`prev_rows.py --uid` で全列を引ける）。ただし `status`/`rank` は今日の日付から
-計算し直し、**`price_checked` は前回の日付のまま書く**（今日に更新しない。
+（`prev_rows.py --uid` で全列を引ける）。`status`/`rank` は表示側が日付から
+計算するので触らなくてよい。**`price_checked` は前回の日付のまま書く**（今日に更新しない。
 「いつ確認した値か」を示す列なので、古いまま出すのが正しい）。詳細は
 `docs/COLLECTION-PROTOCOL.md` 第8.5節。使った行数は報告に含めること。
 
@@ -480,7 +506,7 @@ EOF
 
 #### 深掘りを打ち切る基準
 
-**必須列（`title` `cats` `area` `pref` `venue` 日付 `status` `rank` `price` `source` `url` `desc`）が揃った時点で、その行の調査を終える。** 揃っているのに「もう少し詳しく」と調べ続けるのは、品質ではなく消費である。
+**必須列（`title` `cats` `area` `pref` `venue` 日付 `price` `source` `url` `desc`）が揃った時点で、その行の調査を終える。** 揃っているのに「もう少し詳しく」と調べ続けるのは、品質ではなく消費である。
 
 前回から続いているイベントについては、**変わりうる項目（会期・料金・クーポン・受付）だけを確認すればよい**。目玉・座標・アクセスを毎回調べ直す必要はない（`_carry` で持ち越す）。**「変わっていないことを確認する」ために、変わらない項目を読み直さないこと。**
 
@@ -841,7 +867,7 @@ JAF会員は当日券200円引き（要会員証提示）
 - [ ] クーポンページを**セッションに1回ずつ**開いたか（イベントごとに開き直していないか）
 - [ ] 工程ごとの検索回数を控え、報告に含めたか
 - [ ] 予算切れで工程を打ち切った場合、その事実を報告に書いたか（件数を埋めるために未検証の行を足していないか）
-- [ ] 再確認できずに前回値で持ち越した tier C の行について、`status`/`rank` を今日の日付で計算し直し、`price_checked` は**前回の日付のまま**にしたか
+- [ ] 再確認できずに前回値で持ち越した tier C の行について、`price_checked` を**前回の日付のまま**にしたか
 
 ### 差分・名簿
 
@@ -871,7 +897,7 @@ JAF会員は当日券200円引き（要会員証提示）
 - [ ] 開始日が実行日の3ヶ月後より後のイベントが混ざっていないか
 - [ ] `pref` が7県のいずれかになっているか
 - [ ] `cats` が定義済み8キーのみか
-- [ ] `rank` が `status` と整合しているか
+- [ ] `date` に自由記述を残した行が、本当に ISO の日付へ落とせない日程だけになっているか（`validate_data.py` が該当行を WARNING で挙げる）
 - [ ] `url` が実在するページか（リンク切れがないか）
 - [ ] `discount_pct` が入っている行に、`price_official`・`price_best`・`best_source`・`price_checked` が**すべて**揃っているか
 - [ ] `price_best` が `price_official` 以上になっている矛盾行がないか

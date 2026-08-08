@@ -73,7 +73,7 @@ description: "Collect Kanto-area live concert and music festival data and produc
 1. 調査済みで未追記の行を `append_rows.py` で書き切る
 2. `python3 tools/diff_data.py lives --allow-unexplained` で、まだ処理していない前回行を出す
 3. 残った行を片付ける（**ここから先は検索を使わない**）
-   - まだ公演が予定されていると判断できる行 → `python3 tools/prev_rows.py lives --uid <uid>` で前回値を引き、`status`/`rank` を今日の日付で計算し直して書き戻す（tier C の持ち越し。**`onsale_*` は空欄にする**）
+   - まだ公演が予定されていると判断できる行 → `python3 tools/prev_rows.py lives --uid <uid>` で前回値を引き、そのまま書き戻す（tier C の持ち越し。`status`/`rank` は表示側が日付から計算するので触らなくてよい。**`onsale_*` は空欄にする**）
    - 判断できない行 → `--dispose` に `notfound` として記録する（**中止と混同しない。`cancelled` は中止を確認できたときだけ**）
 4. 終了工程の 2〜6 を通す
 5. 報告に「どの工程を、どの理由で打ち切ったか」「持ち越した行数」「`notfound` の件数」を書く
@@ -163,8 +163,9 @@ description: "Collect Kanto-area live concert and music festival data and produc
 
 ```bash
 python3 tools/append_rows.py lives <<'EOF'
-{"title": "...", "venue": "Kアリーナ横浜", "start_date": "2026-09-05", "date": "2026.9.5(土) 開場16:00／開演17:00",
- "status": "公演予定", "rank": "3", "genre": "rock", "live_type": "oneman", "area": "神奈川県・横浜市西区",
+{"title": "...", "venue": "Kアリーナ横浜", "start_date": "2026-09-05", "end_date": "2026-09-05",
+ "open_time": "16:00", "start_time": "17:00",
+ "genre": "rock", "live_type": "oneman", "area": "神奈川県・横浜市西区",
  "pref": "kanagawa", "price": "全席指定 9,800円", "source": "チケットぴあ", "url": "https://...",
  "onsale_label": "一般発売", "onsale_start": "2026-08-09", "onsale_start_time": "10:00", "_carry": "*"}
 EOF
@@ -177,10 +178,10 @@ EOF
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url
 ```
 
-全35列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` が加わった）。
+全40列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` が加わった）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -200,10 +201,10 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 | `venue_url`         |      | 会場の公式サイト。`venues.csv` に会場がある場合は不要（マスター側から引く）                                                                                                                                                                                           |
 | `pref`              |  ✓   | `tokyo` `kanagawa` `saitama` `chiba` `ibaraki` `tochigi` `gunma` `other`                                                                                                                                                                                              |
 | `start_date`        |  ✓   | 公演日 `YYYY-MM-DD`。**不明なら空欄。推測で埋めない**                                                                                                                                                                                                                 |
-| `end_date`          |      | 複数日開催（フェス・同一会場での連日公演）の最終日。単日公演は空欄                                                                                                                                                                                                    |
-| `date`              |  ✓   | 表示用の日時文字列。**開場・開演時刻をここに含める**（例：`2026.9.5(土) 開場16:00／開演17:00`、`2026.8.15〜8.16`）                                                                                                                                                    |
-| `status`            |  ✓   | `本日開催` `まもなく開催` `開催中` `公演予定` のいずれか                                                                                                                                                                                                              |
-| `rank`              |  ✓   | `本日開催`=0 / `まもなく開催`(2週間以内)=1 / `開催中`=2 / `公演予定`=3                                                                                                                                                                                                |
+| `end_date`          |  ✓   | 最終日 `YYYY-MM-DD`。複数日開催（フェス・同一会場での連日公演）はその最終日、**単日公演は `start_date` と同じ日**。空欄は「終了日が未定」の意味になり、公演が終わっても「開催中」と表示され続ける                                                                     |
+| `open_time`         |      | 開場時刻 `H:MM`。**公演の価値の半分はここにある**——下記「日程の書き方」                                                                                                                                                                                               |
+| `start_time`        |      | 開演時刻 `H:MM`                                                                                                                                                                                                                                                       |
+| 日程のその他の列    |      | `dates` `end_time` `date_note` `date` `status` `rank` は下記「日程の書き方」を参照。**表示用の日時文字列は書かない**                                                                                                                                                  |
 | `announced_date`    |      | 公演・追加公演が**発表された日** `YYYY-MM-DD`。分かる範囲で。7日以内なら画面に「NEW」バッジが出る                                                                                                                                                                     |
 | `is_additional`     |      | 追加公演・追加席開放なら `1`。それ以外は空欄                                                                                                                                                                                                                          |
 | `onsale_label`      |      | 直近の受付の名称（例：`オフィシャル先行`／`一般発売`）。受付が無い/終了なら `受付終了` `SOLD OUT` `当日券あり` `入場無料` などの状態語でもよい                                                                                                                        |
@@ -222,6 +223,34 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 | `parking`           |      | 会場の駐車場情報（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                              |
 | `nearest_station`   |      | 最寄り駅と徒歩時間（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                            |
 | `apple_music_url`   |      | メインアーティストの Apple Music アーティストページ（下記「Apple Music アーティストリンク」参照）                                                                                                                                                                     |
+
+#### 日程の書き方（3つの収集スキルで共通）
+
+**画面に出る日付の文字列も、`開催中` `まもなく開催` といった開催状況のバッジも、
+ダッシュボードが表示のたびに組み立てる。** ここで書くのは、機械が読める事実だけである。
+
+| 列                | 規則                                                                                                                                                                                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dates`           | **飛び日程**（連続していない複数日）の実開催日を `\|` 区切りで全部並べる。例：`2026-08-10\|2026-08-11\|2026-08-14`。**連続した会期では空欄**（開始日〜終了日で足りる）。書くときは先頭を開始日と、末尾を `end_date` と一致させること    |
+| `open_time`       | 開場時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `start_time`      | 開演時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `end_time`        | 終了時刻 `H:MM`。無ければ空欄                                                                                                                                                                                                           |
+| `date_note`       | 上のどれにも収まらない但し書き（例：`オールナイト` `9.13は予備日` `土日祝のみ` `荒天時は8/30に順延` `1週間限定`）。**日付や時刻そのものをここに書き写さない**——構造化列に入れれば画面が組み立てる                                       |
+| `date`            | **原則として空欄。** ISOの日付に落とすと持っていない精度を騙ることになる日程（`2026年10月中旬〜下旬（見頃予想）` `8月の毎週土日` など）だけ、ここに自由記述で書く。**書いた行はこの文字列がそのまま表示され、上の構造化列は使われない** |
+| `status` / `rank` | **原則として空欄。** 日付から毎回計算される。開始日も `end_date` も持たない行——つまり `date` に自由記述を書いた行——でだけ、下の表から選んで書く                                                                                         |
+
+以前は `date` に `2026.9.5(土) 開場16:00／開演17:00` のような表示用の文字列を、`status` に収集を実行した日の
+判定を書いていた。やめた理由は2つある。
+
+- **書き手ごとに表記がそろわなかった。** 同じ会期が `2026.8.1〜9.30` にも
+  `2026-08-01〜2026-09-30` にも `2026年8月1日〜9月30日` にもなり、曜日の有無も
+  行ごとに違っていた。毎週ゼロから書き起こす以上、書式を決めても必ず崩れる。
+- **収集した日で時間が止まっていた。** 週の後半に見た人には、始まっている公演が
+  「まもなく開催」のままで、終わった公演が「開催中」のまま残る。
+  データが古いほど、画面の嘘が増えていく。
+
+どちらも「計算できる値を、計算せずに書き置いた」ことが原因である。
+書いた値が画面に出ないのは気持ちが悪いかもしれないが、**書かないほうが正しい**。
 
 ### ジャンルキー（`genre`・複数可）
 
@@ -337,12 +366,12 @@ python3 tools/prev_rows.py lives --venue Kアリーナ横浜   # 前回の url /
 
 **必須列が揃った行は、そこで調査を終える。** すでに「行けるか・間に合うか」を判断できる情報が揃っているのに調べ続けるのは、品質ではなく消費である。
 
-| 区分                          | 列                                                                                                                                                               | 扱い                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **これが揃ったら終わり**      | `title` `artists` `genre` `live_type` `area` `venue` `pref` `start_date` `date` `status` `rank` `price` `source` `url` `desc` ＋ **確認できた範囲の `onsale_*`** | 揃った時点で次の行へ移る                                             |
-| **ついでに拾うだけ**          | `kana` `note` `venue_url` `tour_id` `announced_date` `is_additional` `parking` `nearest_station`                                                                 | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
-| **調べない**                  | `lat` / `lng`                                                                                                                                                    | `venues.csv` と前回値から自動で補完される。**空欄で渡す**            |
-| **1回で見つからなければ空欄** | `apple_music_url`                                                                                                                                                | iTunes Search API を1回叩いて確信が持てなければ空欄。粘らない        |
+| 区分                          | 列                                                                                                                                                   | 扱い                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **これが揃ったら終わり**      | `title` `artists` `genre` `live_type` `area` `venue` `pref` `start_date`/`end_date` `price` `source` `url` `desc` ＋ **確認できた範囲の `onsale_*`** | 揃った時点で次の行へ移る                                             |
+| **ついでに拾うだけ**          | `kana` `note` `venue_url` `tour_id` `announced_date` `is_additional` `parking` `nearest_station`                                                     | 開いたページに書いてあれば書く。**このために追加でページを開かない** |
+| **調べない**                  | `lat` / `lng`                                                                                                                                        | `venues.csv` と前回値から自動で補完される。**空欄で渡す**            |
+| **1回で見つからなければ空欄** | `apple_music_url`                                                                                                                                    | iTunes Search API を1回叩いて確信が持てなければ空欄。粘らない        |
 
 **具体的にやってはいけないこと**
 
@@ -365,7 +394,7 @@ python3 tools/prev_rows.py lives --venue Kアリーナ横浜   # 前回の url /
 
 **目標件数（80〜150件）に届かないことより、未検証の行を足すことのほうが重い失敗である。** これは「実行環境の前提」章がすでに述べているとおりで、予算切れでも同じことが言える。打ち切ったら、その事実と工程名を報告に書く。
 
-再確認まで手が回らなかった tier C の行は、**消さずに前回値のまま書き直してよい**（`prev_rows.py --uid` で全列を引ける）。ただし `status`/`rank` は今日の日付から計算し直し、**`onsale_*` は空欄にする**（受付は進むので、前回の締切を書き写すことは禁じられている）。詳細は `docs/COLLECTION-PROTOCOL.md` 第8.5節。使った行数は報告に含めること。
+再確認まで手が回らなかった tier C の行は、**消さずに前回値のまま書き直してよい**（`prev_rows.py --uid` で全列を引ける）。ただし **`onsale_*` は空欄にする**（受付は進むので、前回の締切を書き写すことは禁じられている）。詳細は `docs/COLLECTION-PROTOCOL.md` 第8.5節。使った行数は報告に含めること。
 
 ---
 
@@ -582,7 +611,7 @@ EOF
 
 #### 深掘りを打ち切る基準
 
-**必須列（`title` `artists` `genre` `live_type` 場所 日付 `status` `rank` `price` `source` `url` `desc` ＋確認できた範囲の `onsale_*`）が揃った時点で、その行の調査を終える。**
+**必須列（`title` `artists` `genre` `live_type` 場所 日付 `price` `source` `url` `desc` ＋確認できた範囲の `onsale_*`）が揃った時点で、その行の調査を終える。**
 
 とくに次の状態は**確定情報**なので、それ以上の経路を探さない。
 
@@ -843,7 +872,7 @@ https://itunes.apple.com/search?term={アーティスト名（URLエンコード
 - [ ] 価格比較を行っていないか（このタブでは行わない）
 - [ ] 工程ごとの検索回数を控え、報告に含めたか
 - [ ] 予算切れで工程を打ち切った場合、その事実を報告に書いたか（件数を埋めるために未検証の行を足していないか）
-- [ ] 再確認できずに前回値で持ち越した tier C の行について、`status`/`rank` を今日の日付で計算し直し、**`onsale_*` は空欄にした**か
+- [ ] 再確認できずに前回値で持ち越した tier C の行について、**`onsale_*` を空欄にした**か
 
 ### 差分・名簿
 
@@ -871,7 +900,7 @@ https://itunes.apple.com/search?term={アーティスト名（URLエンコード
 - [ ] `pref` が8キーのいずれかか
 - [ ] `genre` が定義済み10キーのみか
 - [ ] `live_type` が定義済み5キーのみか、かつ**1つだけ**か
-- [ ] `rank` が `status` と整合しているか
+- [ ] `date` に自由記述を残した行が、本当に ISO の日付へ落とせない日程だけになっているか（`validate_data.py` が該当行を WARNING で挙げる）
 
 ### ライブ固有
 

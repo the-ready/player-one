@@ -175,6 +175,8 @@ def tier_of(name, row, today):
     reasons = []
     start = _d(row.get(START_COL[name]))
     end = _d(row.get("end_date"))
+    # status はもう日付から画面側が計算する列で、CSVでは日付を持たない行にしか入らない。
+    # 「まもなく」「本日」の急ぎ判定は、下の start / end の比較がそのまま担っている。
     status = (row.get("status") or "").strip()
     soon = today + timedelta(days=NEAR_DAYS)
 

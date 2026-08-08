@@ -61,24 +61,82 @@ export const LIVE_TYPES = {
   free: { label: "入場無料", c: "var(--lime)" },
 };
 
+/* 開催状況のバッジ。**並び順がそのまま rank（並べ替えの優先度）になる**ので、
+   「いま行ける順」に並べておくこと。ラベルは status.js が日付から毎回選ぶ。 */
 export const EVENT_STATUS_STYLE = {
   本日まで: { c: "#fff", bg: "var(--coral)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
   発売中: { c: "#fff", bg: "var(--sky)" },
   通年予約可: { c: "var(--ink)", bg: "#EFEFF2" },
+  終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
 export const MOVIE_STATUS_STYLE = {
   本日が最終上映: { c: "#fff", bg: "var(--coral)" },
   まもなく公開: { c: "#fff", bg: "var(--sunny)" },
   上映中: { c: "#fff", bg: "var(--grape)" },
   前売り券発売中: { c: "#fff", bg: "var(--sky)" },
+  上映終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
 export const LIVE_STATUS_STYLE = {
   本日開催: { c: "#fff", bg: "var(--coral)" },
   まもなく開催: { c: "#fff", bg: "var(--sunny)" },
   開催中: { c: "#fff", bg: "var(--grape)" },
   公演予定: { c: "#fff", bg: "var(--sky)" },
+  終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
+};
+
+/* 日程から求めた「いまどの段階か」（schedule.js の schedulePhase が返す）を、
+   タブごとの言い回しに割り当てる表。CSVに書かれた status ではなく**これ**が
+   画面に出るので、データを差し替えなくても日付をまたげば表示が変わる。
+
+     ended   … 終了日を過ぎた
+     last    … 今日が最終日（単日開催なら「今日」そのもの）
+     opening … 今日が初日で、まだ続く
+     ongoing … 会期の途中
+     openrun … 始まっているが終了日が未定
+     soon    … 開始まで SOON_DAYS 日以内
+     far     … それより先 */
+export const STATUS_BY_PHASE = {
+  event: {
+    ended: "終了",
+    last: "本日まで",
+    opening: "開催中",
+    ongoing: "開催中",
+    openrun: "開催中",
+    soon: "まもなく開催",
+    far: "発売中",
+  },
+  movie: {
+    ended: "上映終了",
+    last: "本日が最終上映",
+    opening: "上映中",
+    ongoing: "上映中",
+    openrun: "上映中",
+    soon: "まもなく公開",
+    far: "前売り券発売中",
+  },
+  // 複数日開催のフェスは初日と最終日を「本日開催」、中日を「開催中」と呼び分ける。
+  live: {
+    ended: "終了",
+    last: "本日開催",
+    opening: "本日開催",
+    ongoing: "開催中",
+    openrun: "開催中",
+    soon: "まもなく開催",
+    far: "公演予定",
+  },
+};
+
+// 「まもなく」と呼ぶ範囲。収集スキルの rank の定義（2週間以内）に合わせてある。
+export const SOON_DAYS = 14;
+
+/* 日程欄に出す時刻の呼び方。組み立ての規則（`開場◯／開演◯`）は3タブで同じで、
+   語だけがタブごとに違う。 */
+export const TIME_WORDS = {
+  event: { open: "開場", start: "開始" },
+  movie: { open: "開場", start: "上映" },
+  live: { open: "開場", start: "開演" },
 };
 
 // 会場マスターの種別。エリアpopoverの会場ピッカーで候補を絞るのに使う。
@@ -145,9 +203,18 @@ const COMMON_COLUMNS = {
   area: ["area", txt],
   pref: ["pref", txt],
   endDate: ["end_date", txt],
+  // 日程の構造化列。表示文字列も開催ステータスもここから毎回組み立てる（schedule.js）。
+  // date だけは例外で、ISOの日付に落とせない日程を書き残すための自由記述。
   date: ["date", txt],
-  status: ["status", txt],
-  rank: ["rank", int],
+  dates: ["dates", list], // 飛び日程の実開催日（連続した会期なら空）
+  openTime: ["open_time", txt],
+  startTime: ["start_time", txt],
+  endTime: ["end_time", txt],
+  dateNote: ["date_note", txt],
+  // status / rank は日付から計算する。CSVの値は「日付を持たない行」の予備でしかない
+  // ので、そのまま status / rank と名乗らせない（data.js で同名のゲッタを生やす）。
+  csvStatus: ["status", txt],
+  csvRank: ["rank", int],
   announcedDate: ["announced_date", txt],
   isAdditional: ["is_additional", bool],
   onsaleLabel: ["onsale_label", txt],

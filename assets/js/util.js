@@ -93,6 +93,65 @@ export function fmtWhen(ymd, hm) {
   if (!d) return null;
   return hm ? `${d} ${hm}` : d;
 }
+
+/* ---------- 日程の表示文字列 ----------
+   CSVには ISO の日付しか置かず、画面に出す文字列はここで毎回組み立てる。
+   曜日を書き置きしないのはこのためで、書き置くと「日付を直したのに曜日が
+   前のまま」という、読み手には気づけない嘘が残る。 */
+
+// 2つ目以降の日付は、前の日付と重なる部分を落として短くする。
+// 「2026.9.19(土)〜2026.9.20(日)」は年も月も繰り返していて、読む手間だけが増える。
+export function fmtDateWdShort(ymd, prev) {
+  const full = fmtDateWd(ymd);
+  if (!full || !prev) return full;
+  const [y, m, d] = String(ymd).split("-");
+  const [py, pm] = String(prev).split("-");
+  if (y !== py) return full;
+  const wd = full.slice(full.indexOf("("));
+  return m === pm
+    ? `${parseInt(d, 10)}${wd}`
+    : `${parseInt(m, 10)}.${parseInt(d, 10)}${wd}`;
+}
+
+// 飛び日程をそのまま全部並べるとカードの1行に収まらないので、この数で打ち切る。
+export const SPAN_MAX_DAYS = 8;
+
+/**
+ * 会期の表示。days（飛び日程の実開催日）があればそちらが優先で、
+ * 無ければ start〜end の連続した会期として扱う。
+ * end が空なのは「終了日が未定」の意味なので、開いた範囲（`〜` で終わる）にする。
+ */
+export function fmtSpan(start, end, days) {
+  if (days && days.length) {
+    const shown =
+      days.length > SPAN_MAX_DAYS ? days.slice(0, SPAN_MAX_DAYS - 1) : days;
+    const rest = days.length - shown.length;
+    const body = shown
+      .map((d, i) => (i === 0 ? fmtDateWd(d) : fmtDateWdShort(d, shown[i - 1])))
+      .filter(Boolean)
+      .join("・");
+    return rest > 0 ? `${body}・ほか${rest}日` : body;
+  }
+  if (start && end && start !== end)
+    return `${fmtDateWd(start)}〜${fmtDateWdShort(end, start)}`;
+  if (start && !end) return `${fmtDateWd(start)}〜`;
+  if (start) return fmtDateWd(start);
+  if (end) return `〜${fmtDateWd(end)}`;
+  return null;
+}
+
+/**
+ * 時刻の表示。開場・開演の呼び方はタブごとに違う（公演は「開演」、上映は「上映」）ので
+ * 語だけを words で受け取り、組み立ての規則は3タブで1つに保つ。
+ * 未登録の時刻は書かない——0:00 と書くのは、書かないより悪い。
+ */
+export function fmtTimes(open, start, end, words) {
+  const seg = [];
+  if (open) seg.push(`${words.open}${open}`);
+  if (start) seg.push(`${words.start}${start}${end ? `〜${end}` : ""}`);
+  else if (end) seg.push(`〜${end}`);
+  return seg.length ? seg.join("／") : null;
+}
 export function fmtKm(km) {
   return km < 10 ? `${km.toFixed(1)}km` : `${Math.round(km)}km`;
 }

@@ -190,7 +190,7 @@ function doFav(item, btn) {
 
 async function doShare(item) {
   const url = safeUrl(item.url || item.officialUrl) || location.href;
-  const text = [item.date, venueNames(item).join("・") || item.area]
+  const text = [item.dateText, venueNames(item).join("・") || item.area]
     .filter(Boolean)
     .join(" / ");
   const payload = { title: item.title, text: `${item.title}（${text}）`, url };

@@ -10,7 +10,7 @@
 
    バージョンを上げると古いキャッシュを捨てる。本体ファイルを変えたら上げること。 */
 
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL_CACHE = `eventboard-shell-${VERSION}`;
 const DATA_CACHE  = `eventboard-data-${VERSION}`;
 
@@ -23,6 +23,7 @@ const SHELL = [
   "./assets/js/util.js",
   "./assets/js/csv.js",
   "./assets/js/config.js",
+  "./assets/js/schedule.js",
   "./assets/js/data.js",
   "./assets/js/state.js",
   "./assets/js/filters.js",
