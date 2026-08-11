@@ -1221,29 +1221,43 @@ mark {
   box-shadow: 1px 1px 0 var(--ink);
 }
 
+/* 見出し（通常／料金／比較先サイト名）と値の2列。列幅を固定値で決めると、
+   「通常」「料金」しか並ばない枠では見出しと値の間が間延びし、逆に「asoview!」の
+   ような長い見出しが来ると折り返す。max-content にして、その枠に実際に並んだ
+   見出しの最大幅だけを取らせる。行は display:contents でこのグリッドに参加する。 */
 .price-compare {
   margin: 0.55rem 0 0;
   padding: 0.55rem 0.7rem;
   border-radius: 10px;
   background: var(--lime-tint);
   border: 1.5px solid var(--ink);
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 0.45rem;
+  row-gap: 0.2rem;
   font-size: 12px;
 }
 .pc-row {
+  display: contents;
+}
+.pc-value {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
   flex-wrap: wrap;
+  min-width: 0;
+}
+/* 見出しを持たない行（適用条件・確認時点）は2列ぶちぬき */
+.price-compare > .pc-cond,
+.price-compare > .pc-checked {
+  grid-column: 1 / -1;
 }
 .pc-label {
   font-family: var(--font-mono);
   font-size: var(--fs-tag);
   font-weight: 700;
   color: var(--text-soft);
-  min-width: 5.5em;
 }
 .pc-row s {
   color: var(--text-soft);

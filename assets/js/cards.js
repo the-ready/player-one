@@ -371,15 +371,15 @@ function priceBlock(it, hasPrice) {
     : "";
   const detail =
     it.price && !NO_PRICE.includes(it.price.trim())
-      ? `<span class="pc-row pc-detail"><span class="pc-label">料金</span><span class="pc-detail-body">${esc(it.price)}</span></span>`
+      ? `<span class="pc-row pc-detail"><span class="pc-label">料金</span><span class="pc-value"><span class="pc-detail-body">${esc(it.price)}</span></span></span>`
       : "";
 
   if (hasPrice && it.priceOfficial && it.priceBest && it.bestSource) {
     const saved = it.priceOfficial - it.priceBest;
     return `<p class="price-compare">
-      <span class="pc-row"><span class="pc-label">通常</span><s>${it.priceOfficial.toLocaleString()}円</s></span>
-      <span class="pc-row"><span class="pc-label">${esc(it.bestSource)}</span><b>${it.priceBest.toLocaleString()}円</b>
-        ${saved > 0 ? `<span class="pc-saved">${saved.toLocaleString()}円お得</span>` : ""}</span>
+      <span class="pc-row"><span class="pc-label">通常</span><span class="pc-value"><s>${it.priceOfficial.toLocaleString()}円</s></span></span>
+      <span class="pc-row"><span class="pc-label">${esc(it.bestSource)}</span><span class="pc-value"><b>${it.priceBest.toLocaleString()}円</b>
+        ${saved > 0 ? `<span class="pc-saved">${saved.toLocaleString()}円お得</span>` : ""}</span></span>
       ${cond}
       ${detail}
       ${it.priceChecked ? `<span class="pc-checked">${esc(it.priceChecked)} 時点・大人1名</span>` : ""}
@@ -387,7 +387,7 @@ function priceBlock(it, hasPrice) {
   }
   if (hasPrice && it.priceOfficial) {
     return `<p class="price-compare">
-      <span class="pc-row"><span class="pc-label">通常</span><b>${it.priceOfficial.toLocaleString()}円</b></span>
+      <span class="pc-row"><span class="pc-label">通常</span><span class="pc-value"><b>${it.priceOfficial.toLocaleString()}円</b></span></span>
       ${cond}
       ${detail}
       <span class="pc-checked">他サイトの価格は未確認${it.priceChecked ? `／${esc(it.priceChecked)} 時点` : ""}</span>
