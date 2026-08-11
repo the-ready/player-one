@@ -127,7 +127,7 @@ ZX WEST CHIBA,livehouse,chiba,千葉県・千葉市中央区,170,35.6228,140.102
 高崎club FLEEZ,livehouse,gunma,群馬県・高崎市,500,36.3222,139.0125,https://www.clubfleez.info/,active,,2026-08-02,,0,
 水上高原リゾート200,outdoor,gunma,群馬県・利根郡みなかみ町藤原,,36.8552,139.0761,https://www.minakamikogen200.jp/,active,,2026-08-02,2026-08-08,1,
 宇都宮市文化会館,hall,tochigi,栃木県・宇都宮市,2000,36.5661,139.8853,https://www.bunkakaikan.com/,active,,2026-08-02,2026-08-08,1,
-宇都宮HEAVEN'S ROCK VJ-2,livehouse,tochigi,栃木県・宇都宮市,700,36.5586,139.8869,https://www.heavensrock.com/utsunomiya/,active,,2026-08-02,2026-08-08,1,
+宇都宮HEAVEN'S ROCK VJ-2,livehouse,tochigi,栃木県・宇都宮市,700,36.5586,139.8869,https://www.heavensrock.com/utsunomiya/,active,,2026-08-02,2026-08-12,2,
 ザ・ヒロサワ・シティ会館,hall,ibaraki,茨城県・水戸市,1500,36.3708,140.4497,http://www.ibarakiken-bunkacenter.com/,active,,2026-08-02,2026-08-08,1,
 水戸LIGHT HOUSE,livehouse,ibaraki,茨城県・水戸市,500,36.3667,140.4700,http://mitolighthouse.com/,active,,2026-08-02,,0,
 国営ひたち海浜公園,outdoor,ibaraki,茨城県・ひたちなか市,,36.4014,140.5936,https://hitachikaihin.jp/,active,,2026-08-02,2026-08-08,1,
@@ -149,3 +149,5 @@ Magical River,livehouse,other,静岡県・静岡市,,34.9725,138.3858,https://ma
 静岡SOUND SHOWER ark,livehouse,other,静岡県・静岡市,,35.0108,138.4928,https://ark-soundshower.jp/,active,,2026-08-08,,0,エスパルスドリームプラザ内
 静岡SUNASH,livehouse,other,静岡県・静岡市,,34.9677,138.3908,http://sunash.info/,active,,2026-08-08,,0,
 静岡UMBER,livehouse,other,静岡県・静岡市,,34.9819,138.4374,http://www.umber.jp/index.html,active,,2026-08-08,,0,
+海の森公園,outdoor,tokyo,東京都・江東区,,,,https://www.tptc.co.jp/park/03_08,candidate,,2026-08-12,2026-08-12,1,
+明治神宮野球場,outdoor,tokyo,東京都・新宿区,,,,https://www.jingu-stadium.com/,candidate,,2026-08-12,2026-08-12,1,
