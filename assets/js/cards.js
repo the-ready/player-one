@@ -1,0 +1,543 @@
+/* カード1枚のHTMLを組み立てる。
+   3タブで同じ内容を3か所に書くと片方だけ直す事故が起きるので、組み立てはこの1本にして、
+   タブごとの違いは TABS 側の宣言（カテゴリ列・CTAの文言・受付の呼び方）だけで表す。
+   骨格は3タブとも同一で、`tab.key === ...` による分岐は持たない。 */
+
+import {
+  esc,
+  safeUrl,
+  highlight,
+  fmtDateWd,
+  fmtDateWdShort,
+  fmtWhen,
+  fold,
+  haversineKm,
+} from "./util.js";
+import { LINEUP_VISIBLE, tableMeta, statusMeta, venueNames } from "./config.js";
+import {
+  venueMeta,
+  isKnownChain,
+  theaterMeta,
+  lineupArtistNames,
+} from "./data.js";
+import {
+  onsaleState,
+  onsaleInDays,
+  deadlineDays,
+  isNewlyAnnounced,
+  seriesSiblings,
+  seriesHighlights,
+} from "./filters.js";
+import { schedulePhase, nextOpenDay } from "./schedule.js";
+import { isFav } from "./state.js";
+
+/* ---------- 小さな部品 ---------- */
+
+export const ICON = {
+  heart: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.6C19 15.4 12 20 12 20z"/></svg>`,
+  share: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 13v6h14v-6"/></svg>`,
+  device: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/></svg>`,
+  google: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 9h17.6M3.2 15h17.6"/><path d="M12 3a15 15 0 0 0 0 18a15 15 0 0 0 0-18z"/></svg>`,
+  cal: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>`,
+};
+
+// source が空だと「で予約する」のように動詞だけが残るので、その場合は主語なしの文言にする。
+const ctaLabel = (source, cta) =>
+  source ? `${source}${cta.suffix}` : cta.fallback;
+const ctaAria = (title, source, cta) =>
+  source
+    ? `${title}を${source}${cta.ariaWith}`
+    : `${title}の${cta.ariaWithout}`;
+
+/* 出典名（it.source）は go-btn のラベル（「◯◯公式で予約する」）に既に出ているので、
+   meta 欄にもう一度プレーンテキストで出すと同じ名前が2回現れる。
+   代わりにこの行では「公式サイトを見る」のリンクを出す。official_url が url と
+   同じ行では、同じ遷移先のリンクがカードに2つ並ぶので出さない。 */
+function officialLinkHtml(it, label) {
+  const href = safeUrl(it.officialUrl);
+  if (!href || it.officialUrl === it.url) return "";
+  return `<a class="official-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(it.title)}の公式サイトを開く">${esc(label)}</a>`;
+}
+
+/* 料金の原文（`price` 列）。カードの表面ではなく「くわしく」の中に置く（第5.6節）。
+
+   price が空のとき、空の行が余白だけ残さないようにする。
+   「要問合せ」の類は書いてあっても何も伝えていない（結局リンク先を見るしかない）ので、
+   1行ぶんの余白を使ってまで出さない。 */
+const NO_PRICE = ["要問合せ", "要問い合わせ", "要確認", "未定", "-", "—"];
+
+// 距離バッジ。現在地ソート中は現在地から、地図で範囲指定中はその中心からの距離を出す。
+function distBadgeHtml(it, st) {
+  if (st.sortBy === "location" && st.userLoc && isFinite(it._dist))
+    return `<span class="dist-badge">現在地から ${it._dist.toFixed(1)}km</span>`;
+  if (st.mapArea && it.lat != null && it.lng != null) {
+    const d = haversineKm(st.mapArea.lat, st.mapArea.lng, it.lat, it.lng);
+    return `<span class="dist-badge">中心から ${d.toFixed(1)}km</span>`;
+  }
+  return "";
+}
+
+function pillList(keys, table) {
+  return (keys || [])
+    .map((k) => {
+      const m = tableMeta(table, k);
+      return `<span class="pill-cat" style="background:${m.c};color:#fff">${esc(m.label)}</span>`;
+    })
+    .join("");
+}
+
+/* ---------- 出演者行 ---------- */
+
+/* 検索語に当たる出演者を、表示枠の先頭に繰り上げる。
+
+   ラインナップ（第12.12節）の全出演者は検索の索引に入っているので、`artists` 列の
+   主要8組に入っていないアーティストで検索してもフェスのカードは出てくる。そのとき
+   繰り上げが無いと、**なぜこのカードが結果に出たのか手がかりが1つも無い**
+   （タイトルにも出演者行にも、打った名前がどこにも見えない）。 */
+function matchesTerms(name, terms) {
+  const folded = fold(name);
+  return terms.some((t) => folded.includes(t));
+}
+function orderForTerms(names, extra, terms) {
+  if (!terms || !terms.length) return names;
+  const hits = extra.filter((n) => matchesTerms(n, terms));
+  if (!hits.length) return names;
+  return [...new Set([...hits, ...names])];
+}
+
+// フェスかどうか（= 日割りラインナップを持つか）。カード表面での
+// 出演者の見せ方と、Apple Music リンクの要不要（第12.11節）の両方がこれで分かれる。
+function hasLineup(it) {
+  return lineupArtistNames(it.lineupId).length > 0;
+}
+
+/* 3タブとも画像を持たない（権利者の許諾は自社サイトでの掲載に対するもので、
+   第三者サイトへの転載・直リンクの許諾ではないため。docs/DESIGN.md 第7.1節）。
+   カードの絵柄はカテゴリの色分けとタイポグラフィだけで作る。
+
+   ライブの単独公演はタイトルに出演者名が出るので何も出さず、複数出演（フェス・共演）
+   のときだけ、タイトル直下に本文の一部として出演者を並べる。artists 列を持たない
+   タブでは names が空になり、この関数は自然に何も返さない。
+
+   フェスは日割りラインナップを持つので、出演者を列挙しても「全◯組の日程を見る」
+   ボタンの中身と二重になる。そこでこの行はボタンだけにする（第12.12節）。
+   検索中に主要8組へ入っていないアーティストがヒットしたときだけは、
+   「なぜこのカードが出たか」の手がかりとしてその1組をボタンの前に出す。 */
+function artistLineHtml(it, terms) {
+  const all = lineupArtistNames(it.lineupId);
+  if (all.length) {
+    const hit =
+      terms && terms.length ? all.find((n) => matchesTerms(n, terms)) : null;
+    const btn = `<button type="button" class="lineup-btn"
+        aria-label="${esc(it.title)}の出演者を日程ごとに見る（全${all.length}組）"
+      >全${all.length}組の日程を見る ▸</button>`;
+    return hit
+      ? `<p class="lineup-line">${highlight(hit, terms)}${btn}</p>`
+      : `<p class="lineup-line">${btn}</p>`;
+  }
+
+  const names = orderForTerms(it.artists || [], all, terms);
+  if (names.length < 2) return "";
+
+  const shown = names.slice(0, LINEUP_VISIBLE);
+  const rest = names.length - shown.length;
+  const more = rest > 0 ? `　ほか${rest}組` : "";
+  return `<p class="lineup-line">出演：${shown.map((n) => highlight(n, terms)).join("・")}${more}</p>`;
+}
+
+/* ---------- 会場行 ---------- */
+
+// その名前で会場モーダル（地図＋これからの予定）が開けるか。
+function hasPlaceInfo(name, it) {
+  return (
+    isKnownChain(name) ||
+    !!venueMeta(name) ||
+    !!theaterMeta(name) ||
+    (it.lat != null && it.lng != null)
+  );
+}
+
+function placeLineHtml(it, terms) {
+  const names = venueNames(it);
+  if (!names.length) return highlight(it.area || "", terms);
+
+  const siteUrl = safeUrl(it.venueUrl || it.theaterUrl);
+  const rendered = names
+    .map((v) => {
+      if (hasPlaceInfo(v, it)) {
+        return `<button type="button" class="place-link" data-place="${esc(v)}" aria-label="${esc(v)}の場所とこれからの予定を見る">${highlight(v, terms)}</button>`;
+      }
+      // 単一会場の行だけリンクにする。複数会場を1つのURLでまとめて代表させると、
+      // どの会場のサイトなのか分からなくなるため。
+      if (siteUrl && names.length === 1) {
+        return `<a class="place-link" href="${esc(siteUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v)}の会場サイトを開く">${highlight(v, terms)}</a>`;
+      }
+      return highlight(v, terms);
+    })
+    .join("・");
+
+  // 新作(チェーン名)の行は「チェーン名」だけで足り、エリアを足すと冗長になる。
+  const showArea = it.area && !(names.length === 1 && isKnownChain(names[0]));
+  return `${rendered}${showArea ? "／" + highlight(it.area, terms) : ""}`;
+}
+
+// 会場の規模。同じアーティストでもドームとライブハウスでは体験が違い、
+// チケットの取りやすさの目安にもなる。マスターに無い会場では何も出さない。
+function venueCapHtml(it) {
+  const names = venueNames(it);
+  if (names.length !== 1) return "";
+  const v = venueMeta(names[0]);
+  if (!v) return "";
+  const kindLabel = v.kind ? VENUE_KIND_LABEL[v.kind] || v.kind : null;
+  const parts = [
+    kindLabel,
+    v.capacity ? `約${v.capacity.toLocaleString()}人` : null,
+  ].filter(Boolean);
+  return parts.length
+    ? `<br><span class="venue-cap">${esc(parts.join("／"))}</span>`
+    : "";
+}
+// 循環importを避けるため、ラベルだけここに置く（config.js の VENUE_KINDS と同じ内容）。
+const VENUE_KIND_LABEL = {
+  dome: "ドーム・スタジアム",
+  arena: "アリーナ",
+  hall: "ホール",
+  livehouse: "ライブハウス",
+  outdoor: "野外・フェス会場",
+};
+
+/* ---------- 受付情報ブロック（カード表面） ----------
+   受付の状態と発売日時は「くわしく」を開かずに読めなければ意味がない。
+   最初に知りたいのは「そもそも今からでも申し込めるのか」で、それが折りたたまれて
+   いると、開かなかった人には無いのと同じになる。 */
+function ticketBlockHtml(tab, it) {
+  const onsale = onsaleState(it); // ここで state という名前を使わない（絞り込み状態と紛れるため）
+  const hi = seriesHighlights(it);
+  if (onsale === "unknown" && !it.limitedSale && !hi.limited && !hi.before)
+    return "";
+
+  const words = tab.onsaleWords;
+  const rows = [];
+  if (onsale === "before") {
+    const n = onsaleInDays(it);
+    const when = fmtWhen(it.onsaleStart, it.onsaleStartTime);
+    if (when)
+      rows.push(
+        `<span class="ti-row"><b>${esc(when)}</b> 受付開始${n != null ? `（${n === 0 ? "本日" : `あと${n}日`}）` : ""}</span>`,
+      );
+    const endWhen = fmtWhen(it.onsaleEnd, it.onsaleEndTime);
+    if (endWhen)
+      rows.push(`<span class="ti-row ti-sub">締切 ${esc(endWhen)}</span>`);
+  } else if (onsale === "open") {
+    const startWhen = fmtWhen(it.onsaleStart, it.onsaleStartTime);
+    if (startWhen)
+      rows.push(
+        `<span class="ti-row ti-sub">${esc(startWhen)} より受付中</span>`,
+      );
+    const d = deadlineDays(it);
+    const endWhen = fmtWhen(it.onsaleEnd, it.onsaleEndTime);
+    if (endWhen)
+      // この行が言っているのは会期ではなく**受付の締切**なので、当日は「本日締切」。
+      // （開催状況バッジの `本日まで`→`本日開催` の改称が、無関係なこの文字列まで
+      //   巻き込んで「締切 8.16(日)（本日開催）」という意味の通らない表示になっていた）
+      rows.push(
+        `<span class="ti-row">締切 <b>${esc(endWhen)}</b>${d != null ? `（${d === 0 ? "本日締切" : `あと${d}日`}）` : ""}</span>`,
+      );
+  }
+  if (it.limitedSale)
+    rows.push(
+      `<span class="ti-row ti-limited">限定・追加販売：${esc(it.limitedSale)}</span>`,
+    );
+
+  // シリーズ内の他会場にだけ出ている枠を知らせる。**この行に無いものだけ**を出す。
+  // 自分も同じ状態なのに「他N件が発売前」と書くと、他にだけ何かあるように読めてしまう。
+  const notes = [];
+  if (hi.limited && !it.limitedSale)
+    notes.push(`他${hi.limited}件に限定・追加販売あり`);
+  if (hi.before && onsale !== "before")
+    notes.push(`他${hi.before}件が${words.before}`);
+  if (notes.length)
+    rows.push(
+      `<span class="ti-row ti-sub">${esc(tab.seriesLabel.replace(/の他の.*$/, ""))}：${esc(notes.join("／"))}</span>`,
+    );
+
+  // 受付終了は右上のバッジ列（cardHtml側）で伝えるので、他に出す情報が無い
+  // 受付終了だけの行では、ラベルだけの帯をカード中央にもう一つ作らない。
+  if (onsale === "closed" && !rows.length) return "";
+
+  const urgent = onsale === "open" && deadlineDays(it) != null;
+  return `<div class="ticket-info ${onsale}${urgent ? " urgent" : ""}">
+      <span class="ti-head">
+        ${onsale !== "unknown" && onsale !== "closed" ? `<span class="ti-badge">${esc(words[onsale])}</span>` : ""}
+        ${it.onsaleLabel && onsale !== "closed" ? `<span class="ti-label">${esc(it.onsaleLabel)}</span>` : ""}
+      </span>
+      ${rows.join("")}
+    </div>`;
+}
+
+/* シリーズの他会場は、日付と会場だけでなく受付の状態も並べる。
+   「東京は完売だが仙台はこれから発売」を、1枚のカードから把握できるようにする。 */
+function seriesOthersHtml(tab, it) {
+  const others = seriesSiblings(it);
+  if (!others.length) return "";
+  const words = tab.onsaleWords;
+  return `<div class="series-others">
+      <span class="series-head">${esc(tab.seriesLabel)}（${others.length}件）</span>
+      <ul>${others
+        .map((o) => {
+          const s = onsaleState(o);
+          const tag =
+            s === "unknown"
+              ? ""
+              : `<span class="ts-tag ${s}">${esc(words[s])}</span>`;
+          const lim = o.limitedSale
+            ? `<span class="ts-tag limited">限定・追加販売</span>`
+            : "";
+          return `<li>${esc([fmtDateWd(o.startDate) || o.dateText, ...venueNames(o)].filter(Boolean).join("／"))}${tag}${lim}</li>`;
+        })
+        .join("")}</ul>
+    </div>`;
+}
+
+/* 会場のくわしい情報（駐車場・最寄り駅）。venue列と違い会場マスターを持たない
+   イベント・ライブ双方で使える、行ごとの補足情報として持たせてある。
+   どちらか一方だけでも出す。両方空なら行自体を出さない（3.5節の欠損耐性と同じ扱い）。 */
+function venueDetailHtml(it) {
+  const rows = [];
+  if (it.nearestStation)
+    rows.push(
+      `<span class="vd-row"><span class="vd-label">最寄り駅</span>${esc(it.nearestStation)}</span>`,
+    );
+  if (it.parking)
+    rows.push(
+      `<span class="vd-row"><span class="vd-label">駐車場</span>${esc(it.parking)}</span>`,
+    );
+  return rows.length ? `<p class="venue-detail">${rows.join("")}</p>` : "";
+}
+
+/* 日程の補足（予備日・次の開催日）。カード表面の日付欄ではなく「くわしく」に置く。
+
+   予備日を日付欄に出さないのは、**多くの場合それが使われずに終わる日**だからである。
+   「2026.8.8(土)（予備日8.9）」と並べて書くと、本開催の日付と同じ強さで目に入り、
+   8/9も何かある日のように読める。予備日が意味を持つのは荒天のときだけで、そのときは
+   利用者はどのみち公式サイトを見に行く。カードの一等地は「いつ行くか」に使う。 */
+function scheduleDetailHtml(it) {
+  const rows = [];
+  const next = schedulePhase(it) === "gap" ? nextOpenDay(it) : null;
+  if (next)
+    rows.push(
+      `<span class="vd-row"><span class="vd-label">次の開催</span>${esc(fmtDateWd(next))}</span>`,
+    );
+  const backup = it.backupDate || [];
+  if (backup.length) {
+    const txt = backup
+      .map((d, i) =>
+        i === 0 ? fmtDateWd(d) : fmtDateWdShort(d, backup[i - 1]),
+      )
+      .filter(Boolean)
+      .join("・");
+    if (txt)
+      rows.push(
+        `<span class="vd-row"><span class="vd-label">予備日</span>${esc(txt)}（荒天などで順延された場合）</span>`,
+      );
+  }
+  return rows.length ? `<p class="fact-list">${rows.join("")}</p>` : "";
+}
+
+/* ライブ・フェスのメインアーティストの Apple Music アーティストページへのリンク。
+   行きたい・共有・カレンダーと並ぶ操作ボタンとして、♪ アイコンで置く
+   （フェスの日割りラインナップ内で使っている見た目と揃える。第12.11節・第12.12節）。
+   appleMusicUrl は events.csv / movies.csv には列が無く常に undefined → safeUrl(undefined) は
+   null になるため、tab を判定しなくてもライブ以外では自然に何も出ない。
+   フェス（hasLineup）は日割りラインナップ側に出演者ごとの ♪ リンクがすでにあるので、
+   ここには出さない——同じ役割のリンクをカードに2つ持たせないため。 */
+function appleMusicBtnHtml(it) {
+  if (hasLineup(it)) return "";
+  const href = safeUrl(it.appleMusicUrl);
+  if (!href) return "";
+  return `<a class="act-btn am-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Apple Musicで聴く" aria-label="${esc(it.title)}のApple Musicアーティストページを開く">♪</a>`;
+}
+
+/* 価格の内訳。以前は検証済みの比較（price_official/price_best）を緑枠の中に、
+   料金の原文（price列）をその外にプレーンテキストで別立てにしていたため、
+   同じ1件の値段の確認先が2か所に分かれていた。値段を確認したい人がこの枠さえ
+   見れば済むよう、原文も同じ緑枠の中に1行として合流させる。
+   比較値が片方しかない場合に割引率を推定して表示することは絶対にしない。
+   price_condition（「au会員・月曜のみ」など）がある行は必ず条件を併記する——
+   条件付きの価格を無条件に見せるのは、値段を出さないより有害なため。 */
+function priceBlock(it, hasPrice) {
+  const cond = it.priceCondition
+    ? `<span class="pc-cond">適用条件：${esc(it.priceCondition)}</span>`
+    : "";
+  const detail =
+    it.price && !NO_PRICE.includes(it.price.trim())
+      ? `<span class="pc-row pc-detail"><span class="pc-label">料金</span><span class="pc-detail-body">${esc(it.price)}</span></span>`
+      : "";
+
+  if (hasPrice && it.priceOfficial && it.priceBest && it.bestSource) {
+    const saved = it.priceOfficial - it.priceBest;
+    return `<p class="price-compare">
+      <span class="pc-row"><span class="pc-label">通常</span><s>${it.priceOfficial.toLocaleString()}円</s></span>
+      <span class="pc-row"><span class="pc-label">${esc(it.bestSource)}</span><b>${it.priceBest.toLocaleString()}円</b>
+        ${saved > 0 ? `<span class="pc-saved">${saved.toLocaleString()}円お得</span>` : ""}</span>
+      ${cond}
+      ${detail}
+      ${it.priceChecked ? `<span class="pc-checked">${esc(it.priceChecked)} 時点・大人1名</span>` : ""}
+    </p>`;
+  }
+  if (hasPrice && it.priceOfficial) {
+    return `<p class="price-compare">
+      <span class="pc-row"><span class="pc-label">通常</span><b>${it.priceOfficial.toLocaleString()}円</b></span>
+      ${cond}
+      ${detail}
+      <span class="pc-checked">他サイトの価格は未確認${it.priceChecked ? `／${esc(it.priceChecked)} 時点` : ""}</span>
+    </p>`;
+  }
+  if (detail) {
+    return `<p class="price-compare">${detail}${cond}</p>`;
+  }
+  return "";
+}
+
+/* ---------- カレンダー連携 ---------- */
+
+const icsDate = (ymd) => String(ymd || "").replace(/-/g, "");
+function icsEscape(s) {
+  return String(s == null ? "" : s)
+    .replace(/[\\;,]/g, (m) => "\\" + m)
+    .replace(/\r?\n/g, "\\n");
+}
+/** 終日イベントとして .ics を組む。DTEND は排他なので終了日の翌日にする。 */
+export function buildIcs(it) {
+  const start = it.startDate || it.endDate;
+  if (!start) return null;
+  const endSrc = it.endDate || it.startDate;
+  const end = new Date(endSrc + "T00:00:00");
+  if (isNaN(end.getTime())) return null;
+  end.setDate(end.getDate() + 1);
+  const dtEnd = icsDate(
+    `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`,
+  );
+  const where = [...venueNames(it), it.area].filter(Boolean).join(" ");
+  const url = safeUrl(it.url || it.officialUrl) || "";
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+/, "");
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//eventboard//JP",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${it.uid}@eventboard`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${icsDate(start)}`,
+    `DTEND;VALUE=DATE:${dtEnd}`,
+    `SUMMARY:${icsEscape(it.title)}`,
+    where ? `LOCATION:${icsEscape(where)}` : "",
+    `DESCRIPTION:${icsEscape([it.desc, url].filter(Boolean).join("\n"))}`,
+    url ? `URL:${icsEscape(url)}` : "",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ]
+    .filter(Boolean)
+    .join("\r\n");
+}
+
+export function gcalUrl(it) {
+  const start = it.startDate || it.endDate;
+  if (!start) return null;
+  const endSrc = it.endDate || it.startDate;
+  const end = new Date(endSrc + "T00:00:00");
+  if (isNaN(end.getTime())) return null;
+  end.setDate(end.getDate() + 1);
+  const p = new URLSearchParams({
+    action: "TEMPLATE",
+    text: it.title,
+    dates: `${icsDate(start)}/${icsDate(`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`)}`,
+    details: [it.desc, safeUrl(it.url || it.officialUrl)]
+      .filter(Boolean)
+      .join("\n"),
+    location: [...venueNames(it), it.area].filter(Boolean).join(" "),
+  });
+  return `https://calendar.google.com/calendar/render?${p.toString()}`;
+}
+
+/* ---------- カード本体 ---------- */
+
+export function cardHtml(tab, it, st, terms) {
+  const badge = statusMeta(tab.statusTable, it.status);
+  const onsale = onsaleState(it);
+  const href = safeUrl(it.url || it.officialUrl);
+  const cta = ctaLabel(it.source, tab.cta);
+  const fav = isFav(it);
+  const officialLink = officialLinkHtml(it, tab.officialLabel);
+
+  /* 左上のバッジは主カテゴリ（tab.cat が指す列の先頭）。同じ値を本文のピル一覧にも
+     出すとバッジと本文で同じタグが二重に見えるので、ピルは2件目以降だけにする。
+     形態（上映形態・公演形態）はカテゴリとは別軸なので、あるタブでは先頭に足す。 */
+  const catKeys = it[tab.cat.field] || [];
+  const mainCat = catKeys.length ? tableMeta(tab.cat.table, catKeys[0]) : null;
+  const pills =
+    (tab.type ? pillList(it[tab.type.field], tab.type.table) : "") +
+    pillList(catKeys.slice(mainCat ? 1 : 0), tab.cat.table);
+
+  /* お金の話（価格比較・料金の原文・クーポン）は説明のすぐ下に置く。
+     「くわしく」を開く動機の多くは値段の確認なので、駐車場や予備日より先に来る。
+     以前は料金の原文だけがカードの表面（「くわしく」の外）にあり、
+     同じ1件の値段が2か所に分かれていた（第5.6節）。さらに「くわしく」の中に
+     移した後も、比較値と原文が別々の見た目（緑枠あり／なし）で並んでいたため、
+     今は1つの緑枠（price-compare）に統合してある。 */
+  const detailBody = [
+    it.desc ? `<p class="desc-body">${highlight(it.desc, terms)}</p>` : "",
+    priceBlock(it, tab.hasPrice),
+    it.couponNote
+      ? `<p class="coupon-note"><span class="coupon-tag">クーポン</span>${esc(it.couponNote)}</p>`
+      : "",
+    scheduleDetailHtml(it),
+    venueDetailHtml(it),
+    seriesOthersHtml(tab, it),
+    it.note
+      ? `<p class="coupon-note"><span class="coupon-tag">注意</span>${esc(it.note)}</p>`
+      : "",
+  ].join("");
+
+  const descId = `desc-${it.key}`;
+  const toggle = detailBody.trim()
+    ? `<button type="button" class="detail-toggle" data-target="${descId}" data-title="${esc(it.title)}" aria-expanded="false" aria-controls="${descId}" aria-label="${esc(it.title)}のくわしい説明を見る">くわしく ▾</button>`
+    : "";
+  // 行きたい・共有・カレンダーは「くわしく」と同じ行の右側に置く。
+  // Apple Music の ♪ ボタンは、行きたい（ハート）の左隣に置く。
+  const actions = `<div class="card-actions">
+      ${appleMusicBtnHtml(it)}
+      <button type="button" class="act-btn fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>
+      <button type="button" class="act-btn" data-act="share" title="共有" aria-label="${esc(it.title)}を共有する">${ICON.share}</button>
+      ${buildIcs(it) ? `<button type="button" class="act-btn" data-act="cal" title="カレンダーに追加" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(it.title)}をカレンダーに追加する">${ICON.cal}</button>` : ""}
+    </div>`;
+  const detail = `<div class="detail-row">${toggle}${actions}</div>
+      ${detailBody.trim() ? `<div class="desc" id="${descId}">${detailBody}</div>` : ""}`;
+
+  return `
+  <article class="card" data-key="${esc(it.key)}">
+    ${mainCat ? `<span class="cat-badge" style="background:${mainCat.c};color:#fff">${esc(mainCat.label)}</span>` : ""}
+    ${isNewlyAnnounced(it) ? `<span class="new-badge">NEW</span>` : ""}
+    <div class="card-body">
+      <div class="top-row">
+        <span class="date-txt${tab.dateClass ? " " + tab.dateClass : ""}">${esc(it.dateText || "")}</span>
+        <span class="badge-stack">
+          ${it.isAdditional ? `<span class="add-badge">${esc(tab.additionalLabel)}</span>` : ""}
+          ${it.status ? `<span class="status-badge" style="background:${badge.bg};color:${badge.c}">${esc(it.status)}</span>` : ""}
+          ${onsale === "closed" ? `<span class="status-badge closed-badge">${esc(tab.onsaleWords.closed)}</span>` : ""}
+        </span>
+      </div>
+      <h3 class="title">${highlight(it.title, terms)}</h3>
+      ${artistLineHtml(it, terms)}
+      <p class="meta">${placeLineHtml(it, terms)}${venueCapHtml(it)}${officialLink ? `<br>${officialLink}` : ""}${distBadgeHtml(it, st)}</p>
+      <div class="cats">${pills}</div>
+      ${ticketBlockHtml(tab, it)}
+      ${detail}
+      ${href ? `<a class="go-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(ctaAria(it.title, it.source, tab.cta))}">${esc(cta)}</a>` : ""}
+    </div>
+  </article>`;
+}

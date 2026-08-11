@@ -1,0 +1,18 @@
+{
+  "name": "イベントボード",
+  "short_name": "イベントボード",
+  "description": "関東のイベント・映画・ライブ/フェスを1画面で横断検索できるダッシュボード。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "_comment_display": "standalone にするとアドレスバーも戻るボタンも消え、絞り込み状態のURLを共有できなくなる。このサイトは『見つけて人に渡す』ことが価値なので minimal-ui にとどめる。",
+  "display": "minimal-ui",
+  "orientation": "portrait-primary",
+  "background_color": "#F2EEE5",
+  "theme_color": "#F1E6CC",
+  "icons": [
+    {"src": "assets/favicon-32.png", "sizes": "32x32", "type": "image/png"},
+    {"src": "assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"},
+    {"src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

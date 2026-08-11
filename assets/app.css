@@ -1,0 +1,2490 @@
+/* イベントボード。
+   以前は index.html にインラインで持っていたが、1ファイルに CSS 666行と JS 2,290行が
+   同居していて、1行直すだけで173KBのファイルが差分に載る状態だった。
+   役割ごとに分けて、ブラウザのキャッシュ粒度もレビューの単位もそろえる。 */
+
+:root {
+  color-scheme: light;
+  --ink: #33302b;
+  --paper: #f2eee5;
+  --card: #ffffff;
+  --line: #33302b;
+  --text: #33302b;
+  --text-soft: #6b6660;
+  --text-faint: #6f6a64;
+  --pink: #b3566e;
+  --pink-tint: #f0dfe3;
+  --sunny: #906d2c;
+  --sunny-tint: #f1e6cc;
+  --sky: #527b86;
+  --sky-tint: #e1eaec;
+  --grape: #7b6b9b;
+  --grape-tint: #e8e3ef;
+  --lime: #637a55;
+  --lime-tint: #e4eae0;
+  --tangerine: #a36644;
+  --tangerine-tint: #f0e1d5;
+  --coral: #ac6058;
+  --coral-tint: #efdedc;
+  --teal: #4b7e72;
+  --teal-tint: #deeae7;
+  --font-display: "Zen Maru Gothic", sans-serif;
+  --font-body: "Zen Kaku Gothic New", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  /* 最小文字サイズ。日本語は同じptでもラテン文字より潰れるので、
+     ラベル・タグ類も11pxを下限にする（以前は9.5〜10pxが混在していた）。 */
+  --fs-tag: 11px;
+}
+/* ダークモード用の上書きは持たない。:root と <meta name="color-scheme"> の
+   両方で light を宣言しているため、OSがダークでもUAはライトのまま描画する。 */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-anchor: none;
+}
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+}
+/* ブラウザ既定の button は text-align:center を持つため、地の文と混ぜて
+   使う .place-link のようなボタンは、折り返した2行目だけが中央寄せに
+   見えてしまう（1行に収まっている間は気づかない）。ボタン全種類で
+   まとめて打ち消し、個々のボタンごとに直し忘れる再発を防ぐ。 */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+::selection {
+  background: var(--pink);
+  color: #fff;
+}
+
+/* ---------- フォーカス表示 ----------
+   以前は :focus-visible のスタイルが1つも無く、検索欄では outline:none で
+   フォーカスリングを消したうえ、代替が「右下にずれた影」だけだった。
+   白い面にもインク色の面にも見えるよう、白＋インクの二重リングにする
+   （選択中のチップは背景がインク色なので、単色のリングだと片方で消える）。 */
+:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px var(--ink);
+  border-radius: inherit;
+}
+/* マウス操作では出さない（クリックのたびにリングが出るのを避ける） */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.6rem;
+  top: -100px;
+  z-index: 100;
+  background: var(--ink);
+  color: #fff;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0 0 12px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ---------- header ---------- */
+header.pop-header {
+  position: relative;
+  overflow: hidden;
+  background: var(--sunny-tint);
+  border-bottom: 4px solid var(--ink);
+  padding: 2.6rem clamp(1rem, 4vw, 3rem) 2.2rem;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.35;
+  z-index: 0;
+}
+.b1 {
+  width: 120px;
+  height: 120px;
+  background: var(--pink);
+  top: -40px;
+  right: 8%;
+}
+.b2 {
+  width: 70px;
+  height: 70px;
+  background: var(--sky);
+  bottom: -20px;
+  right: 22%;
+}
+.b3 {
+  width: 46px;
+  height: 46px;
+  background: var(--grape);
+  top: 20px;
+  right: 38%;
+}
+.b4 {
+  width: 36px;
+  height: 36px;
+  background: var(--lime);
+  bottom: 10px;
+  left: 6%;
+}
+.header-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.kicker-pop {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: var(--ink);
+  color: #fff;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+}
+h1.pop-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(30px, 6vw, 52px);
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+  text-shadow: 3px 3px 0 var(--pink-tint);
+  letter-spacing: 0.01em;
+}
+.pop-sub {
+  font-size: 14px;
+  color: #3a3a2e;
+  max-width: 42em;
+  margin: 0 0 1.1rem;
+  font-weight: 500;
+}
+/* 背景が --sunny-tint なので --text-faint ではコントラスト比が4.5:1に届かない。
+   1段濃い --text-soft（4.58:1）を使う。 */
+.pop-disclaimer {
+  font-size: 11px;
+  color: var(--text-soft);
+  max-width: 42em;
+  margin: -0.7rem 0 1.1rem;
+}
+.stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+/* .tab-chip は押せるので min-height 44px を確保する。隣に並ぶ .stat-chip は
+   押せないが、同じ行で高さがずれると不揃いに見えるので同じ寸法にそろえる。 */
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.stat-chip b {
+  color: var(--pink);
+  font-size: 15px;
+}
+.tab-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.tab-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  padding: 0.4rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+.tab-chip[aria-selected="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.offline-note {
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0.8rem;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--sky-tint);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 42em;
+}
+
+/* ---------- locate feedback ---------- */
+@keyframes btnPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.sort-btn.loading {
+  animation: btnPulse 1s ease-in-out infinite;
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sort-btn.loading {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+.locate-msg {
+  margin-top: 0.65rem;
+  padding: 0.8rem 1rem;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  font-size: 13px;
+  display: none;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.locate-msg.show {
+  display: block;
+}
+.locate-msg.ok {
+  background: var(--lime-tint);
+}
+.locate-msg.err {
+  background: var(--coral-tint);
+}
+.locate-msg button.inline-link {
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  font: inherit;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--ink);
+}
+.region-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+.region-chip {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.38rem 0.9rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.region-chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+
+/* ---------- controls ---------- */
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: rgba(242, 238, 229, 0.95);
+  backdrop-filter: blur(6px);
+  border-bottom: 4px solid var(--ink);
+  padding: 0.9rem clamp(1rem, 4vw, 3rem);
+  transition:
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.32s ease;
+}
+.controls.compact {
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+.controls-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+}
+.controls-flex {
+  display: flex;
+  flex-direction: column;
+  transition: gap 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .controls-flex {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.search-row {
+  display: flex;
+  margin-bottom: 0.6rem;
+  transition: margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .search-row {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+  order: 2;
+}
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+input[type="search"] {
+  width: 100%;
+  min-height: 46px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.5rem 1.2rem;
+  font-size: 16px;
+  color: var(--text);
+  font-family: var(--font-body);
+  transition:
+    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type="search"]:focus {
+  box-shadow: 3px 3px 0 var(--ink);
+}
+input[type="search"]:focus-visible {
+  box-shadow: 0 0 0 6px var(--ink);
+}
+
+/* 縮んだときに出す虫めがねボタン。
+   以前は入力欄そのものを32pxに潰してアイコンのように見せていたが、
+   「入力欄が消えた」と受け取られるうえ、タッチ目標としても小さすぎた。 */
+.search-toggle {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 50%;
+}
+@media (min-width: 641px) {
+  .controls.compact .search-row {
+    width: 200px;
+  }
+  .controls.compact input[type="search"] {
+    width: 200px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 1rem;
+    font-size: 13.5px;
+    border-width: 2px;
+  }
+}
+@media (max-width: 640px) {
+  .controls.compact .search-toggle {
+    display: inline-flex;
+    order: 3;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+  .controls.compact .search-row {
+    display: none;
+  }
+  /* 開いている間は横1行に詰め込まず、検索欄を上・ボタンを下に積む。
+     以前は検索欄を絶対配置でバーに重ね、下敷きになる日程・エリア・絞り込みを
+     visibility:hidden で隠していた。開いているあいだずっとボタンが消えるため、
+     検索したあとそのまま絞り込みへ進めなくなっていた。 */
+  .controls.compact.search-open .controls-flex {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .controls.compact.search-open .search-row {
+    display: flex;
+    order: 1;
+    margin-bottom: 0.45rem;
+  }
+  .controls.compact.search-open .control-row {
+    order: 2;
+    flex: 0 0 auto;
+  }
+  /* 入力欄が出ているあいだは虫めがねは要らない */
+  .controls.compact.search-open .search-toggle {
+    display: none;
+  }
+  .controls.compact.search-open input[type="search"] {
+    min-height: 38px;
+    font-size: 16px;
+    border-width: 2px;
+  }
+}
+.control-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+  order: 1;
+}
+.sort-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text-soft);
+  border-radius: 999px;
+  padding: 0.4rem 0.5rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .sort-btn {
+  min-height: 36px;
+  padding: 0.25rem 0.4rem;
+  font-size: 12px;
+}
+.sort-btn svg {
+  flex: none;
+}
+.sort-btn .dir-arrow {
+  font-size: 11px;
+  min-width: 8px;
+}
+.sort-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.sort-btn[aria-expanded="true"] {
+  background: var(--sunny-tint);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+/* ---------- 適用中の絞り込み ----------
+   何が効いているかは常に見えていて、1タップで外せること。
+   縮んだ操作バーでも消さない（条件が効いているのに見えないのが一番困る）。 */
+.applied-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.controls.compact .applied-bar {
+  margin-top: 0.4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.controls.compact .applied-bar::-webkit-scrollbar {
+  display: none;
+}
+.applied-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.applied-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  min-height: 32px;
+  border: 2px solid var(--ink);
+  background: var(--sunny-tint);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.applied-chip span {
+  font-size: 14px;
+  line-height: 1;
+}
+.applied-clear {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0.4rem 0.2rem;
+  min-height: 32px;
+  white-space: nowrap;
+}
+.reset-btn {
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  padding: 0.55rem 0.2rem;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+.popover-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 15, 0.6);
+  z-index: 29;
+}
+/* 操作バー(.controls, z-index:35)は backdrop の上に残す。日程を開いたまま
+   エリアや絞り込みへ直接切り替えられないのは、それ自体が使いにくさになる。 */
+.popover-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  padding: 1.1rem 1.15rem 1rem;
+  box-shadow: 6px 6px 0 var(--ink);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+/* デスクトップでは呼び出しボタンの真下に幅を固定して置く（位置は positionPopover が決める）。
+   モバイルは left:0/right:0 のまま画面幅いっぱいに広げる。 */
+@media (min-width: 641px) {
+  .popover-panel {
+    right: auto;
+    width: 100%;
+    max-width: 380px;
+  }
+}
+.popover-panel.show {
+  animation: popIn 0.18s ease;
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .popover-panel.show {
+    animation: none;
+  }
+}
+.popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.7rem;
+  gap: 0.5rem;
+}
+.popover-head span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* 閉じるボタンは以前26pxで、画面内で最も小さい押しどころだった */
+.popover-close {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  align-items: center;
+}
+.chip-row:last-of-type {
+  margin-bottom: 0;
+}
+.chip-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-right: 0.3rem;
+  text-transform: uppercase;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.chip[aria-pressed="true"] {
+  background: var(--chip-c, var(--ink));
+  border-color: var(--chip-c, var(--ink));
+  color: var(--chip-tx, #fff);
+}
+/* 0件の選択肢は押せないことを見た目でも示す（押してから0件と分かるのを避ける） */
+.chip[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  background: rgba(51, 48, 43, 0.1);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  min-width: 1.6em;
+  text-align: center;
+}
+.chip[aria-pressed="true"] .chip-count {
+  background: rgba(255, 255, 255, 0.28);
+}
+.deal-chip[aria-pressed="true"] {
+  --chip-c: var(--coral);
+}
+.add-chip[aria-pressed="true"] {
+  --chip-c: var(--coral);
+}
+.onsale-chip[aria-pressed="true"] {
+  --chip-c: var(--lime);
+}
+.before-chip[aria-pressed="true"] {
+  --chip-c: var(--sky);
+}
+.limited-chip[aria-pressed="true"] {
+  --chip-c: var(--sunny);
+}
+.fav-chip[aria-pressed="true"] {
+  --chip-c: var(--pink);
+}
+.ended-chip[aria-pressed="true"] {
+  --chip-c: var(--text-soft);
+}
+.result-count {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  margin-top: 0.5rem;
+  font-weight: 700;
+  max-height: 30px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease,
+    margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.controls.compact .result-count {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+}
+
+/* 並び順の切り替え（3タブ共通） */
+.sort-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2px dashed var(--line);
+}
+
+/* ---------- card grid ---------- */
+.pane-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.8rem clamp(1rem, 4vw, 3rem) 2.5rem;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.6rem 1.4rem;
+}
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 5px 5px 0 var(--ink);
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+/* content-visibility:auto は使わない。contain:paint を含むため、カードの外へ
+   はみ出す .cat-badge / .new-badge が矩形で切り取られてしまう。
+   バッジがカードの縁にかかるのはこのデザインの要なので、
+   画面外カードの省略より見た目を優先する。 */
+.card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.3rem 1.2rem 1.15rem;
+}
+/* フェードインは一覧が初めて描画されたときだけ。絞り込みや検索のたびに
+   innerHTML を作り直すので、.card に直接かけると打鍵のたびに全カードが
+   再生されてちらつく。JS側が .is-entering を一度だけ着けて外す。 */
+.grid.is-entering .card {
+  opacity: 0;
+  animation: cardIn 0.4s ease forwards;
+}
+/* 手貼りしたような傾きはこのデザインの識別要素なので残すが、
+   読みやすさのために角度は浅くする。 */
+.grid .card:nth-child(3n + 1) {
+  transform: rotate(-0.6deg);
+}
+.grid .card:nth-child(3n + 2) {
+  transform: rotate(0.35deg);
+}
+.grid .card:nth-child(3n) {
+  transform: rotate(-0.25deg);
+}
+.card:hover {
+  transform: translateY(-4px) rotate(0deg);
+  box-shadow: 7px 7px 0 var(--ink);
+}
+.card:focus-within {
+  transform: rotate(0deg);
+}
+@keyframes cardIn {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid.is-entering .card {
+    animation: none;
+    opacity: 1;
+  }
+  .grid .card {
+    transform: none;
+  }
+}
+/* 地図の吹き出しから「このイベントアイテムへ飛ぶ」を押したときに、
+   一覧のどのカードに移動したのかが分かるよう、着地点を短く点滅させる。 */
+.card.jump-highlight {
+  animation: cardJump 1.6s ease-out;
+}
+@keyframes cardJump {
+  0%,
+  35% {
+    box-shadow: 0 0 0 4px var(--pink);
+  }
+  100% {
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card.jump-highlight {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--pink);
+  }
+}
+
+mark {
+  background: var(--sunny-tint);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 3px;
+}
+
+.cat-badge {
+  position: absolute;
+  top: -14px;
+  left: 18px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.22rem 0.75rem;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ink);
+  font-family: var(--font-body);
+  z-index: 2;
+}
+.new-badge {
+  position: absolute;
+  top: -14px;
+  right: 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ink);
+  background: var(--sunny);
+  color: #fff;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  z-index: 2;
+}
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+.date-txt {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+/* ライブは単日公演が多く、日付そのものが主情報なので一段大きく出す */
+.live-date {
+  font-size: 13px;
+  color: var(--ink);
+}
+.badge-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+/* 割引率のバッジ（discount_pct）はカード表面には出さない。「くわしく」内の
+   価格比較（.pc-saved）に金額差として出るので、上部では開催状況だけで足りる。 */
+.status-badge,
+.add-badge {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  white-space: nowrap;
+}
+.add-badge {
+  background: var(--coral);
+  color: #fff;
+}
+/* 受付終了は「取れるように見せない」ため、他のステータスとは違う無彩色にする
+   （ticket-info.closed と同じグレー。docs/DESIGN.md 第12.3節）。 */
+.status-badge.closed-badge {
+  background: var(--text-soft);
+  color: #fff;
+  border-color: var(--text-soft);
+}
+.card .title {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  line-height: 1.45;
+}
+/* フェス等の複数出演では、タイトル直下に本文としてラインナップを並べる
+   （単独公演はタイトルに名前が出るのでこの行自体を出さない。第12.5節）。 */
+.lineup-line {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.lineup-line mark {
+  background: var(--sunny-tint);
+}
+/* 「ほか148組」の先を開くボタン。出演者行の続きとして読ませたいので、
+   独立したボタンではなく文中のリンクの重さで置く（第12.12節）。 */
+.lineup-btn {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.45rem;
+  border: 1.5px solid var(--teal);
+  border-radius: 999px;
+  background: var(--teal-tint);
+  color: var(--teal);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lineup-btn:hover,
+.lineup-btn:focus-visible {
+  background: var(--teal);
+  color: #fff;
+}
+/* フェスは出演者を列挙せずボタンだけを出す（第12.12節）ので、
+   ボタンがこの行の最初（かつ唯一）の要素になったときは、文中リンクとして
+   付けていた左マージンを消して隙間を作らない。検索で出演者名がヒットして
+   ボタンの前に名前が入るときは、これまでどおり間隔を空ける。 */
+.lineup-line > .lineup-btn:first-child {
+  margin-left: 0;
+}
+.card .meta {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 0.6rem;
+  font-weight: 500;
+}
+/* 出典名（source）は go-btn のラベル（「◯◯公式で予約する」）に既に出るので、
+   ここでは同じ名前をもう一度出さず、公式サイトへのリンクだけを置く。 */
+.card .meta .official-link {
+  display: inline;
+  color: var(--grape);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: inherit;
+}
+.card .meta .official-link:hover {
+  color: var(--pink);
+}
+.venue-cap {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  color: var(--text-faint);
+  font-weight: 700;
+}
+.dist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--sky-tint);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  margin-left: 0.4rem;
+}
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+}
+.pill-cat {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+}
+.place-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--grape);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.place-link:hover {
+  color: var(--pink);
+}
+.detail-toggle {
+  background: none;
+  border: none;
+  padding: 0.4rem 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-decoration: underline;
+}
+.desc {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0.4rem 0 0.7rem;
+  padding-top: 0.5rem;
+  border-top: 2px dashed var(--line);
+  display: none;
+}
+.desc.open {
+  display: block;
+}
+.desc-body {
+  margin: 0;
+}
+/* ---------- カードの操作（行きたい・共有・カレンダー） ----------
+   文字を添えると3つで1行を占領してカードが窮屈になるため、アイコンだけにして
+   「くわしく」と同じ行の右端へ寄せる。行を1つも増やさずに済む。 */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  /* 以前はこの下に料金の1行があり、それが主CTAとの間隔も兼ねていた。
+     料金を「くわしく」へ移した（第5.6節）ぶん、ここで間隔を持ち直す。
+     margin-top:auto でこの行（と直後の「くわしく」本文・主CTA）を
+     .card-body の下端に寄せる。同じグリッド行の中で本文の分量が違うカード同士でも、
+     お気に入り・共有・カレンダー・主CTAの4つのボタンの下辺が揃うようにするため
+     （.card は CSS Grid の stretch で行内の最大高さまで伸びている）。 */
+  margin: 0.1rem 0 0.45rem;
+  margin-top: auto;
+  min-height: 44px;
+}
+.card-actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+  flex: none;
+}
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--text-soft);
+  border-radius: 50%;
+}
+.act-btn svg {
+  flex: none;
+}
+.act-btn:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.fav-btn[aria-pressed="true"] {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+/* Apple Music の ♪ ボタン。フェスの日割りラインナップ内の ♪（.lu-am）と
+   同じ塗り（紫）で揃え、遷移先の種類が同じであることを見た目でも示す。 */
+.act-btn.am-btn {
+  border-color: var(--grape);
+  background: var(--grape);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.act-btn.am-btn:hover {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: #fff;
+}
+.fav-btn[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+/* カレンダーの追加先えらび。カード内に閉じ込めると端で切れるので body 直下に出す。 */
+.cal-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 15em;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.cal-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  padding: 0.4rem 0.7rem;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+}
+.cal-menu button:hover {
+  background: var(--sunny-tint);
+}
+.cal-menu svg {
+  flex: none;
+  color: var(--text-soft);
+}
+
+.go-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 46px;
+  background: var(--pink);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 0.65rem;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+}
+.go-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.go-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.price-compare {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--lime-tint);
+  border: 1.5px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 12px;
+}
+.pc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.pc-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  min-width: 5.5em;
+}
+.pc-row s {
+  color: var(--text-soft);
+}
+.pc-row b {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pc-saved {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: #fff;
+  background: var(--coral);
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+}
+.pc-checked {
+  font-size: var(--fs-tag);
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+}
+/* 料金の原文（学生料金・前売など）。「一般2,300円/大学生1,300円/高校生900円、
+   前売各200円引き」のように長く折り返すことが多いので、本文側だけ折り返しを許す。 */
+.pc-detail-body {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+/* 条件付きの割引（会員限定・特定曜日など）は条件を必ず併記する。
+   条件を落とすと「誰でもこの値段で買える」と読めてしまい、出さないより有害になる。 */
+.pc-cond {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sunny-tint);
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+}
+.coupon-note {
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  background: var(--sunny-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.coupon-tag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  background: var(--sunny);
+  color: #fff;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+/* 会場のくわしい情報（駐車場・最寄り駅）。desc-body と同じ地の文トーンで、
+   価格比較やクーポンのような色付きブロックにはしない（事実情報であって注意喚起ではないため）。 */
+/* ラベル＋値の小さな一覧。会場の補足（最寄り駅・駐車場）と
+   日程の補足（予備日・次の開催日）で共用する。 */
+.venue-detail,
+.fact-list {
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.vd-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-right: 0.5rem;
+}
+/* ---------- 受付情報ブロック（3タブ共通） ---------- */
+.ticket-info {
+  margin: 0.1rem 0 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--ink);
+  background: #f7f6f3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ticket-info.before {
+  background: var(--sky-tint);
+}
+.ticket-info.open {
+  background: var(--lime-tint);
+}
+.ticket-info.urgent {
+  background: var(--coral-tint);
+}
+.ticket-info.closed {
+  background: #efeff2;
+  color: var(--text-soft);
+}
+.ti-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.1rem;
+}
+.ti-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ti-label {
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+.ti-row {
+  line-height: 1.45;
+}
+.ti-row b {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.ti-sub {
+  font-weight: 500;
+  color: var(--text-soft);
+}
+.ti-limited {
+  font-weight: 700;
+  padding-top: 0.2rem;
+  margin-top: 0.1rem;
+  border-top: 1.5px dashed var(--line);
+}
+
+/* シリーズ（ツアー／巡回展／特集上映）の他会場 */
+.series-others {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: var(--grape-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 11.5px;
+}
+.series-head {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.series-others ul {
+  margin: 0;
+  padding-left: 1.1em;
+}
+.series-others li {
+  margin-bottom: 0.28rem;
+}
+.ts-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  white-space: nowrap;
+  background: #fff;
+}
+.ts-tag.before {
+  background: var(--sky-tint);
+}
+.ts-tag.open {
+  background: var(--lime-tint);
+}
+.ts-tag.closed {
+  background: #efeff2;
+  color: var(--text-soft);
+  border-color: var(--text-soft);
+}
+.ts-tag.limited {
+  background: var(--sunny);
+  color: #fff;
+}
+
+/* ---------- venue picker ---------- */
+.venue-picker {
+  margin-bottom: 0.9rem;
+}
+.venue-search {
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.4rem 0.9rem;
+  font-size: 16px;
+  font-family: var(--font-body);
+  color: var(--text);
+}
+.venue-search:focus {
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.venue-search:focus-visible {
+  box-shadow: 0 0 0 6px var(--ink);
+}
+.venue-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0.45rem;
+}
+.venue-kind {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.venue-kind[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+/* 会場ピッカーを足したぶんエリアpopover全体が縦に伸びる。都県チップが
+   パネルのスクロール外に押し出されすぎないよう、候補リスト側の高さを抑える。 */
+.venue-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.venue-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.35rem 0.7rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+}
+.venue-opt[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.venue-opt .vo-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  opacity: 0.8;
+  flex: none;
+}
+.venue-empty {
+  font-size: 12px;
+  color: var(--text-soft);
+  padding: 0.5rem 0.2rem;
+  margin: 0;
+}
+
+/* ---------- calendar ---------- */
+#datePopoverBody {
+  max-width: 340px;
+  margin: 0 auto;
+}
+.cal-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+.preset-chip {
+  min-height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.preset-chip[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+.cal-nav button {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  border-radius: 50%;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.cal-month {
+  font-weight: 700;
+  font-size: 14px;
+  font-family: var(--font-mono);
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+/* role="row" の行はレイアウト上は透過させ、セルを親のグリッドに並べる */
+.cal-row {
+  display: contents;
+}
+.cal-dow {
+  text-align: center;
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+  padding: 0.3rem 0;
+  font-family: var(--font-mono);
+}
+.cal-cell {
+  display: block;
+}
+/* 幅は7分割で決まる（iPhone SE 相当では1列34pxしか取れない）ため、
+   高さだけを上げて押しやすくする。正方形は諦めて実用を取る。 */
+.cal-day {
+  width: 100%;
+  min-height: 40px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.cal-day.in-range {
+  background: var(--sunny-tint);
+  border-radius: 0;
+}
+.cal-day.edge {
+  background: var(--ink);
+  color: #fff;
+  border-radius: 8px;
+}
+.cal-day.is-today {
+  box-shadow: inset 0 0 0 2px var(--pink);
+}
+.cal-selection {
+  margin-top: 0.8rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.cal-clear {
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  font: inherit;
+  color: var(--text-soft);
+  text-decoration: underline;
+  font-weight: 700;
+  min-height: 40px;
+}
+.locate-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  background: var(--ink);
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+.popover-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+.empty-state {
+  grid-column: 1/-1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-soft);
+}
+.empty-state .big {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.empty-state p {
+  margin: 0.2rem 0 1rem;
+  font-size: 13px;
+}
+.empty-reset {
+  min-height: 44px;
+  padding: 0.5rem 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+/* ---------- map ---------- */
+.map-cta {
+  background: var(--sky);
+  border-color: var(--ink);
+}
+.map-area-status {
+  margin: -0.4rem 0 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--sky-tint);
+  border: 1.5px solid var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+.map-area-status button {
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  margin-left: 0.4rem;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  color: var(--ink);
+}
+.map-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: rgba(20, 18, 15, 0.55);
+}
+.map-sheet[hidden] {
+  display: none;
+}
+.map-sheet-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--paper);
+  overflow: hidden;
+}
+@media (min-width: 641px) {
+  .map-sheet {
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+  }
+  .map-sheet-inner {
+    width: min(880px, 100%);
+    height: min(88vh, 780px);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+}
+.map-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem 0.6rem;
+  border-bottom: 3px solid var(--ink);
+  background: var(--sky-tint);
+}
+.map-sheet-head h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 17px;
+  margin: 0;
+}
+.map-sheet-help {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 12px;
+  color: var(--text-soft);
+  border-bottom: 2px dashed var(--line);
+  background: #fff;
+}
+.map-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
+}
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #e4e1da;
+}
+.map-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ring-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--ring-size, 60%);
+  height: var(--ring-size, 60%);
+  border-radius: 50%;
+  border: 3px dashed var(--ink);
+  background: rgba(179, 86, 110, 0.1);
+}
+.ring-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -100%);
+  line-height: 0;
+}
+/* ピンをタップしたときの吹き出し。Leaflet標準のpopupは使わない。
+   標準popupは.map-canvasの内側にあり、常に画面中央に固定される.map-ring
+   （地図の外側に別要素として重ねてある）より前面に出せないうえ、地図が動く
+   たびに全ピンを描き直す仕組み（refreshMarkers）とかみ合って、自動追従で
+   地図が動いた瞬間に自分自身が消えてしまっていた。.map-ringと同じく地図の
+   外側の要素として持ち、位置だけをピンの画面座標に合わせることで両方を解決
+   する（ui-map.js の openMarkerPopup / positionPopup）。 */
+.map-popup {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  max-width: min(15em, 78%);
+  transform: translate(-50%, calc(-100% - 16px));
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 0.6rem 0.75rem;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.map-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  margin: 0;
+  max-width: min(20em, 88%);
+  text-align: center;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 0.7rem 0.9rem;
+  font-size: 13px;
+  font-weight: 700;
+}
+.map-sheet-foot {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  padding: 0.7rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+}
+.map-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+.map-radius {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.map-hits {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+}
+.map-hits b {
+  color: var(--pink);
+}
+.map-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.map-btn {
+  min-height: 44px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ink);
+}
+.map-btn.primary {
+  flex: 1;
+  min-width: 11em;
+  background: var(--pink);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.map-btn.primary:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.map-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 480px) {
+  .map-btn.primary {
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+}
+.map-note {
+  margin: 0.5rem 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.leaflet-container {
+  font-family: var(--font-body);
+}
+.leaflet-container .leaflet-control-attribution {
+  font-size: 11px;
+}
+/* 「地図で範囲をえらぶ」のピンの吹き出しにある、一覧のカードへ飛ぶボタン。
+   見た目はテキストリンクだが、実体は <button>（ページ内の操作であり、
+   本当のリンク遷移ではないため）。 */
+.popup-goto-item {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--grape);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.popup-goto-item:hover,
+.popup-goto-item:focus-visible {
+  color: var(--pink);
+}
+
+/* 会場シートの情報欄 */
+.venue-info {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  padding: 0.75rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.venue-info .vi-facts {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.venue-info .vi-site {
+  margin: 0 0 0.55rem;
+}
+.venue-info .vi-link {
+  font-weight: 700;
+  color: var(--grape);
+  text-underline-offset: 2px;
+}
+.venue-info ul {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 12.5px;
+}
+.venue-info li {
+  margin-bottom: 0.28rem;
+}
+.vi-tag {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink);
+  background: var(--paper);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+}
+.vi-actions {
+  margin: 0.7rem 0 0;
+}
+
+/* ---------- 出演者シート（フェスの日割りラインナップ・第12.12節） ----------
+   骨格は .map-sheet を使い回し、中身だけをここで定義する。 */
+
+/* 日タブ。4日開催でも横に収まるが、それ以上のフェスもあるので横スクロールを許す。 */
+.lu-tabs {
+  display: flex;
+  flex: none; /* 中身が縦に長くても、日タブが潰れて消えないようにする */
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  overflow-x: auto;
+  border-bottom: 3px solid var(--ink);
+  background: var(--paper);
+  scrollbar-width: thin;
+}
+.lu-tabs[hidden] {
+  display: none;
+}
+.lu-tab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--card);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+}
+.lu-tab[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.lu-tab-count {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.lu-tab-count::before {
+  content: "";
+}
+
+.lu-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--card);
+  padding: 0.85rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+}
+.lu-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 900;
+}
+.lu-day-count {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.lu-stage + .lu-stage {
+  margin-top: 0.9rem;
+}
+.lu-stage-head {
+  margin: 0 0 0.4rem;
+  padding-left: 0.45rem;
+  border-left: 4px solid var(--teal);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+/* 百組を1列に積むと縦に延々と続くので、幅がある画面では列に割る。 */
+.lu-artists {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.1rem 1rem;
+}
+.lu-artist {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px dashed #e3dfd6;
+  font-size: 13px;
+}
+.lu-artist.headliner .lu-name {
+  font-weight: 900;
+  font-size: 14px;
+}
+.lu-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lu-note {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+/* ♪ の遷移先は2種類ある。塗り＝収集時に実在を確かめたアーティストページ、
+   輪郭だけ＝Apple Music の検索結果（第12.12節）。同じ見た目にすると、
+   検索結果に着地したときに「リンクが間違っている」と受け取られる。 */
+.lu-am {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--grape);
+  border-radius: 50%;
+  color: var(--grape);
+  background: transparent;
+  font-size: 12px;
+  line-height: 1;
+  text-decoration: none;
+}
+.lu-am.verified {
+  background: var(--grape);
+  color: #fff;
+}
+/* 説明文の中の凡例。♪ の塗り分けと同じ見た目を、小さくして文中に置く。 */
+.lu-legend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--grape);
+  border-radius: 50%;
+  color: var(--grape);
+  font-size: 9px;
+  line-height: 1;
+  vertical-align: -2px;
+}
+.lu-legend.verified {
+  background: var(--grape);
+  color: #fff;
+}
+.lu-am:hover,
+.lu-am:focus-visible {
+  background: var(--grape);
+  color: #fff;
+}
+
+/* ---------- directory / footer ---------- */
+section.directory {
+  background: var(--card);
+  border-top: 4px solid var(--ink);
+  padding: 2.2rem clamp(1rem, 4vw, 3rem) 2.6rem;
+}
+.directory-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.directory h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 22px;
+  margin: 0 0 0.25rem;
+}
+.directory .sub {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 1.3rem;
+}
+.dir-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.8rem;
+}
+.dir-card {
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  display: block;
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.dir-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ink);
+  background: var(--sunny-tint);
+}
+.dir-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+  display: flex;
+  justify-content: space-between;
+}
+.dir-role {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+footer {
+  padding: 1.6rem clamp(1rem, 4vw, 3rem) 2.2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+footer p {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  max-width: 60em;
+  margin: 0 auto 0.4rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 法務ページ（terms.html / privacy.html） ----------
+   一覧を持たない読み物のページ。JSもCSVも要らないので、index.html とは
+   ヘッダーだけ共有して中身は素の文書にしてある。段組みは1本、幅は
+   日本語で読みやすい範囲（38em前後）に抑える。 */
+.legal {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem clamp(1rem, 4vw, 3rem) 3rem;
+}
+.legal-back {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 1px;
+  margin-bottom: 1.6rem;
+}
+.legal h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(24px, 5vw, 32px);
+  line-height: 1.45;
+  margin: 0 0 0.4rem;
+}
+.legal .legal-lead {
+  font-size: 13.5px;
+  color: var(--text-soft);
+  margin: 0 0 0.6rem;
+}
+.legal .legal-updated {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin: 0 0 2rem;
+  padding-bottom: 1.4rem;
+  border-bottom: 4px solid var(--ink);
+}
+.legal h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 2.4rem 0 0.6rem;
+}
+.legal h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 1.6rem 0 0.4rem;
+}
+.legal p,
+.legal li {
+  font-size: 14px;
+  line-height: 1.95;
+  margin: 0 0 0.8rem;
+}
+.legal ul {
+  padding-left: 1.2rem;
+  margin: 0 0 0.9rem;
+}
+.legal li {
+  margin-bottom: 0.35rem;
+}
+.legal a {
+  color: var(--sky);
+  font-weight: 700;
+}
+/* 権利者向けの窓口。この2つは規約の細目に埋めず、見つけられる形で出す。 */
+.legal .callout {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 1.1rem 1.3rem;
+  margin: 1rem 0 1.4rem;
+}
+.legal .callout > :last-child {
+  margin-bottom: 0;
+}
+.legal .callout a {
+  word-break: break-all;
+}
+.legal-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 1.2rem;
+}
+.legal table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 30rem;
+}
+.legal th,
+.legal td {
+  font-size: 13px;
+  line-height: 1.75;
+  text-align: left;
+  vertical-align: top;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+}
+.legal thead th {
+  font-size: var(--fs-tag);
+  border-bottom: 2px solid var(--ink);
+  white-space: nowrap;
+}
+.legal-foot {
+  margin-top: 2.6rem;
+  padding-top: 1.2rem;
+  border-top: 4px solid var(--ink);
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+/* ---------- toast / update bar ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(120%);
+  z-index: 80;
+  max-width: min(30em, 92vw);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    transition: opacity 0.01s;
+  }
+}
+/* 新しい版に入れ替えている間の画面。押させずに自動で読み直すので、
+   一瞬で終わっても「何が起きたか分からない」にならないよう理由を出す。 */
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+}
+.update-overlay[hidden] {
+  display: none;
+}
+.update-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: 5px 5px 0 var(--ink);
+  padding: 1.8rem 2.2rem;
+  max-width: min(22em, 88vw);
+  text-align: center;
+}
+.update-overlay p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.update-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid var(--sunny-tint);
+  border-top-color: var(--pink);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-spinner {
+    animation: none;
+    border-top-color: var(--ink);
+  }
+}
+
+.noscript-note {
+  margin: 1.5rem auto;
+  max-width: 44em;
+  padding: 1rem 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--coral-tint);
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .stat-chips {
+    gap: 0.4rem;
+  }
+  .stat-chip {
+    font-size: 11px;
+    padding: 0.3rem 0.7rem;
+  }
+}
+
+/* ---------- print ----------
+   紙に落とすときは操作系を全部落とし、カードだけを素直に並べる。 */
+@media print {
+  .controls,
+  .popover-backdrop,
+  .popover-panel,
+  .map-sheet,
+  .toast,
+  .update-overlay,
+  .cal-menu,
+  .skip-link,
+  .blob,
+  .card-actions,
+  .tab-group,
+  .directory {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  header.pop-header {
+    background: #fff;
+    border-bottom: 2px solid #000;
+    padding: 1rem 0;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #000;
+    break-inside: avoid;
+    transform: none !important;
+  }
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+  .desc {
+    display: block !important;
+  }
+  .go-btn {
+    box-shadow: none;
+    filter: none;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    word-break: break-all;
+  }
+}

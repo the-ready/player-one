@@ -1,0 +1,13 @@
+{
+  "_comment": "調査対象外の申請を受けたサイトの登録簿。robots.txt に書かれていなくても、ここに載せた先は tools/fetch_gate.py が取得をブロックする。terms.html 第6節で「サイト単位・施設単位で、以後の収集対象から除外することもできます」と公に約束しているのは、この仕組みのことである。追加・削除の手順は .claude/skills/source-optout/SKILL.md にある。人間が編集するファイルで、収集タスクは書き換えない。",
+  "_fields": {
+    "host": "対象ホスト（例 example.com）。www の有無は区別しない",
+    "include_subdomains": "true なら sub.example.com も対象",
+    "paths": "拒否された範囲。省略または [\"/\"] でサイト全体",
+    "scope": "crawl … 今後取得しない / crawl+data … 既存の掲載も消す",
+    "requested_on": "申請を受けた日 YYYY-MM-DD",
+    "via": "申請の経路（GitHub Issue 番号・メール等）。後から辿れるように必ず書く",
+    "note": "先方の要望の要旨。こちらの解釈ではなく、書かれていたことを書く"
+  },
+  "entries": []
+}

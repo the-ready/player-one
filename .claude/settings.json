@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": ["WebSearch", "Edit(data/**)"],
+    "deny": ["Bash(rm:*)", "Bash(rm -r:*)", "Bash(rm -rf:*)", "Bash(git rm:*)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/fetch_gate.py\" --hook",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
+          }
+        ]
+      }
+    ]
+  }
+}

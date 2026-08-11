@@ -1,0 +1,244 @@
+{
+  "_comment": "「調べたサイト一覧」に出す調査元。以前は index.html にハードコードしていたが、週次のデータ更新でコードを触らずに済むよう外部化した。キーは3つのタブに対応する。",
+  "event": [
+    {
+      "name": "ウォーカープラス",
+      "url": "https://www.walkerplus.com/",
+      "role": "全国のお出かけ・展示・季節イベントを網羅する最大手ポータル"
+    },
+    {
+      "name": "レッツエンジョイ東京",
+      "url": "https://www.enjoytokyo.jp/",
+      "role": "東京メトロ運営。駅・沿線単位で探せる首都圏特化サイト"
+    },
+    {
+      "name": "いこーよ",
+      "url": "https://iko-yo.net/",
+      "role": "年齢別に探せる子連れ・ファミリー特化サイト"
+    },
+    {
+      "name": "asoview!",
+      "url": "https://www.asoview.com/",
+      "role": "体験・レジャープランを比較予約できる国内最大級の予約サイト。クーポン一覧と「超特割」あり"
+    },
+    {
+      "name": "Klook",
+      "url": "https://www.klook.com/ja/",
+      "role": "香港発の現地体験・施設チケット予約。セールとクーポンを高頻度で配信"
+    },
+    {
+      "name": "KKday",
+      "url": "https://www.kkday.com/ja",
+      "role": "台湾発の現地体験・施設チケット予約。Klookと価格が入れ替わることが多い"
+    },
+    {
+      "name": "アクティビティジャパン",
+      "url": "https://activityjapan.com/",
+      "role": "国内アクティビティ特化の予約サイト"
+    },
+    {
+      "name": "JAFナビ 会員優待",
+      "url": "https://area.jaf.or.jp/membership/sisetsulist",
+      "role": "JAF会員向けの施設優待。会員資格が必要な条件付き割引"
+    },
+    {
+      "name": "イープラス",
+      "url": "https://eplus.jp/",
+      "role": "ライブ・舞台・展示のチケット販売プレイガイド"
+    },
+    {
+      "name": "Tokyo Cheapo",
+      "url": "https://tokyocheapo.com/",
+      "role": "訪日外国人向けの英語イベントメディア"
+    },
+    {
+      "name": "じゃらん",
+      "url": "https://www.jalan.net/event/",
+      "role": "宿泊予約と連動した旅行文脈のイベント情報"
+    },
+    {
+      "name": "オソトイコ",
+      "url": "https://osotoiko.com/",
+      "role": "首都圏の「今日行ける」に特化した編集部キュレーション型サイト"
+    },
+    {
+      "name": "GO TOKYO",
+      "url": "https://www.gotokyo.org/jp/index.html",
+      "role": "東京都公式の観光・イベントカレンダー"
+    },
+    {
+      "name": "VELTRA",
+      "url": "https://www.veltra.com/jp/",
+      "role": "海外・国内オプショナルツアーの予約サイト"
+    },
+    {
+      "name": "チケットぴあ",
+      "url": "https://t.pia.jp/",
+      "role": "国内最大級のチケット販売プレイガイド"
+    },
+    {
+      "name": "ローソンチケット",
+      "url": "https://l-tike.com/",
+      "role": "コンビニ発券に強いチケット販売プレイガイド"
+    },
+    {
+      "name": "Peatix",
+      "url": "https://peatix.com/",
+      "role": "コミュニティ・セミナー系イベントの告知チケットサービス"
+    },
+    {
+      "name": "TECH PLAY",
+      "url": "https://techplay.jp/",
+      "role": "IT・テクノロジー分野の勉強会・カンファレンス情報サイト"
+    },
+    {
+      "name": "ストアカ",
+      "url": "https://www.street-academy.com/",
+      "role": "個人が教える体験レッスン・習い事の予約サイト"
+    },
+    {
+      "name": "GaijinPot",
+      "url": "https://gaijinpot.com/",
+      "role": "在日外国人向けの生活・イベント情報サイト"
+    }
+  ],
+  "movie": [
+    {
+      "name": "映画.com",
+      "url": "https://eiga.com/",
+      "role": "新作・上映情報を網羅する国内最大級の映画情報サイト"
+    },
+    {
+      "name": "Filmarks",
+      "url": "https://filmarks.com/",
+      "role": "レビュー・上映館検索に強い映画コミュニティサイト"
+    },
+    {
+      "name": "シネマトゥデイ",
+      "url": "https://www.cinematoday.jp/",
+      "role": "新作ニュース・上映スケジュールの情報サイト"
+    },
+    {
+      "name": "ぴあ映画生活",
+      "url": "https://lp.p.pia.jp/eiga/",
+      "role": "チケットぴあ運営の映画情報・座席予約サイト"
+    },
+    {
+      "name": "ムビチケ",
+      "url": "https://mvtk.jp/",
+      "role": "前売り券(ムビチケ)の公式販売サイト。前売り価格と販売期間の一次情報源"
+    },
+    {
+      "name": "TOHOシネマズ",
+      "url": "https://www.tohotheater.jp/",
+      "role": "国内最大手シネコンチェーンの公式サイト"
+    },
+    {
+      "name": "イオンシネマ",
+      "url": "https://www.aeoncinema.com/",
+      "role": "全国展開のシネコンチェーン公式サイト"
+    },
+    {
+      "name": "ユナイテッド・シネマ",
+      "url": "https://www.unitedcinemas.jp/",
+      "role": "シネコンチェーン公式サイト"
+    },
+    {
+      "name": "109シネマズ",
+      "url": "https://109cinemas.net/",
+      "role": "シネコンチェーン公式サイト"
+    },
+    {
+      "name": "新文芸坐",
+      "url": "https://www.shin-bungeiza.com/",
+      "role": "池袋の名画座。特集上映・オールナイト上映で知られる"
+    },
+    {
+      "name": "早稲田松竹",
+      "url": "https://wasedashochiku.co.jp/",
+      "role": "高田馬場の名画座。二本立て上映が中心"
+    },
+    {
+      "name": "シネマヴェーラ渋谷",
+      "url": "https://www.cinemavera.com/",
+      "role": "渋谷の名画座。特集上映に強い"
+    }
+  ],
+  "live": [
+    {
+      "name": "チケットぴあ",
+      "url": "https://t.pia.jp/",
+      "role": "国内最大級のプレイガイド。ジャンル別・エリア別の公演一覧が使える"
+    },
+    {
+      "name": "イープラス",
+      "url": "https://eplus.jp/",
+      "role": "先行受付の情報が早いプレイガイド"
+    },
+    {
+      "name": "ローソンチケット",
+      "url": "https://l-tike.com/",
+      "role": "コンビニ発券に強いプレイガイド"
+    },
+    {
+      "name": "楽天チケット",
+      "url": "https://ticket.rakuten.co.jp/",
+      "role": "楽天IDで申し込めるプレイガイド"
+    },
+    {
+      "name": "ticket board",
+      "url": "https://ticket.tickebo.jp/",
+      "role": "ファンクラブ先行・オフィシャル先行の取り扱いが多い"
+    },
+    {
+      "name": "LivePocket",
+      "url": "https://t.livepocket.jp/",
+      "role": "小規模公演・インディーズに強い電子チケットサービス"
+    },
+    {
+      "name": "ZAIKO",
+      "url": "https://zaiko.io/",
+      "role": "クラブイベント・小規模公演の電子チケットサービス"
+    },
+    {
+      "name": "teket",
+      "url": "https://teket.jp/",
+      "role": "クラシック・吹奏楽・市民ホール公演に強い"
+    },
+    {
+      "name": "音楽ナタリー",
+      "url": "https://natalie.mu/music",
+      "role": "公演の新規発表・追加公演のニュースを日次で追える音楽メディア"
+    },
+    {
+      "name": "Billboard JAPAN",
+      "url": "https://www.billboard-japan.com/",
+      "role": "チャートとライブ情報を扱う音楽メディア"
+    },
+    {
+      "name": "SPICE",
+      "url": "https://spice.eplus.jp/",
+      "role": "イープラス運営のエンタメ情報メディア"
+    },
+    {
+      "name": "Real Sound",
+      "url": "https://realsound.jp/",
+      "role": "音楽レビューとライブレポートの音楽メディア"
+    },
+    {
+      "name": "rockin'on.com",
+      "url": "https://rockinon.com/",
+      "role": "ROCK IN JAPAN・JAPAN JAM等を主催。フェス情報に強い"
+    },
+    {
+      "name": "ぴあアリーナMM",
+      "url": "https://pia-arena-mm.jp/",
+      "role": "会場公式サイトの公演カレンダー（会場ベース調査の一次情報源の例）"
+    },
+    {
+      "name": "Zepp",
+      "url": "https://www.zepp.co.jp/",
+      "role": "全国のZeppのスケジュール。ライブハウス級公演の一次情報源"
+    }
+  ]
+}

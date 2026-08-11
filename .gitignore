@@ -1,0 +1,21 @@
+# デプロイ時に .github/workflows/pages.yml が git の履歴から生成する。
+# コミットしない（コミットすると、ローカルで編集中でも古い日付が優先されてしまう）。
+data/updated.json
+.DS_Store
+logs
+
+# 前回の収集結果の退避先。append_rows.py --init が作り、差分検知が読む。
+# コミットしない：同じ内容が git 履歴に既にあり、二重に持つ意味がないため。
+# 退避が無い場合は prev_rows.py が git の HEAD から復元する。
+data/.prev/
+
+# robots.txt のキャッシュと、ホストごとの最終アクセス時刻。
+# fetch_gate.py が作る実行時の状態で、収集の成果物ではない。
+# コミットしない：翌週には取り直すべきもので、履歴に残す意味が無いため。
+data/.robots/
+tools/__pycache__/
+# smoke_test.mjs を動かすためだけに入れる playwright。
+# ページ本体は依存を持たない（第15章）ので、コミットしない。
+node_modules/
+package.json
+package-lock.json
