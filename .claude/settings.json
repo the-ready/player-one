@@ -14,6 +14,15 @@
             "timeout": 180
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/block-git.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -22,7 +31,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/format-file.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-data.sh\"",
+            "timeout": 120
           }
         ]
       }

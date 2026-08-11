@@ -3,6 +3,8 @@
 ## 前提 —— git 操作はスクリプトが行う
 
 - **git の pull / add / commit / push を、この手順の中で実行してはならない。** すべてスクリプト側の責任に移してある。
+  これはお願いではなく、`PreToolUse` フック（`.claude/hooks/block-git.sh`）が実際に拒否する。
+  読み取り（`git status` / `log` / `diff`）は通るので、状態の確認には使ってよい
   - 実行前: スクリプトが `git fetch` と fast-forward マージで最新を取り込んでから、あなたを起動している
   - 実行後: スクリプトが `validate_data.py` と `diff_data.py` を回し、**どちらも終了コード0のときだけ** コミットして push する
 - 検証に通らなかった回は、スクリプトが生成物を `.claude/logs/failed/` に退避したうえで `data/` と `docs/` を実行前の状態に戻す。つまり**途中で終えた週は、その週の収集がまるごと失われる。**

@@ -990,6 +990,47 @@ WCAG準拠のため、カテゴリ色の一部を暗く／明るく調整した�
 
 > **`~/.claude/skills/` 側の複製は、このリポジトリからは直せない。** 上の2つは、同期を忘れたときに**被害が出る前に気づく**ための網であって、同期そのものの代わりにはならない。
 
+### 9.1.5 守らせたい規則は、指示文ではなくフックに置く
+
+無人実行の規則を `.claude/routines/event.txt` や SKILL.md の散文で伝えるだけでは足りない。散文は**安い経路の前で負ける**（画像の件＝第7.1節、`robots.txt` の件＝`COLLECTION-PROTOCOL.md` 第6.5.4節で実証済み）。決定論的に守らせたいものは `.claude/settings.json` のフックに置くものとしている。
+
+| フック                     | スクリプト                     | 何を保証するか                                                         |
+| -------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `PreToolUse(WebFetch)`     | `tools/fetch_gate.py --hook`   | 取得の直前にURL単位で `robots.txt` を判定し、間隔を空ける（第6.5.4節） |
+| `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`   | ルーチン中、モデル自身の git の書き込みを拒否する                      |
+| `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh` | 整形できる拡張子だけ prettier にかける                                 |
+| `Stop`                     | `.claude/hooks/verify-data.sh` | 検証が通らないうちはターンを終わらせない                               |
+
+#### git 操作をフックで拒否する理由
+
+git の pull / commit / push は `claude-routine.sh` の責任で、「検証を通った回だけ push する」というゲートはそこにしか無い。ところが**ルーチンは `--permission-mode bypassPermissions` で起動する**ため、`permissions.deny` に書いても確実には止まらない。`PreToolUse` フックの deny だけが権限モードの判定より先に評価されるので、無人実行で効く手段はこれ1つである。
+
+読み取り（`status` / `log` / `diff` / `show` / `rev-parse`）は通す。現状の確認まで塞ぐと、報告が「何が起きているか分からない」ものになるためである。
+
+**対話セッションでは発火させない。** 人がこのリポジトリで git を使うのは当然だからである。見分けには `claude-routine.sh` が `export` する `CLAUDE_ROUTINE=1` を使う——フックのプロセスは `claude` プロセスの子なので、この変数を継承している。
+
+#### 検証を「終わる前」にも置く理由
+
+`claude-routine.sh` の検証は**押してよいかの門番**で、落ちた回は生成物を退避して `data/` を巻き戻す（第9.1節・`COLLECTION-PROTOCOL.md` 第10.2節）。正しいが、気づくのが遅すぎて**数時間かけた収集がまるごと捨てられる。**
+
+`Stop` フックは `decision:"block"` と理由を返すことで、モデルに作業を続けさせられる。同じ `validate_data.py` と `diff_data.py` を終了前にも回せば、捨てる代わりにその場で直せる。2本あわせて1秒未満なので、毎ターン回して構わない。
+
+**スクリプト側のゲートは残す。** `Stop` フックの連続ブロックは8回で打ち切られるので、直しきれないまま終わる回はある。壊れたデータが push されないことを担保するのは、依然としてスクリプトの側である。フックは「捨てずに済ませる」ための前段でしかない。
+
+対話セッションでは、`data/` に未コミットの変更がある回だけ検証する。CSSだけ直した回にCSVの検証で足止めされる筋合いはなく、逆に `data/` を触ったなら「ERROR 0 であること」は `CLAUDE.md` が求める最低条件そのものだからである。
+
+#### セッションのライフサイクルに git を載せない
+
+`SessionStart` で pull、`SessionEnd` で push、という形は採らない。3つの理由で、いま仕組みが担保していることを落とすためである。
+
+| 落ちるもの           | 理由                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 実行前の fail fast   | `SessionStart` は exit 2 でブロックできない。pull や push 権限の事前確認が失敗しても、警告が出るだけで6時間の収集がそのまま走る                                          |
+| 完走したかの判定     | push のゲートは `RUN_OK`（stream-json の `result` の `subtype`）と `VERIFY_OK` の両方で決まる。`SessionEnd` が受け取る `reason` では、完走とターン上限切れを区別できない |
+| 打ち切り時の巻き戻し | `timeout -k 60` は最後に SIGKILL を送る。フックは動かないので、切り詰められたCSVを戻す処理が**最も必要な失敗ケースでだけ実行されない**                                   |
+
+加えて `claude-routine.sh` は `GIT_ASKPASS` / `VSCODE_GIT_IPC_HANDLE` を外してから git を触る（対話セッションのIPCソケットに認証を依存させないため）。フックは `claude` プロセスの環境を継承するので、push をフックに移すとこの分離が無効になる。
+
 ### 9.2 収集の基本方針
 
 | 項目         | 方針                                                                                        | 目的                                                                                                                                                                                                          |
@@ -1100,7 +1141,11 @@ data/                         週次で差し替えるデータ（行数は vali
     kanto-live-collector/     ライブ・フェス収集スキル
   routines/event.txt          週次ルーチンの手順（曜日でスキルを選ぶ。手順書はパスで読ませる）
   scripts/claude-routine.sh   cron の入口。pull → 実行 → 検証 → 通った回だけ commit/push
-  settings.json               権限とフック（Edit/Write のあとに prettier）
+  hooks/                      規則を決定論的に守らせるフック（第9.1.5節）
+    block-git.sh              ルーチン中の git の書き込みを拒否（PreToolUse:Bash）
+    format-file.sh            整形できる拡張子だけ prettier に渡す（PostToolUse:Edit|Write）
+    verify-data.sh            検証が通らないうちは終わらせない（Stop）
+  settings.json               権限とフックの登録（フックの中身は hooks/ と tools/fetch_gate.py）
 tools/
   validate_data.py            CSVの検証（列・日付・選択肢・座標・価格の整合）
   append_rows.py              調査結果のバッチ追記／退避つき初期化／持ち越し

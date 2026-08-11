@@ -29,6 +29,7 @@ data/                         週次で差し替えるデータ。ここだけ�
   sources.json                「調べたサイト一覧」
   no-crawl.json               調査対象外の申請を受けたサイトの登録簿（人が編集する）
 .claude/skills/               3つの収集スキルと、掲載停止申請への対応手順（正本はここ）
+.claude/hooks/                規則を決定論的に守らせるフック（git の禁止・整形・終了前の検証）
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
   append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し

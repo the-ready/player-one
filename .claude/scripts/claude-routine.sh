@@ -362,6 +362,19 @@ RUN_STATE="$(mktemp -d "$LOG_DIR/.run.XXXXXX")" || die "一時ディレクトリ
 
 PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレクトリに移動し、${ROUTINE_FILE} を読み込んで、その指示に従って作業を最後まで実行してください。git の pull / commit / push はこのスクリプトが行うので、あなたは git 操作を行わないでください。"
 
+# ============================================================
+# フックに「これは無人のルーチンである」と伝える
+#
+# .claude/hooks/ の2本は、対話セッションとルーチンで振る舞いを変える必要がある。
+#   - block-git.sh   : ルーチン中だけ git の書き込みを拒否する（人の git は妨げない）
+#   - verify-data.sh : ルーチンでは終了前の検証を必ず回す
+# フックのプロセスは claude プロセスの子なので、ここで export すれば届く。
+#
+# 直前の PROMPT の文言と役割が重なるが、片方は「お願い」、こちらは「仕組み」である。
+# ルーチンは bypassPermissions で走るので、permissions.deny では止められない。
+# ============================================================
+export CLAUDE_ROUTINE=1
+
 CLAUDE_CMD=(claude)
 if command -v timeout >/dev/null 2>&1; then
   # 応答しなくなったセッションがロックを抱えたまま居座るのを防ぐ
@@ -481,7 +494,9 @@ run_check() {
 VERIFY_OK=1
 
 # 空のCSV（--init の直後に中断した状態）を確実に弾く。
-# validate_data.py は「行が0件」を異常とは扱わないため、ここで別途見る。
+# validate_data.py も「データ行がありません」で同じ状態を ERROR にするが、こちらは
+# 検証スクリプトが動かなくても（import に失敗する・0バイトで例外になる等）成立する
+# 判定として残してある。押してよいかの最終判定なので、検証の健全性に依存させない。
 for csv in data/events.csv data/lives.csv data/movies.csv; do
   if [ ! -f "$REPO_DIR/$csv" ]; then
     VERIFY_OK=0
