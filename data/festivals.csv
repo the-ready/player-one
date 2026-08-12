@@ -1,16 +1,16 @@
 name,venue,pref,month_hint,url,status,first_seen,last_hit,hit_count,note
-ROCK IN JAPAN FESTIVAL,蘇我スポーツ公園,chiba,9月,https://rijfes.jp/,active,2026-08-02,2026-08-12,2,2026年より9月・千葉市蘇我スポーツ公園開催(2025年までの国営ひたち海浜公園・8月から変更)
-SUMMER SONIC,ZOZOマリンスタジアム・幕張メッセ,chiba,8月,https://www.summersonic.com/,active,2026-08-02,2026-08-12,2,
+ROCK IN JAPAN FESTIVAL,蘇我スポーツ公園,chiba,9月,https://rijfes.jp/,active,2026-08-02,2026-08-12,3,2026年より9月・千葉市蘇我スポーツ公園開催(2025年までの国営ひたち海浜公園・8月から変更)
+SUMMER SONIC,ZOZOマリンスタジアム・幕張メッセ,chiba,8月,https://www.summersonic.com/,active,2026-08-02,2026-08-12,3,
 SUPERSONIC,幕張メッセ周辺,chiba,不定期,,active,2026-08-02,,0,幕張メッセ周辺での開催実態を公式サイト上で確認できず。要確認
 JAPAN JAM,蘇我スポーツ公園,chiba,5月,https://japanjam.jp/,active,2026-08-02,,0,
 VIVA LA ROCK,埼玉スタジアム2002周辺・野外特設会場,saitama,5月,https://vivalarock.jp/,active,2026-08-02,,0,さいたまスーパーアリーナ改修休館のため2026年は埼玉スタジアム2002周辺の野外特設会場で初の野外開催(5/3〜6)
 METROCK（METROPOLITAN ROCK FESTIVAL）,若洲公園,tokyo,5月,https://metrock.jp/,active,2026-08-02,,0,
 COUNTDOWN JAPAN,幕張メッセ,chiba,12月末,https://countdownjapan.jp/,active,2026-08-02,,0,
-氣志團万博,幕張メッセ,chiba,11月,https://www.kishidanbanpaku.com/,blocked,2026-08-02,2026-08-08,1,robots.txt が Claude-SearchBot を拒否(開催は継続。出演者は音楽メディアから拾う)
+氣志團万博,幕張メッセ,chiba,11月,https://www.kishidanbanpaku.com/,blocked,2026-08-02,2026-08-12,2,robots.txt が Claude-SearchBot を拒否(開催は継続。出演者は音楽メディアから拾う)
 LuckyFes,国営ひたち海浜公園,ibaraki,8月,https://luckyfes.com/,active,2026-08-02,2026-08-08,1,2026年は8月8〜11日の4日連続開催(前年までの7月から変更)
 GREENROOM FESTIVAL,横浜赤レンガ倉庫,kanagawa,5月,https://greenroom.jp/,active,2026-08-02,,0,
-ULTRA JAPAN,お台場周辺,tokyo,9月,https://ultrajapan.com/,active,2026-08-02,2026-08-12,2,
-New Acoustic Camp,水上高原,gunma,9月,https://newacousticcamp.com/,active,2026-08-02,2026-08-12,2,
-TOKYO ISLAND,海の森公園,tokyo,10月,https://tokyoisland.tokyo/,active,2026-08-02,2026-08-12,1,
+ULTRA JAPAN,お台場周辺,tokyo,9月,https://ultrajapan.com/,active,2026-08-02,2026-08-12,3,
+New Acoustic Camp,水上高原,gunma,9月,https://newacousticcamp.com/,active,2026-08-02,2026-08-12,3,
+TOKYO ISLAND,海の森公園,tokyo,10月,https://tokyoisland.tokyo/,active,2026-08-02,2026-08-12,2,
 ap bank fes,会場は年により変動,,7月,https://www.apbank.jp/,active,2026-08-02,,0,
 FUJI ROCK FESTIVAL,苗場スキー場,other,7月,https://www.fujirockfestival.com/,active,2026-08-07,,0,苗場（新潟県）開催のため関東圏外だが著名フェスとして掲載

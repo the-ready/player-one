@@ -1,6 +1,6 @@
 venue,kind,pref,area,capacity,lat,lng,url,status,closed_until,first_seen,last_hit,hit_count,note
 国立競技場,dome,tokyo,東京都・新宿区,68000,35.6778,139.7146,https://www.jpnsport.go.jp/newstadium/,active,,2026-08-02,,0,
-東京ドーム,dome,tokyo,東京都・文京区,55000,35.7056,139.7519,https://www.tokyo-dome.co.jp/dome/,active,,2026-08-02,2026-08-08,1,
+東京ドーム,dome,tokyo,東京都・文京区,55000,35.7056,139.7519,https://www.tokyo-dome.co.jp/dome/,active,,2026-08-02,2026-08-12,2,
 味の素スタジアム,dome,tokyo,東京都・調布市,49000,35.6641,139.5272,https://www.ajinomotostadium.com/,active,,2026-08-02,2026-08-08,1,
 有明アリーナ,arena,tokyo,東京都・江東区,15000,35.6434,139.7942,https://ariake-arena.tokyo/,active,,2026-08-02,2026-08-08,1,
 日本武道館,arena,tokyo,東京都・千代田区,14000,35.6933,139.7497,https://www.nipponbudokan.or.jp/,active,,2026-08-02,2026-08-08,1,
@@ -33,7 +33,7 @@ LINE CUBE SHIBUYA,hall,tokyo,東京都・渋谷区,1956,35.6647,139.6975,https:/
 日本橋三井ホール,hall,tokyo,東京都・中央区,690,35.6867,139.7741,https://nihonbashi-hall.jp/,active,,2026-08-07,,0,収容人数は着席時。スタンディング時は約1000人
 日経ホール,hall,tokyo,東京都・千代田区,610,35.6889,139.7624,https://www.nikkei-hall.com/,active,,2026-08-07,,0,
 Hakuju Hall,hall,tokyo,東京都・渋谷区,300,35.6674,139.6902,https://www.hakujuhall.jp/,active,,2026-08-07,,0,リクライニング席使用時162席・固定席使用時300席
-Zepp Haneda(TOKYO),livehouse,tokyo,東京都・大田区,3000,35.5497,139.7458,https://www.zepp.co.jp/hall/haneda/,active,,2026-08-02,2026-08-08,1,
+Zepp Haneda(TOKYO),livehouse,tokyo,東京都・大田区,3000,35.5497,139.7458,https://www.zepp.co.jp/hall/haneda/,active,,2026-08-02,2026-08-12,2,
 豊洲PIT,livehouse,tokyo,東京都・江東区,3000,35.6486,139.7986,https://toyosu.pia-pit.jp/,active,,2026-08-02,2026-08-08,1,
 Zepp DiverCity(TOKYO),livehouse,tokyo,東京都・江東区,2473,35.6250,139.7756,https://www.zepp.co.jp/hall/divercity/,active,,2026-08-02,2026-08-08,1,
 EX THEATER ROPPONGI,livehouse,tokyo,東京都・港区,1746,35.6612,139.7272,https://www.ex-theater.com/,active,,2026-08-07,,0,収容人数はスタンディング時。着席時920席
