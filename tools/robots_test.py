@@ -18,6 +18,7 @@ from urllib.robotparser import RobotFileParser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import robots_rules as rr                                    # noqa: E402
+import fetch_gate as fg                                       # noqa: E402
 
 # (説明, robots.txt, UA, URL, 取得してよいか)
 CASES = [
@@ -88,6 +89,20 @@ DECIDE_CASES = [
 ]
 
 
+# `fetch_gate.py` の API_EXCEPTIONS（6.5.7）。パス単位の一致であること、
+# 似た別パスまで巻き込まないことを見る（実際にここでバグを1つ見つけている）。
+API_CASES = [
+    ("登録したパスは通る",
+     "https://itunes.apple.com/search?term=x", True),
+    ("パスの前方一致だけで別パスを巻き込まない",
+     "https://itunes.apple.com/searchanything", False),
+    ("同じホストでも登録外のパスは対象外",
+     "https://itunes.apple.com/jp/album/x/1", False),
+    ("登録外のホストは対象外",
+     "https://music.apple.com/search?term=x", False),
+]
+
+
 def run():
     fails, stdlib_diff = 0, 0
 
@@ -115,7 +130,13 @@ def run():
         print(f"✗ crawl-delay の合成が 9 にならない: {delays}")
         fails += 1
 
-    total = len(CASES) + len(DECIDE_CASES) + 1
+    for name, url, want in API_CASES:
+        got = fg.documented_api(url)
+        if got != want:
+            print(f"✗ {name}\n    {url}  期待 {want} / 実際 {got}")
+            fails += 1
+
+    total = len(CASES) + len(DECIDE_CASES) + len(API_CASES) + 1
     print(f"\n{total - fails}/{total} 件が期待どおり")
     if stdlib_diff:
         print(f"※ この環境の urllib.robotparser は {stdlib_diff} 件で結果が異なる"

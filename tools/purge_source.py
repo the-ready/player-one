@@ -15,6 +15,7 @@
     .claude/skills/     横断サイトの表に名前とURLが書いてある
     docs/ README.md     例示として出てくることがある
     data/.prev/         前回の退避（次週これを見て復活しうる）
+    data/apple-music.json  名前→URLのキャッシュ（同上。翌週ここから書き戻る）
 
 手で grep して消すと、**必ずどれかが残る**。しかも残ったことに誰も気づかない
 ——次の週に収集タスクが `.prev` からその行を引き直して復活させても、
@@ -57,6 +58,12 @@ FEEDS = {
 }
 ROSTERS = {"spots": "name", "venues": "venue", "theaters": "name", "festivals": "name"}
 
+# 「その行が存在する理由」ではない、付随のリンク列。
+# 公演があるのは主催者が公演を打つからで、Apple Music へのリンクがあるからではない。
+# したがってここが該当しても**行は消さず、そのセルだけ空にする**。
+# （`url` や `official_url` が該当する場合は行ごと消す。あちらは行の根拠そのもの）
+LINK_ONLY = {"lives": ["apple_music_url"], "lineups": ["apple_music_url"]}
+
 # 散文。挙げるだけで書き換えない。
 PROSE = ["README.md", "terms.html", "privacy.html", "index.html",
          "docs/*.md", ".claude/skills/*/SKILL.md", ".claude/routines/*.txt"]
@@ -85,7 +92,7 @@ def path_of(name):
 def audit(target):
     """どこに何があるかを集める。戻り値は表示と `--apply` の両方で使う。"""
     found = {"feeds": {}, "rosters": {}, "sources": [], "prose": [],
-             "prev": {}, "lineups": [], "no_crawl": None}
+             "prev": {}, "lineups": [], "cache": [], "links": {}, "no_crawl": None}
 
     for feed, cols in FEEDS.items():
         p = path_of(feed)
@@ -152,6 +159,30 @@ def audit(target):
         if n:
             found["prev"][os.path.relpath(p, ROOT)] = n
 
+    # `data/apple-music.json` は「名前→URL」のキャッシュで、掲載データではない。
+    # **ここを消さないと、行を消しても翌週 fill_apple_music.py が書き戻す**
+    # ——no-crawl.json に登録しないまま行だけ消したときと同じ復活経路になる。
+    # 付随リンクの列（行は消さない）
+    for name, cols in LINK_ONLY.items():
+        p = path_of(name)
+        if not os.path.exists(p):
+            continue
+        n = 0
+        with open(p, encoding="utf-8") as fh:
+            for row in csv.DictReader(fh):
+                if any(matches(row.get(c) or "", target) for c in cols):
+                    n += 1
+        if n:
+            found["links"][name] = n
+
+    cp = os.path.join(ROOT, "data", "apple-music.json")
+    if os.path.exists(cp):
+        with open(cp, encoding="utf-8") as f:
+            cache = json.load(f)
+        found["cache"] = sorted(
+            name for name, v in (cache.get("artists") or {}).items()
+            if matches(v.get("url") or "", target))
+
     found["no_crawl"] = rr.optout_match(f"https://{target}/")
     return found
 
@@ -187,6 +218,18 @@ def report(target, f):
         print("  data/.prev/ — 前回の退避に残存（次週これを見て復活しうる）")
         for p, n in f["prev"].items():
             print(f"    {p}: {n}行")
+
+    for name, n in f["links"].items():
+        print(f"  data/{name}.csv — {n}行の付随リンク列"
+              "（**行は消さず、そのセルだけ空にする**）")
+
+    if f["cache"]:
+        print(f"  data/apple-music.json — {len(f['cache'])}件"
+              "（消さないと翌週 fill_apple_music.py が書き戻す）")
+        for name in f["cache"][:20]:
+            print(f"    {name}")
+        if len(f["cache"]) > 20:
+            print(f"    …ほか {len(f['cache']) - 20}件")
 
     if f["prose"]:
         print(f"  散文 — {len(f['prose'])}か所（**自動では消さない。人間が直す**）")
@@ -272,6 +315,40 @@ def apply(target, f, keep_rows):
             json.dump(data, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
         changed.append(f"data/sources.json: {n}件を削除")
+
+    # 付随リンクは、行を残したままセルだけ空にする。
+    # `--keep-rows`（scope=crawl「取得はやめるが掲載は残してよい」）のときは触らない
+    # ——掲載を残してよいと言われているのに、こちらの判断で消す理由がない。
+    if not keep_rows:
+        for name, cols in LINK_ONLY.items():
+            if name not in f["links"]:
+                continue
+            p = path_of(name)
+            with open(p, encoding="utf-8") as fh:
+                r = csv.DictReader(fh)
+                head, rows = r.fieldnames, list(r)
+            n = 0
+            for x in rows:
+                for c in cols:
+                    if matches(x.get(c) or "", target):
+                        x[c] = ""
+                        n += 1
+            if n:
+                rewrite(p, rows, head)
+                changed.append(f"data/{name}.csv: {n}件のリンクを空に")
+
+    # キャッシュからも消す。**残すと翌週 fill_apple_music.py が同じURLを書き戻す。**
+    # ここも `--keep-rows` では触らない（掲載を残す以上、引き直させる意味がない）。
+    if f["cache"] and not keep_rows:
+        p = os.path.join(ROOT, "data", "apple-music.json")
+        with open(p, encoding="utf-8") as fh:
+            cache = json.load(fh)
+        for name in f["cache"]:
+            cache.get("artists", {}).pop(name, None)
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh, ensure_ascii=False, indent=2, sort_keys=True)
+            fh.write("\n")
+        changed.append(f"data/apple-music.json: {len(f['cache'])}件を削除")
 
     return changed
 

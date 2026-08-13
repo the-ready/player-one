@@ -35,7 +35,7 @@ ls -d .claude/logs/.routine.lock 2>/dev/null && echo "実行中。終わるま�
 CSVを「前回分」として `data/.prev/` に退避するので、走行中に消すと、消した状態と
 消す前の状態が混ざったまま週をまたぐ。ロックがあれば終わるまで待つ。
 
-急ぐ場合でも、**手順1（登録）だけは先にやってよい。** 登録はデータを触らず、
+急ぐ場合でも、**手順2（登録）だけは先にやってよい。** 登録はデータを触らず、
 取得を止めるだけなので、走行中でも安全に効く。
 
 ---
@@ -117,9 +117,9 @@ python3 tools/fetch_gate.py --check https://example.com/
 python3 tools/purge_source.py example.com --audit
 ```
 
-掲載データ・名簿・`sources.json`・散文・`data/.prev/` を横断して、**そのサイトが
-出てくる場所を全部**挙げる。実測では、1サイトが33行のデータと6か所の散文にまたがって
-いた例がある。**目視の grep では取りこぼす。**
+掲載データ・名簿・`sources.json`・散文・`data/.prev/`・`data/apple-music.json` を
+横断して、**そのサイトが出てくる場所を全部**挙げる。1サイトが数十行のデータと
+複数箇所の散文にまたがることは珍しくない。**目視の grep では取りこぼす。**
 
 ---
 
@@ -132,13 +132,24 @@ python3 tools/purge_source.py example.com --apply --keep-rows  # scope = crawl
 
 やること・やらないこと：
 
-| 対象                                               | 動作                               |
-| -------------------------------------------------- | ---------------------------------- |
-| `events` / `lives` / `movies` の該当行             | 削除し、`id` を1から振り直す       |
-| `lineups.csv`                                      | 消えた公演に紐づく日割りも削除     |
-| 名簿4つ（`spots` `venues` `theaters` `festivals`） | **`blocked` にする（行は残す）**   |
-| `sources.json`                                     | 「調べたサイト一覧」から削除       |
-| **散文**（SKILL.md・docs・README・terms）          | **触らない。該当箇所を挙げるだけ** |
+| 対象                                               | 動作                                                                  |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `events` / `lives` / `movies` の該当行             | 削除し、`id` を1から振り直す                                          |
+| `lineups.csv`                                      | 消えた公演に紐づく日割りも削除                                        |
+| 名簿4つ（`spots` `venues` `theaters` `festivals`） | **`blocked` にする（行は残す）**                                      |
+| `sources.json`                                     | 「調べたサイト一覧」から削除                                          |
+| `apple_music_url` 列（`lives` / `lineups`）        | **行は消さず、そのセルだけ空にする**（下記）                          |
+| `apple-music.json`                                 | 該当エントリを削除（**残すと翌週 `fill_apple_music.py` が書き戻す**） |
+| **散文**（SKILL.md・docs・README・terms）          | **触らない。該当箇所を挙げるだけ**                                    |
+
+**`apple_music_url` で行を消さないのは、それが「その行が存在する理由」ではないためである。**
+公演が載っているのは主催者が公演を打つからであって、Apple Music へのリンクがあるからではない。
+`url` や `official_url` が該当する場合は行の根拠そのものなので、そちらは行ごと消す。
+
+> **Apple Music について申請を受けたときの落とし穴。** 掲載しているURLのホストは
+> `music.apple.com` だが、**収集が実際に叩くのは `itunes.apple.com`**（Search API）である。
+> `no-crawl.json` に `music.apple.com` だけを登録しても `fill_apple_music.py` は止まらない。
+> **両方を登録すること。**
 
 **名簿の行を消さないのは、名簿が「どこを見に行くか」であると同時に、座標・種別・キャパを
 引く表示側のマスターでもあるためである**（`data.js` は状態を見ずに読む）。`blocked` は

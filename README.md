@@ -28,12 +28,14 @@ data/                         週次で差し替えるデータ。ここだけ�
   festivals.csv               関東開催フェスの名簿（同上）
   sources.json                「調べたサイト一覧」
   no-crawl.json               調査対象外の申請を受けたサイトの登録簿（人が編集する）
+  apple-music.json            アーティスト名→Apple MusicのURL（引き直しを避けるキャッシュ）
 .claude/skills/               3つの収集スキルと、掲載停止申請への対応手順（正本はここ）
 .claude/hooks/                規則を決定論的に守らせるフック（git の禁止・整形・終了前の検証）
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
   append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し
   append_lineup.py            フェスの日割りラインナップの書き出し
+  fill_apple_music.py         ラインナップの Apple Music リンクを一括で埋める
   prev_rows.py / diff_data.py 前回との差分検知（詳細は docs/COLLECTION-PROTOCOL.md）
   rowkey.py / roster.py       行の同定・名簿の保守
   robots_rules.py             robots.txt の判定規則（Allow/Disallow の最長一致・RFC 9309）
@@ -233,7 +235,7 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 lineup_id,date,stage,artist,is_headliner,apple_music_url,note
 ```
 
-`lives.csv` の `lineup_id` と同じ値の行が、その公演のラインナップになる。カードには「全◯組の日程を見る」ボタンが出て、日タブ → ステージ → 出演者のシートが開く。`date` と `stage` は空欄でよい（日割り・ステージ割りの発表前は実際にある）。`apple_music_url` は実在を確かめたアーティストページだけを書き、空欄の行は表示側が名前から Apple Music の検索URLを組み立てる。
+`lives.csv` の `lineup_id` と同じ値の行が、その公演のラインナップになる。カードには「全◯組の日程を見る」ボタンが出て、日タブ → ステージ → 出演者のシートが開く。`date` と `stage` は空欄でよい（日割り・ステージ割りの発表前は実際にある）。`apple_music_url` は**手で書かない**。ラインナップを書き終えたあとに `tools/fill_apple_music.py` を実行すると、iTunes Search API から一括で埋まる。絞り込めなかった名前は空欄のまま残り、表示側が名前から Apple Music の検索URLを組み立てる。
 
 このファイルは本体データと同時に読み込まれ、**全出演者名が検索の索引に入る**。`artists` の8組に入っていないアーティスト名でも、そのフェスが検索で見つかる。詳細は設計書 第12.12節。
 

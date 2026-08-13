@@ -1,0 +1,1328 @@
+{
+  "_comment": "アーティスト名 → Apple Music アーティストページURL。tools/fill_apple_music.py が iTunes Search API から作る。lineups.csv は毎週作り直されるため、ここに残して引き直しを避ける。url が空の行は「引けなかった」記録で、--retry-misses で引き直せる。",
+  "artists": {
+    ".ENDRECHERI.": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/endrecheri/1703053307"
+    },
+    "04 Limited Sazabys": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/04-limited-sazabys/386765265"
+    },
+    "10-FEET": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/10-feet/76125500"
+    },
+    "7": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "7co": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "ACIDMAN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/acidman/74565843"
+    },
+    "ACIDMAN(Acoustic set)": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/acidman/74565843"
+    },
+    "AKMU": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/akmu/747306596"
+    },
+    "ALEX WARREN": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が3件"
+    },
+    "AUDREY NUNA": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Ado": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Age Factory": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/age-factory/940068433"
+    },
+    "Ave Mujica": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ave-mujica/1680440024"
+    },
+    "Awich": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/awich/206336089"
+    },
+    "Ayumu Imazu": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ayumu-imazu/1497146276"
+    },
+    "BABYMETAL": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/babymetal/477101776"
+    },
+    "BABYMONSTER": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/babymonster/1715981813"
+    },
+    "BAND-MAID": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/band-maid/1102275947"
+    },
+    "BE:FIRST": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/be-first/1579021180"
+    },
+    "BIGMAMA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/bigmama/160844958"
+    },
+    "BINI": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "BLUE ENCOUNT": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/blue-encount/298383252"
+    },
+    "BOY SODA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/boy-soda/1504035943"
+    },
+    "BUMP OF CHICKEN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/bump-of-chicken/185088141"
+    },
+    "Base Ball Bear": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/base-ball-bear/111133857"
+    },
+    "Bray me": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/bray-me/857389879"
+    },
+    "CANDY TUNE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/candy-tune/1671095780"
+    },
+    "CARDINALS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "CARÍN LEÓN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/carin-leon/1370196486"
+    },
+    "CHLOE QISHA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/chloe-qisha/1751460376"
+    },
+    "CHiCO with HoneyWorks": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/chico-with-honeyworks/894513894"
+    },
+    "CLAN QUEEN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/clan-queen/1650715887"
+    },
+    "CORTIS": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/cortis/1831651635"
+    },
+    "CRYSTAL WATERS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が4件"
+    },
+    "CUTIE STREET": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/cutie-street/1763185226"
+    },
+    "Chevon": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "Chilli Beans.": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/chilli-beans/1579829422"
+    },
+    "Cloudy": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "Cornelius": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が7件（別アーティストの可能性）"
+    },
+    "Creepy Nuts": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/creepy-nuts/678140651"
+    },
+    "DAVID BYRNE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%87%E3%82%A4%E3%83%B4%E3%82%A3%E3%83%83%E3%83%89-%E3%83%90%E3%83%BC%E3%83%B3/47192943"
+    },
+    "DEAN &#038; TABBER": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "DECEMBER 10": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が2件"
+    },
+    "DERMOT KENNEDY": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dermot-kennedy/376564133"
+    },
+    "DESTIN CONRAD": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/destin-conrad/852999989"
+    },
+    "DISH//": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dish/659665223"
+    },
+    "DJ OZMA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dj-ozma/131607673"
+    },
+    "DJ和": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dj%E5%92%8C/1151743549"
+    },
+    "DXTEEN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dxteen/1674961337"
+    },
+    "Da-iCE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/da-ice/786833865"
+    },
+    "Dungeoneering": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/dungeoneering/1895907652"
+    },
+    "EGO-WRAPPIN’": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ego-wrappin/74186620"
+    },
+    "ELLEGARDEN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ellegarden/126114170"
+    },
+    "ELMIENE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%A8%E3%83%AB%E3%83%9F%E3%83%BC%E3%83%B3/1599562425"
+    },
+    "EMNW": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/emnw/1775671229"
+    },
+    "FATHER OF PEACE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/father-of-peace/1747590941"
+    },
+    "FKA TWIGS": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/fka-twigs/679661890"
+    },
+    "FLORENCE ROAD": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/florence-road/1646425758"
+    },
+    "FOMARE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/fomare/1471957870"
+    },
+    "FRUITS ZIPPER": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/fruits-zipper/1617607581"
+    },
+    "FULLHOUSE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/fullhouse/1706403957"
+    },
+    "FUNKY MONKEY BΛBY'S": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/funky-monkey-b%CE%BBbys/1584626586"
+    },
+    "Fear, and Loathing in Las Vegas": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/fear-and-loathing-in-las-vegas/261086516"
+    },
+    "First Love is Never Returned": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/first-love-is-never-returned/1392834099"
+    },
+    "G-FREAK FACTORY": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/g-freak-factory/74583775"
+    },
+    "GENERATIONS": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/generations/1020659388"
+    },
+    "GOOD NEIGHBOURS": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/good-neighbours/1726004707"
+    },
+    "HALCALI": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/halcali/305319390"
+    },
+    "HANA": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "HANRORO": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/hanroro/1613668993"
+    },
+    "HOLLY HUMBERSTONE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9B%E3%83%AA%E3%83%BC-%E3%83%8F%E3%83%B3%E3%83%90%E3%83%BC%E3%82%B9%E3%83%88%E3%83%BC%E3%83%B3/1495433177"
+    },
+    "HUMBE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/humbe/592569561"
+    },
+    "Hump Back": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/hump-back/1361437165"
+    },
+    "Hyojoo": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/hyojoo/1757205479"
+    },
+    "IMP.": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/imp/1701117672"
+    },
+    "INI": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Iga Nana": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/iga-nana/1832614276"
+    },
+    "JADE": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "JAMES FAUNTLEROY": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B8%E3%82%A7%E3%82%A4%E3%83%A0%E3%82%BA-%E3%83%95%E3%82%A9%E3%83%B3%E3%83%86%E3%83%AC%E3%83%AD%E3%82%A4/206995749"
+    },
+    "JAMIROQUAI": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/jamiroquai/475902"
+    },
+    "JENNIE": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "JO1": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/jo1/1500272115"
+    },
+    "JON SPENCER": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B8%E3%83%A7%E3%83%B3-%E3%82%B9%E3%83%9A%E3%83%B3%E3%82%B5%E3%83%BC/4306692"
+    },
+    "Jeremy Quartus": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/jeremy-quartus/912770567"
+    },
+    "Juice=Juice": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/juice-juice/623197059"
+    },
+    "KANA-BOON": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kana-boon/633973271"
+    },
+    "KASABIAN": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%AB%E3%82%B5%E3%83%93%E3%82%A2%E3%83%B3/20478838"
+    },
+    "KESHI": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が6件"
+    },
+    "KODALINE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kodaline/553502464"
+    },
+    "KOMOREBI": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "KUZIRA": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Kohjiya": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kohjiya/1440479862"
+    },
+    "Kroi": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kroi/1439157589"
+    },
+    "Kvi Baba": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kvi-baba/1413556966"
+    },
+    "LANA": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "LATIN MAFIA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/latin-mafia/1566074159"
+    },
+    "LE SSERAFIM": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/le-sserafim/1616740364"
+    },
+    "LOW IQ 01": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/low-iq-01/82425221"
+    },
+    "Laughing Hick": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/laughing-hick/1372053187"
+    },
+    "Legal nerd boyz": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/legal-nerd-boyz/1774917587"
+    },
+    "Lienel": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Litty": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が7件（別アーティストの可能性）"
+    },
+    "Liza": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "Lucky Kilimanjaro": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/lucky-kilimanjaro/1016378760"
+    },
+    "L’Arc-en-Ciel": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "表記ゆれを吸収しても候補が2件"
+    },
+    "M!LK": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/m-lk/1356706755"
+    },
+    "MAN WITH A MISSION": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/man-with-a-mission/424817976"
+    },
+    "MAYSON's PARTY": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "MAZZEL": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/mazzel/1678109085"
+    },
+    "METALVERSE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/metalverse/1893607411"
+    },
+    "MIDNIGHT TIL MORNING": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/midnight-til-morning/1824036264"
+    },
+    "MIKADO": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "MON7A": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/mon7a/1829936323"
+    },
+    "MONGOL800": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Maki": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "Maverick Mom": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/maverick-mom/1669163688"
+    },
+    "My Hair is Bad": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/my-hair-is-bad/1105164785"
+    },
+    "NECTAR WOODE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/nectar-woode/1586283725"
+    },
+    "NEE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/nee/1528541867"
+    },
+    "NELKE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/nelke/1755082302"
+    },
+    "NOMELON NOLEMON": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/nomelon-nolemon/1576692494"
+    },
+    "NakamuraEmi": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/nakamuraemi/1064840924"
+    },
+    "Night Tempo": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "NiziU": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/niziu/1519410581"
+    },
+    "Novel Core": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/novel-core/1420533776"
+    },
+    "Novelbright": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/novelbright/1022677279"
+    },
+    "Number_i": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/number-i/1722044374"
+    },
+    "OAU": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/oau/122930871"
+    },
+    "OMARION": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が2件"
+    },
+    "OSHIKIKEIGO": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/oshikikeigo/1803068248"
+    },
+    "OddRe:": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/oddre/1816701537"
+    },
+    "PALOMA MORPHY": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が2件"
+    },
+    "PENDULUM": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が7件"
+    },
+    "PENTATONIX": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9A%E3%83%B3%E3%82%BF%E3%83%88%E3%83%8B%E3%83%83%E3%82%AF%E3%82%B9/466047278"
+    },
+    "PEOPLE 1": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/people-1/1490210929"
+    },
+    "PES": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "PRETTY BLEAK": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Paledusk": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/paledusk/1131535929"
+    },
+    "PassCode": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/passcode/1116564311"
+    },
+    "PiXXiE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/pixxie/274378997"
+    },
+    "REAL McCOY": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が4件"
+    },
+    "REJAY × Andr": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "Rol3ert": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/rol3ert/1789257464"
+    },
+    "SB19": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/sb19/1439702222"
+    },
+    "SEKOU": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/sekou/1834141716"
+    },
+    "SHANK": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "SIRUP": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "SKINNY LISTER": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/skinny-lister/314416620"
+    },
+    "SKRYU": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/skryu/1479292255"
+    },
+    "SOUTH ARCADE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/south-arcade/1614415981"
+    },
+    "SPECIAL OTHERS ACOUSTIC": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/special-others-acoustic/1737855595"
+    },
+    "STARGLOW": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/starglow/1838696637"
+    },
+    "STEVE LACY": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が3件"
+    },
+    "STUTS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "SUEDE": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が6件"
+    },
+    "Saucy Dog": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/saucy-dog/1229933633"
+    },
+    "SiM": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "Suchmos": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/suchmos/977044086"
+    },
+    "THE BAWDIES": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/the-bawdies/422556083"
+    },
+    "THE GUEST LIST": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/the-guest-list/1652225665"
+    },
+    "THE ORAL CIGARETTES": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/the-oral-cigarettes/684141729"
+    },
+    "THE STROKES": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/the-strokes/560289"
+    },
+    "THE WARNING": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B6-%E3%82%A6%E3%82%A9%E3%83%BC%E3%83%8B%E3%83%B3%E3%82%B0/260719953"
+    },
+    "THEA AUSTIN, formerly of SNAP!": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "THOMAS MARQUARDT": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/thomas-marquardt/1624524964"
+    },
+    "TOKYO No.1 SOUL SET (ACOUSTIC SET)": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/tokyo-no-1-soul-set/268542953"
+    },
+    "TWS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "TenTwenty": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "The RH Factor reunion tribute to Roy Hargrove": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "This is LAST": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/this-is-last/1459739747"
+    },
+    "Travis Japan": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/travis-japan/1649344367"
+    },
+    "UNFAIR RULE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/unfair-rule/1664739746"
+    },
+    "UVERworld": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/uverworld/260690938"
+    },
+    "VIAGRA BOYS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が2件"
+    },
+    "Vaundy": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/vaundy/1487570516"
+    },
+    "Verses GT": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/verses-gt/1818588257"
+    },
+    "Vuat[RO JACK for ROCK IN JAPAN FESTIVAL 2026優勝アーティスト]": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "WANIMA": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/wanima/936535085"
+    },
+    "WEST.": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/west/1835325063"
+    },
+    "WHIMSY[RO JACK for ROCK IN JAPAN FESTIVAL 2026優勝アーティスト]": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "WILD BLUE": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "WISP": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "大小文字を無視すると候補が7件"
+    },
+    "WOos": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/woos/1789053962"
+    },
+    "Wienners": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/wienners/466703611"
+    },
+    "XG": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
+    "Xdinary Heroes": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/xdinary-heroes/1594215221"
+    },
+    "YONA YONA WEEKENDERS": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "YUKI": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "ZAZEN BOYS": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/zazen-boys/74456038"
+    },
+    "ZEBRAHEAD": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/zebrahead/483363"
+    },
+    "Zilqy": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/zilqy/1841924484"
+    },
+    "[Alexandros]": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/alexandros/350239299"
+    },
+    "amazarashi": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/amazarashi/342419284"
+    },
+    "androp": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "ano": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "asmi": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が8件（別アーティストの可能性）"
+    },
+    "coldrain": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "eill": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "ena mori": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ena-mori/1450355080"
+    },
+    "flumpool": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/flumpool/570402072"
+    },
+    "go!go!vanillas": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/go-go-vanillas/671623880"
+    },
+    "iLiFE!": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/ilife/1578837625"
+    },
+    "indigo la End": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/indigo-la-end/431814217"
+    },
+    "jo0ji": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/jo0ji/1635676713"
+    },
+    "kurayamisaka": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/kurayamisaka/1616537187"
+    },
+    "locofrank": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "luv": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
+    "mgk": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
+    "miwa": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が7件（別アーティストの可能性）"
+    },
+    "muque": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "o.j.o": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/o-j-o/1737170883"
+    },
+    "plenty": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が8件（別アーティストの可能性）"
+    },
+    "sumika": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "syudou": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/syudou/1437504637"
+    },
+    "yama": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
+    "『ユイカ』": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "表記ゆれを吸収しても候補が2件"
+    },
+    "ぁみ（怪談家）": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "あいみょん": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%82%E3%81%84%E3%81%BF%E3%82%87%E3%82%93/1165017710"
+    },
+    "おいしくるメロンパン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%8A%E3%81%84%E3%81%97%E3%81%8F%E3%82%8B%E3%83%A1%E3%83%AD%E3%83%B3%E3%83%91%E3%83%B3/1179928265"
+    },
+    "きゃりーぱみゅぱみゅ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%8D%E3%82%83%E3%82%8A%E3%83%BC%E3%81%B1%E3%81%BF%E3%82%85%E3%81%B1%E3%81%BF%E3%82%85/448331160"
+    },
+    "さらさ": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "すりぃ": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
+    "ずっと真夜中でいいのに。": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%9A%E3%81%A3%E3%81%A8%E7%9C%9F%E5%A4%9C%E4%B8%AD%E3%81%A7%E3%81%84%E3%81%84%E3%81%AE%E3%81%AB/1428083875"
+    },
+    "とまとくらぶ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%A8%E3%81%BE%E3%81%A8%E3%81%8F%E3%82%89%E3%81%B6/1658269762"
+    },
+    "なとり": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "にしな": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%AB%E3%81%97%E3%81%AA/1531898758"
+    },
+    "ねぐせ。": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%81%AD%E3%81%90%E3%81%9B/1564692985"
+    },
+    "のん &#038; the tears of knight": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "ももいろクローバーZ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%82%E3%82%82%E3%81%84%E3%82%8D%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%90%E3%83%BCz/448294481"
+    },
+    "アイナ・ジ・エンド": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%A2%E3%82%A4%E3%83%8A-%E3%82%B8-%E3%82%A8%E3%83%B3%E3%83%89/991663287"
+    },
+    "アンジュルム": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%A2%E3%83%B3%E3%82%B8%E3%83%A5%E3%83%AB%E3%83%A0/960147470"
+    },
+    "エルスウェア紀行": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%A8%E3%83%AB%E3%82%B9%E3%82%A6%E3%82%A7%E3%82%A2%E7%B4%80%E8%A1%8C/1529421002"
+    },
+    "キタニタツヤ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%AD%E3%82%BF%E3%83%8B%E3%82%BF%E3%83%84%E3%83%A4/1289607378"
+    },
+    "キュウソネコカミ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%AD%E3%83%A5%E3%82%A6%E3%82%BD%E3%83%8D%E3%82%B3%E3%82%AB%E3%83%9F/530074314"
+    },
+    "クリープハイプ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%AF%E3%83%AA%E3%83%BC%E3%83%97%E3%83%8F%E3%82%A4%E3%83%97/317826005"
+    },
+    "コレサワ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B3%E3%83%AC%E3%82%B5%E3%83%AF/985165843"
+    },
+    "ゴールデンボンバー": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%87%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%90%E3%83%BC/325594527"
+    },
+    "サカナクション": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B5%E3%82%AB%E3%83%8A%E3%82%AF%E3%82%B7%E3%83%A7%E3%83%B3/252312257"
+    },
+    "サバシスター": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B5%E3%83%90%E3%82%B7%E3%82%B9%E3%82%BF%E3%83%BC/1636835538"
+    },
+    "サンボマスター": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B5%E3%83%B3%E3%83%9C%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC/531631256"
+    },
+    "シンガーズハイ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B7%E3%83%B3%E3%82%AC%E3%83%BC%E3%82%BA%E3%83%8F%E3%82%A4/1526916774"
+    },
+    "スガ シカオ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B9%E3%82%AC-%E3%82%B7%E3%82%AB%E3%82%AA/202324935"
+    },
+    "スチャダラパー": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B9%E3%83%81%E3%83%A3%E3%83%80%E3%83%A9%E3%83%91%E3%83%BC/74588142"
+    },
+    "ストレイテナー": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B9%E3%83%88%E3%83%AC%E3%82%A4%E3%83%86%E3%83%8A%E3%83%BC/78903713"
+    },
+    "スーパー登山部": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%82%B9%E3%83%BC%E3%83%91%E3%83%BC%E7%99%BB%E5%B1%B1%E9%83%A8/1699416502"
+    },
+    "トゲナシトゲアリ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%88%E3%82%B2%E3%83%8A%E3%82%B7%E3%83%88%E3%82%B2%E3%82%A2%E3%83%AA/1688539273"
+    },
+    "ハク。": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "表記ゆれを吸収しても候補が3件"
+    },
+    "ハルカミライ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%8F%E3%83%AB%E3%82%AB%E3%83%9F%E3%83%A9%E3%82%A4/1447783644"
+    },
+    "ハンブレッダーズ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%8F%E3%83%B3%E3%83%96%E3%83%AC%E3%83%83%E3%83%80%E3%83%BC%E3%82%BA/1072632597"
+    },
+    "バチカン市国に愛されたい": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%90%E3%83%81%E3%82%AB%E3%83%B3%E5%B8%82%E5%9B%BD%E3%81%AB%E6%84%9B%E3%81%95%E3%82%8C%E3%81%9F%E3%81%84/1753640875"
+    },
+    "バックドロップシンデレラ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%90%E3%83%83%E3%82%AF%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%B3%E3%83%87%E3%83%AC%E3%83%A9/276041144"
+    },
+    "パソコン音楽クラブ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%91%E3%82%BD%E3%82%B3%E3%83%B3%E9%9F%B3%E6%A5%BD%E3%82%AF%E3%83%A9%E3%83%96/1217718693"
+    },
+    "パンダドラゴン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%91%E3%83%B3%E3%83%80%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3/1602900144"
+    },
+    "ヒグチアイ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%92%E3%82%B0%E3%83%81%E3%82%A2%E3%82%A4/328815944"
+    },
+    "ファントムシータ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%95%E3%82%A1%E3%83%B3%E3%83%88%E3%83%A0%E3%82%B7%E3%83%BC%E3%82%BF/1753635664"
+    },
+    "フレデリック": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "ブランデー戦記": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%96%E3%83%A9%E3%83%B3%E3%83%87%E3%83%BC%E6%88%A6%E8%A8%98/1660006257"
+    },
+    "ポムポムプリン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9D%E3%83%A0%E3%83%9D%E3%83%A0%E3%83%97%E3%83%AA%E3%83%B3/1885481966"
+    },
+    "ポルカドットスティングレイ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9D%E3%83%AB%E3%82%AB%E3%83%89%E3%83%83%E3%83%88%E3%82%B9%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0%E3%83%AC%E3%82%A4/1090230944"
+    },
+    "マカロニえんぴつ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9E%E3%82%AB%E3%83%AD%E3%83%8B%E3%81%88%E3%82%93%E3%81%B4%E3%81%A4/956011835"
+    },
+    "マキシマム ザ ホルモン": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "マルシィ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%9E%E3%83%AB%E3%82%B7%E3%82%A3/944099763"
+    },
+    "モナキ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%A2%E3%83%8A%E3%82%AD/1878550824"
+    },
+    "ヤバイTシャツ屋さん": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%A4%E3%83%90%E3%82%A4t%E3%82%B7%E3%83%A3%E3%83%84%E5%B1%8B%E3%81%95%E3%82%93/1166360819"
+    },
+    "ヤングスキニー": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%A4%E3%83%B3%E3%82%B0%E3%82%B9%E3%82%AD%E3%83%8B%E3%83%BC/1560610650"
+    },
+    "レトロリロン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%AC%E3%83%88%E3%83%AD%E3%83%AA%E3%83%AD%E3%83%B3/1517023528"
+    },
+    "レミオロメン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E3%83%AC%E3%83%9F%E3%82%AA%E3%83%AD%E3%83%A1%E3%83%B3/256764155"
+    },
+    "中島健人": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E4%B8%AD%E5%B3%B6%E5%81%A5%E4%BA%BA/1774548481"
+    },
+    "中川敬(SOUL FLOWER UNION)": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E4%B8%AD%E5%B7%9D%E6%95%AC/259230301"
+    },
+    "優里": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "名誉伝説": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E5%90%8D%E8%AA%89%E4%BC%9D%E8%AA%AC/1687213727"
+    },
+    "向井秀徳アコースティック": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "告五人 Accusefive": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "四星球": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561"
+    },
+    "大森靖子": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E5%A4%A7%E6%A3%AE%E9%9D%96%E5%AD%90/731413735"
+    },
+    "女王蜂": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E5%A5%B3%E7%8E%8B%E8%9C%82/419045160"
+    },
+    "好き好きロンちゃんとおまけのまこたん": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "宮本浩次": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "岬小次郎[RO JACK for ROCK IN JAPAN FESTIVAL 2026優勝アーティスト]": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "平井 大": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E5%B9%B3%E4%BA%95-%E5%A4%A7/429610343"
+    },
+    "怒髪天": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%80%92%E9%AB%AA%E5%A4%A9/291534566"
+    },
+    "日向坂46": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%97%A5%E5%90%91%E5%9D%8246/1456116642"
+    },
+    "日食なつこ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%97%A5%E9%A3%9F%E3%81%AA%E3%81%A4%E3%81%93/380600485"
+    },
+    "星街すいせい": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%98%9F%E8%A1%97%E3%81%99%E3%81%84%E3%81%9B%E3%81%84/1503670948"
+    },
+    "札幌某所": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%9C%AD%E5%B9%8C%E6%9F%90%E6%89%80/1755544636"
+    },
+    "東京スカパラダイスオーケストラ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%9D%B1%E4%BA%AC%E3%82%B9%E3%82%AB%E3%83%91%E3%83%A9%E3%83%80%E3%82%A4%E3%82%B9%E3%82%AA%E3%83%BC%E3%82%B1%E3%82%B9%E3%83%88%E3%83%A9/73969372"
+    },
+    "板歯目": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%9D%BF%E6%AD%AF%E7%9B%AE/1599242718"
+    },
+    "櫻坂46": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%AB%BB%E5%9D%8246/1541126420"
+    },
+    "氣志團": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981"
+    },
+    "清春": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "湘南乃風": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E6%B9%98%E5%8D%97%E4%B9%83%E9%A2%A8/73441500"
+    },
+    "片平実 (GETTiNG BETTER)": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "片平里菜": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%89%87%E5%B9%B3%E9%87%8C%E8%8F%9C/588931073"
+    },
+    "猫背のネイビーセゾン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%8C%AB%E8%83%8C%E3%81%AE%E3%83%8D%E3%82%A4%E3%83%93%E3%83%BC%E3%82%BB%E3%82%BE%E3%83%B3/1522247118"
+    },
+    "眉村ちあき": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%9C%89%E6%9D%91%E3%81%A1%E3%81%82%E3%81%8D/1385899148"
+    },
+    "礼賛": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%A4%BC%E8%B3%9B/1599018009"
+    },
+    "秋山黄色": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%A7%8B%E5%B1%B1%E9%BB%84%E8%89%B2/1398614676"
+    },
+    "竹原ピストル": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "紫 今": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%B4%AB-%E4%BB%8A/1599545168"
+    },
+    "羊文学": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E7%BE%8A%E6%96%87%E5%AD%A6/1281384242"
+    },
+    "花冷え。": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E8%8A%B1%E5%86%B7%E3%81%88/1437484631"
+    },
+    "谷本賢一郎": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E8%B0%B7%E6%9C%AC%E8%B3%A2%E4%B8%80%E9%83%8E/1077142037"
+    },
+    "超ときめき♡宣伝部": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E8%B6%85%E3%81%A8%E3%81%8D%E3%82%81%E3%81%8D-%E5%AE%A3%E4%BC%9D%E9%83%A8/1512380754"
+    },
+    "超特急": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E8%B6%85%E7%89%B9%E6%80%A5/847400135"
+    },
+    "超能力戦士ドリアン": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E8%B6%85%E8%83%BD%E5%8A%9B%E6%88%A6%E5%A3%AB%E3%83%89%E3%83%AA%E3%82%A2%E3%83%B3/1266652978"
+    },
+    "金井政人（BIGMAMA）＆ 斎藤宏介（UNISON SQUARE GARDEN／TenTwenty）": {
+      "checked": "2026-08-13",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "阿部真央": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E9%98%BF%E9%83%A8%E7%9C%9F%E5%A4%AE/207340999"
+    },
+    "電気グルーヴ": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/%E9%9B%BB%E6%B0%97%E3%82%B0%E3%83%AB%E3%83%BC%E3%83%B4/318108937"
+    },
+    "＝LOVE": {
+      "checked": "2026-08-13",
+      "url": "https://music.apple.com/jp/artist/love/1273762750"
+    }
+  }
+}

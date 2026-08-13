@@ -10,8 +10,8 @@
   1. **実際に開くのは深いページである。** `Disallow: /search`、`Disallow: /api/`、
      `Disallow: /*?sort=` のように、サイトはトップを開放したまま特定のパスだけを
      閉じている。トップが「OK」でも、そのページが Allow されているとは限らない
-  2. **名簿のURLが対象外だった。** 収集が直接開くのは `spots.csv`(234) /
-     `theaters.csv`(85) / `venues.csv`(72) / `festivals.csv`(14) に入っている
+  2. **名簿のURLが対象外だった。** 収集が直接開くのは `spots.csv` /
+     `theaters.csv` / `venues.csv` / `festivals.csv` に入っている
      会場・劇場の公式サイトで、これらは `sources.json` に載っていない。
      つまり**実際の取得先の大半が、これまで一度も robots.txt を見られていなかった**
 
@@ -90,6 +90,45 @@ ROSTERS = {
     "festivals": "data/festivals.csv",
 }
 
+# ============================================================
+# 文書化された公開APIの例外（`docs/COLLECTION-PROTOCOL.md` 6.5.7）
+# ============================================================
+#
+# APIのパスに `Disallow` を置くのは、クローラをAPI面に迷い込ませないための定型で
+# あって、「このAPIを使うな」という意思表示ではない。根拠は3つあり、詳細と出典は
+# `docs/COLLECTION-PROTOCOL.md` 6.5.7 にある。
+#
+#   1. RFC 9309 がクローラを「リンクを再帰的に辿ってインデックスする自動クライアント」
+#      と定義し、"These rules are not a form of access authorization" と明記している
+#   2. Google の解説も、主な用途を「リクエストの過剰を避けること」としている
+#   3. MusicBrainz（`Disallow: /ws`）とウィキペディア（`Disallow: /w/`）は、
+#      同じAPIの利用方法を公式に案内しながらそのパスを除外している
+#
+# 名前を1つ渡して1件引く呼び出しは、1の定義のクローリングに当たらない。
+#
+# 例外は**ホスト全体ではなくエンドポイント単位**で持つ。APIが開いていることは、
+# 同じホストの通常ページを開いてよい理由にならないため。
+#
+# ここを通っても間隔（`MIN_INTERVAL` 以上）は消化される。iTunes Search API の
+# 公称上限は約20回/分で、既定の3秒間隔はこれを下回る。
+API_EXCEPTIONS = {
+    "itunes.apple.com": ("/search",),
+}
+
+
+def documented_api(url):
+    """文書化された公開APIのエンドポイントなら True。
+
+    パスは**区切りまで見て**一致を取る。`startswith` だけだと `/searchanything` の
+    ような別のパスまで巻き込み、「エンドポイント単位」と言いながらそうなっていない。
+    """
+    parts = urllib.parse.urlsplit(url)
+    prefixes = API_EXCEPTIONS.get(parts.netloc.lower())
+    if not prefixes:
+        return False
+    path = parts.path.rstrip("/")
+    return any(path == p or path.startswith(p + "/") for p in prefixes)
+
 
 # ============================================================
 # 最終アクセス時刻の記録
@@ -129,6 +168,20 @@ def wait_needed(host, crawl_delay, state):
 def gate(url, wait=True, use_cache=True):
     """1URLを判定し、必要なら待つ。戻り値は判定の辞書（`ok` が可否）。"""
     d = rr.decide(url, use_cache=use_cache)
+
+    # 例外が覆すのは「`Disallow` に書いてある」という判定だけである。
+    #
+    #   - **取下げ申請（`no-crawl.json`）は覆さない**——申請は相手が明示した
+    #     意思表示で、APIかどうかとは関係がない
+    #   - **robots.txt が読めない（5xx）場合も覆さない**——6.5.7 の理屈は
+    #     「`Disallow` の意図の読み方」であって、相手の意思が確認できない場面には
+    #     何も言っていない。RFC 9309 の全面拒否の扱いをそのまま残す
+    if (not d["allowed"]
+            and d["robots_state"] not in ("optout", "forbidden")
+            and documented_api(url)):
+        d["allowed"] = True
+        d["reason"] = "文書化された公開API（6.5.7の例外）"
+
     state = load_state()
     remain, interval = wait_needed(d["host"], d["crawl_delay"], state)
 
