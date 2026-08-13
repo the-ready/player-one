@@ -216,7 +216,15 @@ export GIT_TERMINAL_PROMPT=0
 
 # ============================================================
 # 実行環境の確認
+#
+# cron のデフォルト PATH（/usr/bin:/bin 程度）には /usr/local/bin が
+# 含まれないことがある。claude はそこに置かれたシンボリックリンク
+# （実体は単体実行ファイルで node には依存しない）なので、
+# git/jq/python3 は見つかるのに claude だけ見つからない、という
+# 壊れ方をする（2026-08-13 に実際に発生）。ここで明示的に加えておく。
 # ============================================================
+export PATH="/usr/local/bin:$PATH"
+
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 # shellcheck disable=SC1091
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
