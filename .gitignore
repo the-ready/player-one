@@ -2,6 +2,7 @@
 # コミットしない（コミットすると、ローカルで編集中でも古い日付が優先されてしまう）。
 data/updated.json
 .DS_Store
+temp/*
 logs
 
 # 前回の収集結果の退避先。append_rows.py --init が作り、差分検知が読む。
