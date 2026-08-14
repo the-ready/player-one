@@ -37,6 +37,8 @@ tools/                        収集タスク用のスクリプト
   append_lineup.py            フェスの日割りラインナップの書き出し
   fill_apple_music.py         ラインナップの Apple Music リンクを一括で埋める
   prev_rows.py / diff_data.py 前回との差分検知（詳細は docs/COLLECTION-PROTOCOL.md）
+  purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（同上 第5.1節）
+  purge_ended_test.py         判定・書き換えの検証（ネットワーク不要）
   rowkey.py / roster.py       行の同定・名簿の保守
   robots_rules.py             robots.txt の判定規則（Allow/Disallow の最長一致・RFC 9309）
   fetch_gate.py               取得の直前にURL単位で可否を判定し、間隔を空ける門

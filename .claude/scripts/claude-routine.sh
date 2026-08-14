@@ -10,7 +10,8 @@
 #   1. 多重起動の防止（ロック）
 #   2. 実行前に origin から最新を取り込む（git fetch + fast-forward マージ）
 #   3. Claude Code を起動し、.claude/routines/event.txt の手順を実行させる
-#   4. 生成物の検証（validate_data.py / diff_data.py の終了コード）
+#   4. 終了日を過ぎた行の後始末（purge_ended.py）と生成物の検証
+#      （validate_data.py / diff_data.py の終了コード）
 #   5. **検証を通ったときだけ** commit して push する
 #   6. 検証を通らなかったときは生成物を logs/failed/ に退避し、data/ を HEAD に戻す
 #
@@ -245,7 +246,7 @@ log "REPO_DIR   = $REPO_DIR"
 
 cd "$REPO_DIR" || die "リポジトリのルートに移動できません: $REPO_DIR"
 
-for f in tools/validate_data.py tools/diff_data.py; do
+for f in tools/purge_ended.py tools/validate_data.py tools/diff_data.py; do
   [ -f "$REPO_DIR/$f" ] || die "検証スクリプトが見つかりません: $f"
 done
 
@@ -517,6 +518,12 @@ for csv in data/events.csv data/lives.csv data/movies.csv; do
     log "ERROR: $csv がヘッダーだけの状態です（収集が途中で終わった可能性が高い）"
   fi
 done
+
+# 終了日を過ぎた行の後始末（判断を要しない機械的な処理）は、検証より先に
+# 直接適用する。Claude のセッションが purge_ended.py を呼ばずに終えた回でも、
+# ここで必ず適用されるので、「終わったイベントがコミットされたまま残る」ことがない。
+# diff_data.py はこの後始末で書かれた dispositions を読むので、順序が重要（先に実行）。
+run_check "python3 tools/purge_ended.py" python3 tools/purge_ended.py || VERIFY_OK=0
 
 log "検証を実行します（validate_data.py / diff_data.py）"
 run_check "python3 tools/validate_data.py" python3 tools/validate_data.py || VERIFY_OK=0

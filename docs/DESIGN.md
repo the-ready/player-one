@@ -643,6 +643,8 @@ function effectiveDate(ev){
 
 実装上は、他のチップ（`tab.flags` の `test`）が「立てると絞り込む」向きなのに対してこれだけ「立てると緩む」向きなので、`matchesFlags` の汎用ループでは扱わず `matchesEndedFlag` という別関数にしてある。同じループに混ぜると、オフ＝無条件で通すという他のチップの前提が崩れるためである。
 
+> **この非表示は表示側の話で、CSV自体からは消えない。** 終了した行がCSVに残り続けると、次回の収集タスクが読む前回データを太らせ、「終了のものも表示」チップを押した利用者には何ヶ月も前の催しが並ぶことになる。CSVからの削除は収集側の役目で、`tools/purge_ended.py` が終了日と実行日を比べるだけの機械的な判定で担う（`docs/COLLECTION-PROTOCOL.md` 第5.1節）。
+
 ### 5.5 ポップアップの共通仕様
 
 3つのポップアップは**単一のパネル要素を共有**し、中身を差し替える。同時に2つ開くことがない状態を構造的に保証するためである。
@@ -994,12 +996,12 @@ WCAG準拠のため、カテゴリ色の一部を暗く／明るく調整した�
 
 無人実行の規則を `.claude/routines/event.txt` や SKILL.md の散文で伝えるだけでは足りない。散文は**安い経路の前で負ける**（画像の件＝第7.1節、`robots.txt` の件＝`COLLECTION-PROTOCOL.md` 第6.5.4節で実証済み）。決定論的に守らせたいものは `.claude/settings.json` のフックに置くものとしている。
 
-| フック                     | スクリプト                     | 何を保証するか                                                         |
-| -------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| `PreToolUse(WebFetch)`     | `tools/fetch_gate.py --hook`   | 取得の直前にURL単位で `robots.txt` を判定し、間隔を空ける（第6.5.4節） |
-| `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`   | ルーチン中、モデル自身の git の書き込みを拒否する                      |
-| `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh` | 整形できる拡張子だけ prettier にかける                                 |
-| `Stop`                     | `.claude/hooks/verify-data.sh` | 検証が通らないうちはターンを終わらせない                               |
+| フック                     | スクリプト                     | 何を保証するか                                                                                       |
+| -------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `PreToolUse(WebFetch)`     | `tools/fetch_gate.py --hook`   | 取得の直前にURL単位で `robots.txt` を判定し、間隔を空ける（第6.5.4節）                               |
+| `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`   | ルーチン中、モデル自身の git の書き込みを拒否する                                                    |
+| `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh` | 整形できる拡張子だけ prettier にかける                                                               |
+| `Stop`                     | `.claude/hooks/verify-data.sh` | 終了日を過ぎた行を機械的に片付け（`tools/purge_ended.py`）、検証が通らないうちはターンを終わらせない |
 
 #### git 操作をフックで拒否する理由
 
