@@ -61,6 +61,7 @@ import time
 import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import budget                                                # noqa: E402
 import robots_rules as rr                                    # noqa: E402
 
 ROOT = rr.ROOT
@@ -165,20 +166,31 @@ def wait_needed(host, crawl_delay, state):
 # ============================================================
 
 
+def api_exception_applies(d, url):
+    """`documented_api()` の例外を適用してよいか。
+
+    例外が覆すのは「`Disallow` に書いてある」という判定だけである。
+
+      - **取下げ申請（`no-crawl.json`）は覆さない**——申請は相手が明示した
+        意思表示で、APIかどうかとは関係がない
+      - **robots.txt が読めない（5xx）場合も覆さない**——6.5.7 の理屈は
+        「`Disallow` の意図の読み方」であって、相手の意思が確認できない場面には
+        何も言っていない。RFC 9309 の全面拒否の扱いをそのまま残す
+
+    `d` は `rr.decide()` の戻り値と同じ形（`allowed` / `robots_state` を持つ辞書）。
+    ネットワークに触れない純粋な関数にしてあるので、`tools/robots_test.py` から
+    合成した `d` で直接検証できる。
+    """
+    return (not d["allowed"]
+            and d["robots_state"] not in ("optout", "forbidden")
+            and documented_api(url))
+
+
 def gate(url, wait=True, use_cache=True):
     """1URLを判定し、必要なら待つ。戻り値は判定の辞書（`ok` が可否）。"""
     d = rr.decide(url, use_cache=use_cache)
 
-    # 例外が覆すのは「`Disallow` に書いてある」という判定だけである。
-    #
-    #   - **取下げ申請（`no-crawl.json`）は覆さない**——申請は相手が明示した
-    #     意思表示で、APIかどうかとは関係がない
-    #   - **robots.txt が読めない（5xx）場合も覆さない**——6.5.7 の理屈は
-    #     「`Disallow` の意図の読み方」であって、相手の意思が確認できない場面には
-    #     何も言っていない。RFC 9309 の全面拒否の扱いをそのまま残す
-    if (not d["allowed"]
-            and d["robots_state"] not in ("optout", "forbidden")
-            and documented_api(url)):
+    if api_exception_applies(d, url):
         d["allowed"] = True
         d["reason"] = "文書化された公開API（6.5.7の例外）"
 
@@ -270,6 +282,13 @@ def run_hook():
         return 0
 
     d = gate(url)
+
+    # 取得の回数と、ここで消化した待ち時間を実測に残す。枠表が `WebSearch` しか
+    # 数えていなかったせいで、実際には取得のほうが多く時間の律速でもある事実が
+    # 誰にも見えていなかった（`tools/budget.py` の冒頭）。数えるのはこの1か所で
+    # 足りる——全ての `WebFetch` がこのフックを通るためである。
+    budget.bump("fetch" if d["ok"] else "blocked", waited=d.get("waited", 0.0))
+
     if d["ok"]:
         # 許可のときは黙って通す（待ちはこの中で消化済み）。
         return 0

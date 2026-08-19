@@ -7,14 +7,14 @@
 ## 構成
 
 ```
-index.html                    マークアップのみ（約250行）
+index.html                    マークアップのみ
 assets/
   app.css                     スタイル一式
   js/                         ES モジュール（ビルド工程なし。そのまま配信される）
     config.js                 定義テーブルと3タブの宣言。機能追加はまずここを触る
-    util.js  csv.js  data.js  state.js  filters.js
+    util.js  schedule.js  csv.js  data.js  state.js  filters.js
     cards.js  render.js
-    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-controls.js
+    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-lineup.js  ui-controls.js
     main.js                   起動とタブ切り替えの配線のみ
   vendor/leaflet/             Leaflet 1.9.4（同梱。CDNではない）
 data/                         週次で差し替えるデータ。ここだけ触れば中身が更新される
@@ -30,14 +30,20 @@ data/                         週次で差し替えるデータ。ここだけ�
   no-crawl.json               調査対象外の申請を受けたサイトの登録簿（人が編集する）
   apple-music.json            アーティスト名→Apple MusicのURL（引き直しを避けるキャッシュ）
 .claude/skills/               3つの収集スキルと、掲載停止申請への対応手順（正本はここ）
-.claude/hooks/                規則を決定論的に守らせるフック（git の禁止・整形・終了前の検証）
+.claude/hooks/                規則を決定論的に守らせるフック（git の禁止・背景エージェントの禁止・整形・終了前の検証）
+.claude/routines/event.txt    週次ルーチンの手順（曜日でスキルを選ぶ）
+.claude/scripts/              cron の入口（pull → 実行 → 検証 → 通った回だけ commit/push）
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
   append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し
   append_lineup.py            フェスの日割りラインナップの書き出し
   fill_apple_music.py         ラインナップの Apple Music リンクを一括で埋める
   prev_rows.py / diff_data.py 前回との差分検知（詳細は docs/COLLECTION-PROTOCOL.md）
-  purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（同上 第5.1節）
+  budget.py                   その回の消費（検索・取得・待機・追記・経過時間）の実測
+  report_stats.py             中核列の充足率と分布を前回と比べて出す
+  fetch_page.py               robots を通してページ本体を取り、JSON-LD/sitemap/ICS を抜く
+  fetch_page_test.py          その抽出規則の検証（ネットワーク不要）
+  purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（docs/COLLECTION-PROTOCOL.md 第5.1節）
   purge_ended_test.py         判定・書き換えの検証（ネットワーク不要）
   rowkey.py / roster.py       行の同定・名簿の保守
   robots_rules.py             robots.txt の判定規則（Allow/Disallow の最長一致・RFC 9309）
@@ -45,12 +51,17 @@ tools/                        収集タスク用のスクリプト
   check_robots.py             調査元サイトの robots.txt を着手前に一望する
   robots_test.py              判定規則の検証（ネットワーク不要）
   purge_source.py             あるサイトの痕跡を洗い出し、掲載データから消す
+  smoke_test.mjs              画面のスモークテスト（Playwright が要る）
+  lineup_test.mjs             データの繋ぎ・検索・シートの検証（DOM不要）
 terms.html                    利用規約・免責事項（権利者向けの窓口・収集の方針）
 privacy.html                  プライバシーポリシー（端末内データと外部送信の一覧）
 LICENSE                       利用許諾条件。複製・改変は禁止、不具合修正のPRのみ受け付ける
 sw.js                         Service Worker
 manifest.webmanifest          ホーム画面追加用
-docs/DESIGN.md                設計書。何をどう決めたかと、その理由
+docs/
+  DESIGN.md                   設計書。何をどう決めたかと、その理由
+  COLLECTION-PROTOCOL.md      3つの収集スキルが共有する手順とその理由（差分・持ち越し・予算）
+  skill-feedback.md           収集ルールの変更提案の置き場（適用は人間が判断する）
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/pages.yml   main への push で Pages へデプロイ
 ```
@@ -154,7 +165,7 @@ CSVの中身の日付（`price_checked` 等）にはフォールバックしな�
 
 `data/events.csv` の更新は `/kanto-event-collector` スキルが週次で担当する。
 
-> **書き出し先に注意**: `.claude/skills/` が正本だが、`~/.claude/skills/` に置いたコピーは自動同期されない。CSV の置き場所を変えたら両方を更新すること。ルート直下に `events.csv` が書かれても、ダッシュボードは `data/events.csv` しか読まない（取得先を1つに保つため、別パスへのフォールバックは意図的に持たせていない）。
+> **書き出し先に注意**: 収集スキルの正本は `.claude/skills/` のみで、ホームディレクトリへの複製は運用していない。ルート直下に `events.csv` が書かれても、ダッシュボードは `data/events.csv` しか読まない（取得先を1つに保つため、別パスへのフォールバックは意図的に持たせていない）。
 
 収集は**差分方式**で動く。毎回ゼロから調べ直すのではなく、前回の結果を棚卸しして「まだやっているか・会期が延びたか・中止になっていないか」を確認しつつ、同じ調査のついでに新規を拾う。前回あって今回無い行には理由の記録が要り、説明のない消滅は `tools/diff_data.py` が検出して落とす。考え方と手順は `docs/COLLECTION-PROTOCOL.md` にまとめてある。
 
@@ -255,4 +266,4 @@ lineup_id,date,stage,artist,is_headliner,apple_music_url,note
 
 `data/lives.csv` の更新は `/kanto-live-collector` スキルが週次で担当する。
 
-**3つの収集スキルはいずれもリポジトリ内の [`.claude/skills/`](.claude/skills/) が正本**で、`~/.claude/skills/` にはそのコピーを置く。リポジトリ外に置くと、CSVの列や構成を変えてもスキル側へ伝わらないためである。CSVの列を変えたら、`.claude/skills/` の3つと `~/.claude/skills/` の両方を更新すること。
+**3つの収集スキルはいずれもリポジトリ内の [`.claude/skills/`](.claude/skills/) が唯一の正本**で、ホームディレクトリへの複製は運用していない。リポジトリ外に置くと、CSVの列や構成を変えてもスキル側へ伝わらないためである。週次ルーチンは `.claude/routines/event.txt` の指示でこのパスを直接読み、スラッシュコマンド名の解決には頼らない。CSVの列を変えたら `.claude/skills/` の3つを更新すること。

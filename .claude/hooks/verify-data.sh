@@ -21,9 +21,18 @@ INPUT="$(cat)"
 
 # 自分が原因で作業が続いている状態でさらにブロックすると、同じ検証を延々と
 # 繰り返して 8回の上限に当たるだけになる。2周目からは黙って通す。
-if [ "$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)" = "true" ]; then
-  exit 0
+# 読み出しに jq が使えなければ python3 で読む。どちらも無ければ false 扱いで
+# 進む——ここは「2周目なら黙って通す」ための最適化でしかなく、判定できない場合に
+# 検証をやめる理由にはならない（下の出力側は、判定できないなら止める側に倒す）。
+stop_active="false"
+if command -v jq >/dev/null 2>&1; then
+  stop_active="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)"
+elif command -v python3 >/dev/null 2>&1; then
+  stop_active="$(printf '%s' "$INPUT" | python3 -c 'import json,sys
+try: print(str(json.load(sys.stdin).get("stop_hook_active", False)).lower())
+except Exception: print("false")' 2>/dev/null)"
 fi
+[ "$stop_active" = "true" ] && exit 0
 
 REPO_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$REPO_DIR" ] && [ -d "$REPO_DIR/data" ] || exit 0
@@ -65,13 +74,28 @@ done
 # decision:"block" の reason は Claude へのフィードバックとして戻り、そのまま
 # 次に何をすべきかの指示になる。何が落ちたかだけでなく、直さずに終えると
 # どうなるかまで書く（＝直す動機がフィードバックの中で完結する）。
-{
+build_reason() {
   printf '%s\n' "終了前の検証が通っていません。以下を解消してから終えてください。"
   printf '\n%s\n' "$PROBLEMS"
   if [ "$IS_ROUTINE" -eq 1 ]; then
     printf '%s\n' "このまま終えると claude-routine.sh はコミットせず、data/ と docs/ を実行前の状態に戻します（今回の収集は失われます）。"
   fi
-  printf '%s\n' "消滅の説明が要るなら tools/prev_rows.py --dispose を、行の追記・持ち越しは tools/append_rows.py を使ってください。"
-} | jq -Rs '{decision: "block", reason: .}'
+  printf '%s\n' "消滅の説明が要るなら tools/prev_rows.py <events|lives|movies> --dispose を、行の追記・持ち越しは tools/append_rows.py <events|lives|movies> を使ってください。"
+}
 
-exit 0
+# JSON を組み立てられなかったときに黙って exit 0 で抜けると、**検証が落ちている
+# のにターンが終わる。** 以前は `| jq -Rs` の1本だけで、jq が使えない環境では
+# 標準出力が空のまま exit 0 になっていた（＝止めるはずのフックが素通しになる）。
+# 止められないなら止められないなりに、止める側へ倒す。
+#
+# Stop フックは exit 2 でもブロックでき、そのとき stderr がそのまま Claude への
+# フィードバックになる。JSON が出せない場合はこちらを使う。
+if command -v jq >/dev/null 2>&1; then
+  build_reason | jq -Rs '{decision: "block", reason: .}' && exit 0
+elif command -v python3 >/dev/null 2>&1; then
+  build_reason | python3 -c 'import json,sys
+print(json.dumps({"decision": "block", "reason": sys.stdin.read()}, ensure_ascii=False))' && exit 0
+fi
+
+build_reason >&2
+exit 2

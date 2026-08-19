@@ -5,7 +5,7 @@
 # git の pull / commit / push は `.claude/scripts/claude-routine.sh` の責任で、
 # 「検証を通った回だけ push する」というゲートはそこにしか無い。
 # `.claude/routines/event.txt` はそれを散文で伝えているが、散文は守られないことが
-# ある。守らせたい規則は仕組みに置く、という方針をここでも採る（DESIGN 第9.4節）。
+# ある。守らせたい規則は仕組みに置く、という方針をここでも採る（DESIGN 第9.1.5節）。
 #
 # ルーチンは `--permission-mode bypassPermissions` で起動するため、settings.json の
 # permissions.deny に頼ることはできない。PreToolUse フックの deny は**どの権限モードの
@@ -26,8 +26,43 @@ set -u
 
 [ "${CLAUDE_ROUTINE:-0}" = "1" ] || exit 0
 
-CMD="$(jq -r '.tool_input.command // empty' 2>/dev/null)"
+INPUT="$(cat)"
+
+# 入力を読めなかったときは拒否側に倒す。
+#
+# 以前は jq の出力が空なら exit 0（＝許可）で抜けていた。これは
+# 「command が無いツール呼び出し」と「jq が使えなくて読めなかった」を
+# 同じ扱いにするので、jq が PATH から外れただけでガードが黙って消える。
+# 起動前の確認と同じ誤り——在るかどうかで判断し、動いたかを見ていない。
+#
+# 週次ルーチンは git を一切使わない（スクリプトの責任）ので、判定できない
+# ときに拒否しても失うものは無い。逆に素通しは、検証を通っていないデータが
+# push されうるという、このフックが唯一防いでいる事故に直結する。
+CMD=""
+if command -v jq >/dev/null 2>&1; then
+  CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')" || CMD="__PARSE_FAILED__"
+elif command -v python3 >/dev/null 2>&1; then
+  # jq が無い環境でも、このリポジトリは python3 を前提にしている（tools/ が全部 python）
+  CMD="$(printf '%s' "$INPUT" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+print(d.get("tool_input", {}).get("command", "") or "")' 2>/dev/null)" || CMD="__PARSE_FAILED__"
+else
+  CMD="__PARSE_FAILED__"
+fi
+
+if [ "$CMD" = "__PARSE_FAILED__" ]; then
+  echo "フックの入力を解析できませんでした（jq / python3 が使えない可能性）。安全側に倒して Bash を拒否します。" >&2
+  exit 2
+fi
+
 [ -n "$CMD" ] || exit 0
+
+# 判定に awk を使う。無ければ「危険なサブコマンドを見つけられなかった」ではなく
+# 「判定できなかった」なので、こちらも拒否側に倒す。
+if ! command -v awk >/dev/null 2>&1; then
+  echo "awk が使えないため git の可否を判定できません。安全側に倒して Bash を拒否します。" >&2
+  exit 2
+fi
 
 # 作業ツリーか origin を書き換えるサブコマンドだけを止める。
 # status / log / diff / show / rev-parse のような読み取りは通す——現状を確認する

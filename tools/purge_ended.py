@@ -196,14 +196,23 @@ def purge_one(name, today, dry_run):
     return result
 
 
+
+def _parse_today(s):
+    """`--today` の検証。argparse の `type=` に渡すと、壊れた値は
+    トレースバックではなく argparse 自身の使用法メッセージで弾かれる。"""
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"YYYY-MM-DD 形式で指定してください: {s!r}")
+
 def main():
     p = argparse.ArgumentParser(description="終了日を過ぎた行をCSVから機械的に取り除く")
     p.add_argument("dataset", nargs="?", help="events / lives / movies（省略時は3つとも）")
     p.add_argument("--dry-run", action="store_true", help="書き換えず、消える行を一覧するだけ")
-    p.add_argument("--today", help="基準日 YYYY-MM-DD（試験用。既定は今日）")
+    p.add_argument("--today", type=_parse_today, help="基準日 YYYY-MM-DD（試験用。既定は今日）")
     args = p.parse_args()
 
-    today = date.fromisoformat(args.today) if args.today else date.today()
+    today = args.today if args.today else date.today()
     names = [resolve_dataset(args.dataset)] if args.dataset else DATASETS
     for n in names:
         if n not in DATASETS:

@@ -72,6 +72,17 @@ CASES = [
     ("ClaudeBot（学習用）への拒否は、この判定に影響しない",
      "User-agent: ClaudeBot\nDisallow: /\n",
      "Claude-User", "https://x.jp/any", True),
+
+    # --- connpass の実例（6.5.8）。全面 Disallow の中に、フィードだけ開けている ---
+    ("connpass: イベントの .ics は Disallow:/ の中でも許可される",
+     "User-agent: *\nAllow: /*.ics\nAllow: /*/ja.atom\nDisallow: /\nCrawl-delay: 5\n",
+     "Claude-User", "https://connpass.com/event/389386.ics", True),
+    ("connpass: ルート直下の ja.atom は一致しない（/*/ja.atom はパス階層を1つ要求）",
+     "User-agent: *\nAllow: /*.ics\nAllow: /*/ja.atom\nDisallow: /\nCrawl-delay: 5\n",
+     "Claude-User", "https://connpass.com/ja.atom", False),
+    ("connpass: イベント配下の ja.atom は許可される",
+     "User-agent: *\nAllow: /*.ics\nAllow: /*/ja.atom\nDisallow: /\nCrawl-delay: 5\n",
+     "Claude-User", "https://connpass.com/event/389386/ja.atom", True),
 ]
 
 # decide() は2つのUAの厳しいほうを採る。ここはその合成の検証。
@@ -100,6 +111,24 @@ API_CASES = [
      "https://itunes.apple.com/jp/album/x/1", False),
     ("登録外のホストは対象外",
      "https://music.apple.com/search?term=x", False),
+]
+
+# `fetch_gate.api_exception_applies()` の検証。API例外がオプトアウト・5xxを
+# 覆さないことは、この仕組みで最も安全性が重要な性質なので独立して固定する
+# （`d` は `rr.decide()` と同じ形の辞書を合成して渡す。ネットワーク不要）。
+API_EXCEPTION_GUARD_CASES = [
+    ("通常の Disallow なら例外が効く",
+     {"allowed": False, "robots_state": "ok"},
+     "https://itunes.apple.com/search?term=x", True),
+    ("オプトアウト申請（no-crawl.json）には例外を適用しない",
+     {"allowed": False, "robots_state": "optout"},
+     "https://itunes.apple.com/search?term=x", False),
+    ("5xxで読めない robots.txt にも例外を適用しない",
+     {"allowed": False, "robots_state": "forbidden"},
+     "https://itunes.apple.com/search?term=x", False),
+    ("そもそも許可されている行には何もしない",
+     {"allowed": True, "robots_state": "ok"},
+     "https://itunes.apple.com/search?term=x", False),
 ]
 
 
@@ -136,7 +165,13 @@ def run():
             print(f"✗ {name}\n    {url}  期待 {want} / 実際 {got}")
             fails += 1
 
-    total = len(CASES) + len(DECIDE_CASES) + len(API_CASES) + 1
+    for name, d, url, want in API_EXCEPTION_GUARD_CASES:
+        got = fg.api_exception_applies(dict(d), url)
+        if got != want:
+            print(f"✗ {name}\n    {url}  期待 {want} / 実際 {got}")
+            fails += 1
+
+    total = len(CASES) + len(DECIDE_CASES) + len(API_CASES) + len(API_EXCEPTION_GUARD_CASES) + 1
     print(f"\n{total - fails}/{total} 件が期待どおり")
     if stdlib_diff:
         print(f"※ この環境の urllib.robotparser は {stdlib_diff} 件で結果が異なる"

@@ -13,7 +13,7 @@
 /* 本体（SHELL）を変えたらこの値を上げること。**上げ忘れると更新が届かない。**
    ブラウザが新しい Service Worker に気づくのは sw.js 自身のバイト列が変わったときだけで、
    VERSION が据え置きのままだと `updatefound` が発火せず、main.js の自動入れ替え
-   （設計書 第15.14節）が動かない。SHELL はキャッシュ優先なので、開き直した人には
+   （設計書 第10.3節）が動かない。SHELL はキャッシュ優先なので、開き直した人には
    前回のキャッシュがそのまま返り、新しいJSは「次の次の訪問」まで反映されない。 */
 const VERSION = "v11";
 const SHELL_CACHE = `eventboard-shell-${VERSION}`;

@@ -2,7 +2,7 @@
 #
 # 週次データ収集ルーチンの起動スクリプト（cron から呼ばれる想定）
 #
-#   .claude/scripts/claude-routine.sh [--no-push] [--help]
+#   .claude/scripts/claude-routine.sh [--no-push] [--check-env] [--help]
 #
 # ============================================================
 # このスクリプトが責任を持つこと
@@ -37,6 +37,7 @@
 #   ROUTINE_GIT_RETRY    fetch / push の試行回数（既定 4。2,4,8秒…と待つ）
 #   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
 #   ROUTINE_PUSH         0 にすると commit までで push しない
+#   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
 #
 set -u
 set -o pipefail
@@ -49,6 +50,7 @@ usage() {
 使い方: claude-routine.sh [オプション]
 
   --no-push   コミットまで行い、push はしない
+  --check-env 実行環境（claude が起動できるか等）だけ確かめて終わる
   --help      このヘルプを表示する
 
 環境変数:
@@ -56,6 +58,7 @@ usage() {
   ROUTINE_GIT_RETRY    fetch / push の試行回数（既定 4）
   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
   ROUTINE_PUSH         0 で push を行わない
+  ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
 USAGE
 }
 
@@ -63,10 +66,13 @@ ROUTINE_TIMEOUT_SEC="${ROUTINE_TIMEOUT_SEC:-21600}"
 ROUTINE_GIT_RETRY="${ROUTINE_GIT_RETRY:-4}"
 ROUTINE_BRANCH="${ROUTINE_BRANCH:-}"
 ROUTINE_PUSH="${ROUTINE_PUSH:-1}"
+ROUTINE_CLAUDE_BIN="${ROUTINE_CLAUDE_BIN:-}"
+CHECK_ENV_ONLY=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --no-push) ROUTINE_PUSH=0 ;;
+    --check-env) CHECK_ENV_ONLY=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "不明なオプション: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -230,11 +236,95 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 # shellcheck disable=SC1091
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-for cmd in claude jq git python3; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then
+# ここも「在るか」ではなく「動くか」で見る。jq と python3 は
+# .claude/hooks/ の2本が拠り所にしていて、壊れていると
+# フックが判定できないまま素通りする側の事故になる。確認は一瞬で済む。
+check_cmd() {
+  local cmd="$1"; shift
+  command -v "$cmd" >/dev/null 2>&1 || \
     die "$cmd コマンドが見つかりません（cron から実行する場合、PATH が対話シェルと違う点に注意）"
+  "$@" >/dev/null 2>&1 || die "$cmd は見つかりましたが正しく動きません（$*）"
+}
+
+check_cmd jq      jq -n .
+check_cmd python3 python3 -c ''
+check_cmd git     git --version
+
+# ============================================================
+# claude の健全性確認 —— 「在るか」ではなく「動くか」を見る
+#
+# npm 版の claude は、パッケージに入っている bin/claude.exe が
+# 「native binary not installed」と出して exit 1 するだけのスタブで、
+# postinstall（install.cjs）がプラットフォーム別の実体で上書きして
+# はじめて動く。アップグレード時に postinstall が走らないと、
+# PATH には claude が居るのに起動だけが失敗する状態が残る
+# （2026-08-19 に発生。存在確認を通過して git の fetch・rebase・
+# push 事前確認まで進んでから、起動の瞬間に落ちた）。
+#
+# command -v はこの壊れ方を素通しするため、実際に --version を
+# 実行して確かめる。確認は git に触る前に済ませる。ここで落とせば
+# リポジトリに副作用が何も残らない。
+# ============================================================
+
+# 候補を1つ実行してみる。起動できれば 0 を返し、標準出力にバージョンを出す
+claude_probe() {
+  local bin="$1" out
+  if command -v timeout >/dev/null 2>&1; then
+    out="$(timeout 60 "$bin" --version 2>&1)" || return 1
+  else
+    out="$("$bin" --version 2>&1)" || return 1
+  fi
+  [ -n "$out" ] || return 1
+  printf '%s' "$out"
+}
+
+# スタブだった場合に postinstall を代行する。復旧できたら 0
+claude_repair() {
+  local bin="$1" real pkg_dir
+  real="$(readlink -f "$bin" 2>/dev/null)" || return 1
+  # .../@anthropic-ai/claude-code/bin/claude.exe → .../claude-code
+  pkg_dir="$(dirname "$(dirname "$real")")"
+  [ -f "$pkg_dir/install.cjs" ] || return 1
+  command -v node >/dev/null 2>&1 || return 1
+  log "  postinstall が未実行のようです。$pkg_dir/install.cjs を実行して復旧を試みます"
+  log_output "$(cd "$pkg_dir" && node install.cjs 2>&1)"
+  claude_probe "$bin" >/dev/null 2>&1
+}
+
+# PATH 上のものを第一候補に、他のインストール先も控えに置く。
+# nvm の bin は PATH の先頭に来るので、そこが壊れていると
+# /usr/local/bin にある健全な実体が使われない、という順序依存がある。
+CLAUDE_BIN=""
+CLAUDE_CANDIDATES=()
+if [ -n "$ROUTINE_CLAUDE_BIN" ]; then
+  # 実体が複数入っている機械で、どれを使うかを固定したいときに使う
+  [ -x "$ROUTINE_CLAUDE_BIN" ] || die "ROUTINE_CLAUDE_BIN に実行できないパスが指定されています: $ROUTINE_CLAUDE_BIN"
+  CLAUDE_CANDIDATES=("$ROUTINE_CLAUDE_BIN")
+else
+  if command -v claude >/dev/null 2>&1; then
+    CLAUDE_CANDIDATES+=("$(command -v claude)")
+  fi
+  for c in /usr/local/bin/claude "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" \
+           "$NVM_DIR"/versions/node/*/bin/claude; do
+    [ -x "$c" ] && CLAUDE_CANDIDATES+=("$c")
+  done
+fi
+
+for c in "${CLAUDE_CANDIDATES[@]}"; do
+  ver="$(claude_probe "$c")" && { CLAUDE_BIN="$c"; break; }
+  log "WARNING: $c は起動できません（スタブ／破損の可能性）"
+  if claude_repair "$c"; then
+    ver="$(claude_probe "$c")" && { CLAUDE_BIN="$c"; log "  復旧しました"; break; }
   fi
 done
+
+if [ -z "$CLAUDE_BIN" ]; then
+  if [ "${#CLAUDE_CANDIDATES[@]}" -eq 0 ]; then
+    die "claude コマンドが見つかりません（cron から実行する場合、PATH が対話シェルと違う点に注意）"
+  fi
+  die "claude は見つかりましたが起動できません（${CLAUDE_CANDIDATES[0]}）。npm 版なら 'npm i -g @anthropic-ai/claude-code' で入れ直してください"
+fi
+log "CLAUDE_BIN = $CLAUDE_BIN（$ver）"
 
 [ -f "$ROUTINE_FILE" ] || die "手順ファイルが見つかりません: $ROUTINE_FILE"
 log "手順ファイルを確認しました: $ROUTINE_FILE"
@@ -249,6 +339,15 @@ cd "$REPO_DIR" || die "リポジトリのルートに移動できません: $REP
 for f in tools/purge_ended.py tools/validate_data.py tools/diff_data.py; do
   [ -f "$REPO_DIR/$f" ] || die "検証スクリプトが見つかりません: $f"
 done
+
+# ここまでが「何にも触らずに確かめられること」の全部である。
+# --check-env はこの地点で終わる。cron の実行日とは無関係に、
+# 環境が壊れていないかを副作用ゼロで確かめるための入口。
+if [ "$CHECK_ENV_ONLY" = "1" ]; then
+  log "OK: 実行環境の確認のみ完了（--check-env）"
+  log "===== スクリプト終了 (exit=0) ====="
+  exit 0
+fi
 
 # ============================================================
 # git ヘルパ
@@ -374,8 +473,9 @@ PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレ�
 # ============================================================
 # フックに「これは無人のルーチンである」と伝える
 #
-# .claude/hooks/ の2本は、対話セッションとルーチンで振る舞いを変える必要がある。
+# .claude/hooks/ の3本は、対話セッションとルーチンで振る舞いを変える必要がある。
 #   - block-git.sh   : ルーチン中だけ git の書き込みを拒否する（人の git は妨げない）
+#   - agent-guard.sh : ルーチン中だけサブエージェントの背景起動を拒否する
 #   - verify-data.sh : ルーチンでは終了前の検証を必ず回す
 # フックのプロセスは claude プロセスの子なので、ここで export すれば届く。
 #
@@ -384,10 +484,19 @@ PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレ�
 # ============================================================
 export CLAUDE_ROUTINE=1
 
-CLAUDE_CMD=(claude)
+# 実行の上限を tools/budget.py に伝える。あちらは「残り何分か」を報告に載せる。
+#
+# **6時間の枠があることが、これまでスキル側に一度も伝わっていなかった。**
+# モデルに届いていたのは「予算が尽きたら打ち切ってよい」「コンテキストが逼迫
+# したら撤退」だけで、まだ余っていることを知る手段が無い。実際 2026-08-14 の回は
+# 18分で終わり、正常に完走した 08-12 の回は5時間27分を使っている。
+# 残りを知らせずに撤退を促せば、早く撤退する。
+export ROUTINE_TIMEOUT_SEC
+
+CLAUDE_CMD=("$CLAUDE_BIN")
 if command -v timeout >/dev/null 2>&1; then
   # 応答しなくなったセッションがロックを抱えたまま居座るのを防ぐ
-  CLAUDE_CMD=(timeout -k 60 "$ROUTINE_TIMEOUT_SEC" claude)
+  CLAUDE_CMD=(timeout -k 60 "$ROUTINE_TIMEOUT_SEC" "$CLAUDE_BIN")
 else
   log "WARNING: timeout コマンドが無いため、実行時間の上限を設定できません"
 fi
@@ -525,6 +634,16 @@ done
 # diff_data.py はこの後始末で書かれた dispositions を読むので、順序が重要（先に実行）。
 run_check "python3 tools/purge_ended.py" python3 tools/purge_ended.py || VERIFY_OK=0
 
+# diff_data.py は2つのことで落ちる。
+#
+#   1. 説明のない消滅がある（＝開催中の催しを黙って落とした可能性）
+#   2. **収穫が0件**（新規・変更・消滅がすべて0）
+#
+# 2 は 2026-08-14 の回で開いた穴を塞ぐためのものである。あの回は検索115回・
+# 取得154回を消費したあと、data/.prev/ から前回のCSVをそのまま復元して終わった。
+# 壊れてはいないので検証は素通りし、ここが「週次データ更新」としてコミットして
+# push した。**この門は「壊れていないか」しか見ておらず、「何か産んだか」を
+# 見ていなかった。** 空回りの回を成功として記録に残さない。
 log "検証を実行します（validate_data.py / diff_data.py）"
 run_check "python3 tools/validate_data.py" python3 tools/validate_data.py || VERIFY_OK=0
 run_check "python3 tools/diff_data.py" python3 tools/diff_data.py || VERIFY_OK=0

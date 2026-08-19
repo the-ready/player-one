@@ -45,6 +45,7 @@ DATA = os.path.join(ROOT, "data")
 
 # `python3 tools/append_lineup.py` で起動すると tools/ が sys.path に入るので、
 # append_rows.py と同じく列の定義を validate_data.py と1か所で共有できる。
+import budget
 from validate_data import EXPECTED_HEADERS
 
 NAME = "lineups.csv"
@@ -122,6 +123,17 @@ def main():
         by_fes[r["lineup_id"]] = by_fes.get(r["lineup_id"], 0) + 1
     print(f"{len(records)}件を {NAME} に追記しました"
           f"（{'／'.join(f'{k} {v}件' for k, v in by_fes.items())}）")
+
+    # 進捗はツールが出す（append_rows.py と同じ理由。モデルに書かせていた
+    # `[進捗]` 行は、3回の実行を通じて1行も出なかった）。
+    # 書き込みは既に終わっているので、ここで例外が出ても追記自体は失敗扱いにしない
+    # （append_rows.py と同じ理由。tools/append_rows.py の該当コメントを参照）。
+    try:
+        print(f"[進捗] ラインナップ追記{len(records)}件 / "
+              f"{budget.summary_line(budget.load()).removeprefix('[予算] ')}", file=sys.stderr)
+    except Exception as e:                                    # noqa: BLE001
+        print(f"WARNING: 進捗表示に失敗しました（追記自体は成功しています）: "
+              f"{type(e).__name__}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

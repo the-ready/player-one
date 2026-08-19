@@ -14,9 +14,14 @@ data/.prev/
 # fetch_gate.py が作る実行時の状態で、収集の成果物ではない。
 # コミットしない：翌週には取り直すべきもので、履歴に残す意味が無いため。
 data/.robots/
+
+# その回の消費（検索・取得・待機・追記）の実測。tools/budget.py が作る。
+# コミットしない：.robots/ と同じく1回の実行の中でだけ意味を持つ状態で、
+# 12時間で自動的に数え直される。
+data/.run/
 tools/__pycache__/
 # smoke_test.mjs を動かすためだけに入れる playwright。
-# ページ本体は依存を持たない（第15章）ので、コミットしない。
+# ページ本体は依存を持たない（設計書 第10.2節）ので、コミットしない。
 node_modules/
 package.json
 package-lock.json

@@ -134,11 +134,16 @@ def load(path):
 
 
 def save(path, head, rows):
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    # 一時ファイルに書いてから置き換える。直接 open(path, "w") すると、
+    # 書き込み途中で失敗した（ディスク満杯・権限エラー等）ときに名簿CSVが
+    # 中途半端に切り詰められる。budget.save() と同じ形にそろえてある。
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=head)
         w.writeheader()
         for r in rows:
             w.writerow({k: (r.get(k) or "") for k in head})
+    os.replace(tmp, path)
 
 
 def _norm(s):
@@ -171,12 +176,18 @@ def _date(v):
 
 def do_hit(rows, key, names, today):
     done, missing = [], []
+    today_iso = today.isoformat()
     for name in names:
         r = find(rows, key, name)
         if not r:
             missing.append(name)
             continue
-        r["last_hit"] = today.isoformat()
+        # record_hits() と同じガード。同じコマンド行に同じ名前を複数回渡しても
+        # （`--hit A --hit A` 等）、その日1回分としてしか数えない。
+        if r.get("last_hit") == today_iso:
+            done.append(name)
+            continue
+        r["last_hit"] = today_iso
         r["hit_count"] = str(_int(r.get("hit_count")) + 1)
         if r.get("status") == "candidate" and _int(r["hit_count"]) >= PROMOTE_HITS:
             r["status"] = "active"
@@ -184,6 +195,82 @@ def do_hit(rows, key, names, today):
         else:
             done.append(name)
     return done, missing
+
+
+def record_hits(kind, names, today=None):
+    """収穫のあった先を機械的に記録する。`append_rows.py` から呼ばれる。
+
+    ## なぜ手動の `--hit` では足りなかったか
+
+    `--hit` は最初から用意してあったが、**2026-08 の時点で `spots.csv` の
+    234件すべてが `hit_count=0`・`last_hit` 空だった**。3回の実行で `--hit` が
+    実際に走ったのは1回だけである。名簿の育成（昇格・降格・整理）はこの数字を
+    唯一の材料にしているので、記録が付かない限り `--gc` は判断材料を持たない。
+    そのうえ `ACTIVE_TTL=180` 日が来れば、収穫の有無に関わらず全件が
+    candidate へ降格する軌道に乗る。
+
+    モデルの意志に任せた記録は残らない——`[進捗]` 行が3回の実行で0行だったのと
+    同じ失敗である。**書き込みが起きた事実から機械的に導けるなら、機械が書く。**
+    CSVに行が入ったということは、その会場から収穫があったということそのものである。
+
+    戻り値は `(記録した名前, 名簿に無かった名前)`。後者は捨てずに返す——
+    「名簿に無い会場から拾えた」ことは探索が効いている証拠であり、
+    `--add` の候補でもあるためである。
+    """
+    today = today or date.today()
+    try:
+        path, key = path_of(kind)
+        head, rows = load(path)
+    except (SystemExit, OSError):
+        return [], list(names)
+
+    wanted = [n for n in dict.fromkeys(names) if n and n.strip() and n.strip() != "-"]
+    hits, misses = [], []
+    for name in wanted:
+        r = find(rows, key, name)
+        targets = [r] if r else []
+        # theaters.csv だけは名簿が二役（チェーンの店舗ディレクトリ＋名画座の名簿）
+        # である。新作行の theater はチェーン名なので、店舗名では引けない。
+        # チェーン名で当たったときは、その傘下の店舗をまとめて収穫ありとする
+        # ——実際にその作品を掛けているのはそれらの店舗だからである。
+        if not targets and "chain" in head:
+            targets = [x for x in rows if _norm(x.get("chain")) == _norm(name)]
+        if not targets:
+            misses.append(name)
+            continue
+        today_iso = today.isoformat()
+        for x in targets:
+            # 今日まだヒットが付いていない先だけ hit_count を進める。
+            #
+            # `append_rows.py` は5〜10件ごとのバッチで何度も呼ばれ、
+            # `theater`/`venue` 列にチェーン名（`TOHOシネマズ` 等）が入っている
+            # ときは傘下の全店舗が `targets` になる（226行目のコメント）。
+            # ガードが無いと、1回の実行の中でそのチェーン名が何十回も
+            # 出現するぶんだけ `hit_count` が加算され、実測で `theaters.csv`
+            # 85件中85件が同じ日に更新され、`hit_count` が実行の刻み方
+            # （バッチの分け方）に依存する値になっていた。**`hit_count` を
+            # 「調査を実行した回数」として保つには、同じ日の重複は数えない。**
+            # `PROMOTE_HITS=2` も「2回の実行でヒットした」ことを前提にしている
+            # ので、1回の実行内で何回ヒットしても1回として扱うのが正しい。
+            if x.get("last_hit") == today_iso:
+                continue
+            x["last_hit"] = today_iso
+            x["hit_count"] = str(_int(x.get("hit_count")) + 1)
+            if x.get("status") == "candidate" and _int(x["hit_count"]) >= PROMOTE_HITS:
+                x["status"] = "active"
+        hits.append(name)
+
+    if hits:
+        try:
+            save(path, head, rows)
+        except OSError:
+            # `append_rows.py` はこの関数を、CSVへの追記が終わった**あと**に呼ぶ。
+            # ここで例外を外に出すと、行は正しく書けているのに `append_rows.py`
+            # 自体が失敗したように見え、モデルが同じ行を重複投入しかねない
+            # （書き込みが起きた事実は既に確定しているので、ここでの失敗は
+            # 「名簿の収穫記録だけが今回は付かなかった」という意味に留める）。
+            return [], list(names)
+    return hits, misses
 
 
 def do_add(rows, head, key, today):
@@ -274,6 +361,15 @@ def do_list(rows, key, args, today):
 
 # ---------------------------------------------------------------- entry
 
+
+def _parse_today(s):
+    """`--today` の検証。argparse の `type=` に渡すと、壊れた値は
+    トレースバックではなく argparse 自身の使用法メッセージで弾かれる。"""
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"YYYY-MM-DD 形式で指定してください: {s!r}")
+
 def main():
     p = argparse.ArgumentParser(description="定点観測リスト（名簿）の保守")
     p.add_argument("roster", help=" / ".join(ROSTERS))
@@ -295,10 +391,10 @@ def main():
     p.add_argument("--all", action="store_true", help="--list に retired・blocked・休館中も含める")
     p.add_argument("--urls", action="store_true",
                    help="--list にURLも出す（検索せずに直接開くため）")
-    p.add_argument("--today", help="基準日 YYYY-MM-DD（試験用）")
+    p.add_argument("--today", type=_parse_today, help="基準日 YYYY-MM-DD（試験用）")
     args = p.parse_args()
 
-    today = date.fromisoformat(args.today) if args.today else date.today()
+    today = args.today if args.today else date.today()
     path, key = path_of(args.roster)
     head, rows = load(path)
     dirty = False

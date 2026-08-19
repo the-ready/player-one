@@ -75,11 +75,49 @@ DISPOSITIONS = {
 # --- 再確認の優先度（tier）を決めるしきい値 ---------------------------------
 # 「全行を毎週フルに調べ直す」のは高いだけでなく、後半の調査を浅くする。
 # 列ごとに変わりやすさが違うので、変わりやすいものを持つ行から先に見る。
-NEAR_DAYS = 21          # 会期末・受付締切がこの日数以内なら要再確認
-PRICE_TTL_DAYS = 14     # 価格の確認日がこれより古ければ洗い直す
+#
+# ## しきい値は「多いほど安全」ではない
+#
+# 以前は 会期末・締切とも21日、価格の鮮度14日で、価格の鮮度だけで tier A に
+# 上げていた。その結果 **events は125件中105件（84%）、lives は96件中70件（73%）が
+# tier A** になった。各SKILL.mdは「予算が尽きたら tier A の再確認を最優先で守る」と
+# 書いているが、105件を守れと言われて守れる工程の枠は存在しない。
+# **全部が最優先なら、優先順位は無い。** 実際には恣意的な場所で止まる。
+#
+# そこで次の3点を分けた。
+#
+#   - **会期末・開始は10日**。延長・中止が告知されるのはこの辺りで、21日先の
+#     終了日を毎週確認しても、ほとんどの週は何も変わっていない
+#   - **受付の締切・発売は21日のまま**。これは利用者が行動を逃す期限であり、
+#     3スキルの中でも最も落としたくない情報である（設計書 第12.2節）
+#   - **価格の鮮度は tier B へ**。古い価格は「間違った値」ではなく
+#     「いつ確認したかが分かる値」であり（`price_checked` がそれを示す）、
+#     中止を伝え損ねることに比べれば実害が小さい。TTLも45日に伸ばした
+#
+# この変更で events 36% / lives 47% / movies 24% になる。lives が高いのは
+# 受付未確定の行が多いためで、それは埋めるべき仕事が実在するという意味である。
+SCHEDULE_NEAR_DAYS = 10   # 会期末・開始がこの日数以内なら要再確認
+ONSALE_NEAR_DAYS = 21     # 受付の締切・発売日がこの日数以内なら要再確認
+PRICE_TTL_DAYS = 45       # 価格の確認日がこれより古ければ洗い直す（tier B）
 URGENT_STATUS = {
     "本日開催", "まもなく開催", "本日が最終上映", "まもなく公開",
 }
+
+# 受付が「決着している」ことを表す語。これらは締切を持たないのが正しい状態なので、
+# `onsale_end` が空でも未確定ではない。
+#
+# これを分けないと、完売した公演が**永久に tier A に居座る**。SOLD OUT は
+# 各SKILL.mdが「確定情報なので別経路を探すな」と明示している状態でありながら、
+# 「onsale_label があるのに締切が空」という判定に引っかかっていた（lives の
+# 未確定32件のうち14件がこれだった）。埋まりようのない欄を理由に最優先へ
+# 上げ続けるのは、優先順位を薄めるだけである。
+# `rowkey.norm()` を通した形で持つ（NFKC正規化・ひらがな化・casefold・空白/記号除去）。
+# 素の文字列比較（`casefold()` だけ）だと全角英字（`ＳＯＬＤ　ＯＵＴ`）や全角空白を
+# 吸収できず、そうした表記が来ると「決着済み」と判定できずに tier A へ上がり続ける。
+SETTLED_ONSALE = {norm(s) for s in (
+    "sold out", "soldout", "受付終了", "販売終了", "完売",
+    "売り切れ", "ソールドアウト", "当日券あり", "入場無料",
+)}
 
 
 def resolve_dataset(arg):
@@ -131,13 +169,33 @@ def load_prev(name):
 
 
 def take_snapshot(name):
-    """現在のCSVを `.prev/` に退避する。append_rows.py --init から呼ばれる。"""
+    """現在のCSVを `.prev/` に退避する。append_rows.py --init から呼ばれる。
+
+    戻り値は「退避した行数」だが、**実際には退避しなかった**場合は負数で返す
+    （呼び出し元がその旨を表示に使う）。
+
+    ## なぜ「0行なら退避しない」のか
+
+    `--init` を同じ日に2回実行すると（コンテキスト逼迫やツール失敗からの
+    やり直しで実際に起こる）、1回目の `--init` で現在のCSVは既にヘッダーだけに
+    なっている。ここで無条件に退避すると、**2回目の呼び出しが「前回0件」を
+    `.prev/` に書き込み、1回目が正しく退避した本物の前回データを消してしまう。**
+    `diff_data.py` はその状態を「前回データなし（初回実行）」と判定し、
+    説明のない消滅の検査・noop検査・`_carry` の持ち越しがすべて素通りになる
+    ——検証は通るが、何も検査していない。
+
+    データ行が0のCSVを「前回の状態」として意味のある形で退避することはできない
+    ので、その場合は既存のスナップショット（と、まだ引き継がれていない
+    `carried.jsonl`）をそのまま残す。
+    """
     src = os.path.join(DATA, name)
     if not os.path.exists(src):
         return None
-    os.makedirs(PREV, exist_ok=True)
     with open(src, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    if not rows:
+        return -1
+    os.makedirs(PREV, exist_ok=True)
     with open(src, encoding="utf-8") as f:
         raw = f.read()
     with open(snapshot_path(name), "w", encoding="utf-8") as f:
@@ -145,10 +203,14 @@ def take_snapshot(name):
     with open(meta_path(name), "w", encoding="utf-8") as f:
         json.dump({"taken_at": date.today().isoformat(), "rows": len(rows)},
                   f, ensure_ascii=False, indent=2)
-    # 退避のたびに、その時点の処分記録は役目を終える（次の週の分をゼロから貯める）
+    # 退避のたびに、その時点の処分記録は「今週の分」としての役目を終える。
+    # ただし捨てずに1世代だけ残す——`notfound`（調べたが分からなかった）と
+    # `expired`（終了日を過ぎたので機械的に消えた）は、**翌週の最優先で
+    # 確かめ直すべき行**だからである。消してしまうと、確認できなかったものが
+    # 確認されないまま流れていくだけになる（`carried_path` の説明を参照）。
     disp = disposition_path(name)
     if os.path.exists(disp):
-        os.remove(disp)
+        os.replace(disp, carried_path(name))
     return len(rows)
 
 
@@ -182,22 +244,24 @@ def tier_of(name, row, today):
     # status はもう日付から画面側が計算する列で、CSVでは日付を持たない行にしか入らない。
     # 「まもなく」「本日」の急ぎ判定は、下の start / end の比較がそのまま担っている。
     status = (row.get("status") or "").strip()
-    soon = today + timedelta(days=NEAR_DAYS)
+    sched_soon = today + timedelta(days=SCHEDULE_NEAR_DAYS)
+    onsale_soon = today + timedelta(days=ONSALE_NEAR_DAYS)
 
     if status in URGENT_STATUS:
         reasons.append(f"status={status}")
-    if end and end <= soon:
+    if end and end <= sched_soon:
         reasons.append(f"会期末{end}")
-    if start and today <= start <= soon:
+    if start and today <= start <= sched_soon:
         reasons.append(f"開始{start}")
 
     os_end = _d(row.get("onsale_end"))
     os_start = _d(row.get("onsale_start"))
-    if os_end and os_end <= soon:
+    label = (row.get("onsale_label") or "").strip()
+    if os_end and os_end <= onsale_soon:
         reasons.append(f"締切{os_end}")
     if os_start and os_start >= today:
         reasons.append(f"発売{os_start}")
-    if (row.get("onsale_label") or "").strip() and not os_end:
+    if label and not os_end and norm(label) not in SETTLED_ONSALE:
         reasons.append("受付状況が未確定")
 
     if (row.get("coupon_note") or "").strip():
@@ -205,14 +269,17 @@ def tier_of(name, row, today):
     if (row.get("is_additional") or "").strip() in ("1", "true", "yes"):
         reasons.append("追加公演")
 
+    if reasons:
+        return "A", reasons
+
+    # 価格の鮮度は B 止まりにする。古い価格は「間違い」ではなく「いつ確認した値かが
+    # 分かる値」で（`price_checked` がそれを示す）、会場ページを開いたついでに
+    # 直せば足りる。A に混ぜると、実害の桁が違う中止・締切と同じ列に並んでしまう。
     has_price = any((row.get(c) or "").strip()
                     for c in ("price_official", "price_best", "discount_pct"))
     checked = _d(row.get("price_checked"))
     if has_price and (not checked or (today - checked).days > PRICE_TTL_DAYS):
-        reasons.append("価格の確認日が古い")
-
-    if reasons:
-        return "A", reasons
+        return "B", ["価格の確認日が古い"]
 
     if status == "通年予約可" or (not start and not end):
         return "C", ["日程が動かない/日程を持たない"]
@@ -226,10 +293,41 @@ def _clip(value, width):
     return s if len(s) <= width else s[: width - 1] + "…"
 
 
+def print_carried(name):
+    """先週、確認できないまま消えた行を先に出す。
+
+    棚卸しの先頭に置くのは、これが**今週いちばん最初に確かめるべき行**だから
+    である。`notfound` はまだ開催中かもしれない（＝静かな欠落の候補）。
+    `expired` は会期延長を見落としていた可能性がある。どちらも前回のCSVには
+    もう残っていないので、この一覧に出さない限り二度と視界に入らない。
+    """
+    carried = load_carried(name)
+    if not carried:
+        return
+    nf = [c for c in carried if c.get("status") == "notfound"]
+    ex = [c for c in carried if c.get("status") == "expired"]
+
+    print(f"# ---- 先週、確認できないまま消えた行（{len(carried)}件・今週の最優先）----")
+    if nf:
+        print(f"# notfound {len(nf)}件: 調べたが分からなかった行。"
+              "まだ開催中なら「静かな欠落」になっている。会場ページで確かめ直すこと")
+        for c in nf:
+            print(f"#   {c.get('uid', '')}\t{_clip(c.get('title'), 40)}\t{_clip(c.get('note'), 40)}")
+    if ex:
+        print(f"# expired {len(ex)}件: 終了日を過ぎて機械的に消えた行（未確認）。"
+              "会期が延長されていた可能性があるので、その会場を開くついでに見ること")
+        for c in ex[:15]:
+            print(f"#   {c.get('uid', '')}\t{_clip(c.get('title'), 40)}")
+        if len(ex) > 15:
+            print(f"#   …ほか{len(ex) - 15}件")
+    print("#")
+
+
 def cmd_worklist(name, rows, args):
-    today = date.fromisoformat(args.today) if args.today else date.today()
+    today = args.today if args.today else date.today()
     taken = prev_taken_at(name)
 
+    print_carried(name)
     print(f"# {name} 前回分の棚卸しリスト（{len(rows)}件）")
     if taken:
         print(f"# 前回の取得日: {taken}（{(today - taken).days}日前）")
@@ -300,6 +398,51 @@ def disposition_path(name):
     return os.path.join(PREV, name.replace(".csv", ".dispositions.jsonl"))
 
 
+def carried_path(name):
+    """先週の処分記録の置き場。
+
+    ## なぜ1世代だけ残すのか
+
+    `notfound` は「調べたが分からなかった」を正直に残すための処分で、
+    `expired` は「終了日を過ぎたことを `purge_ended.py` が機械的に検出した（未確認）」
+    という印である。どちらも**確認できていない**という意味を持つのに、
+    記録した翌週には消えて、次の実行の行動に何も影響していなかった。
+
+    影響しないなら、それは記録ではなく言い訳である。とくに `expired` は、
+    **会期延長を見落とした行**を含みうる——延長に気づかなければ古い終了日が
+    残り、その日を過ぎた時点で機械的に消えるので、まだ開催中の催しが
+    「終了日を過ぎた」という理由だけで一覧から落ちる。この経路は
+    `purge_ended.py` の設計上どうしても残るので、翌週に拾い直せるようにしておく。
+
+    ## 呼び出し順序に依存する
+
+    このファイルへのローテートは `take_snapshot()`（＝ `append_rows.py --init`）の
+    中で行う。`--worklist`（`print_carried()`）を**先に**呼ぶと、まだ今回の
+    `--init` が起きていないので、ここにあるのは「前々回の実行の分」のままになる
+    ——各SKILL.mdの実行手順は、この理由で `--init` を `--worklist` より先に置いている。
+    """
+    return os.path.join(PREV, name.replace(".csv", ".carried.jsonl"))
+
+
+def load_carried(name):
+    """先週の処分記録のうち、今週こそ確かめ直すべきものを返す。"""
+    path = carried_path(name)
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if obj.get("status") in ("notfound", "expired"):
+                out.append(obj)
+    return out
+
+
 def cmd_dispose(name, rows, args):
     known = {row_uid(name, r): r for r in rows}
     raw = sys.stdin.read()
@@ -346,6 +489,15 @@ def load_dispositions(name):
 
 # ---------------------------------------------------------------- entry
 
+
+def _parse_today(s):
+    """`--today` の検証。argparse の `type=` に渡すと、壊れた値は
+    トレースバックではなく argparse 自身の使用法メッセージで弾かれる。"""
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"YYYY-MM-DD 形式で指定してください: {s!r}")
+
 def main():
     p = argparse.ArgumentParser(description="前回の収集結果を圧縮して参照する")
     p.add_argument("dataset", help="events / lives / movies")
@@ -356,7 +508,7 @@ def main():
                    help="この会場の行を全列で出す（複数可。部分一致・表記ゆれを吸収する）")
     p.add_argument("--dispose", action="store_true", help="消えた行の理由を標準入力(JSONL)から記録する")
     p.add_argument("--stats", action="store_true", help="件数だけ出す")
-    p.add_argument("--today", help="基準日 YYYY-MM-DD（試験用。既定は今日）")
+    p.add_argument("--today", type=_parse_today, help="基準日 YYYY-MM-DD（試験用。既定は今日）")
     args = p.parse_args()
 
     name = resolve_dataset(args.dataset)
