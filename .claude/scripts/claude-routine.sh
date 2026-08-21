@@ -38,6 +38,7 @@
 #   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
 #   ROUTINE_PUSH         0 にすると commit までで push しない
 #   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
+#   ROUTINE_MODEL        使うモデルを固定する（既定は曜日ごとのスキルに応じて自動選択。下記参照）
 #
 set -u
 set -o pipefail
@@ -59,6 +60,7 @@ usage() {
   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
   ROUTINE_PUSH         0 で push を行わない
   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
+  ROUTINE_MODEL        使うモデルを固定する（既定は曜日ごとに自動選択）
 USAGE
 }
 
@@ -67,6 +69,7 @@ ROUTINE_GIT_RETRY="${ROUTINE_GIT_RETRY:-4}"
 ROUTINE_BRANCH="${ROUTINE_BRANCH:-}"
 ROUTINE_PUSH="${ROUTINE_PUSH:-1}"
 ROUTINE_CLAUDE_BIN="${ROUTINE_CLAUDE_BIN:-}"
+ROUTINE_MODEL="${ROUTINE_MODEL:-}"
 CHECK_ENV_ONLY=0
 
 while [ "$#" -gt 0 ]; do
@@ -494,10 +497,10 @@ export CLAUDE_ROUTINE=1
 export ROUTINE_TIMEOUT_SEC
 
 # ============================================================
-# サブエージェントの同時実行数を、その日のスキルに合わせて決める
+# サブエージェントの同時実行数と、使うモデルを、その日のスキルに合わせて決める
 #
-# 上限の既定は 20 だが、この収集タスクには過剰である。並列化が効くのは
-# **取得先のホストが分かれている分だけ**で、同じホストへ複数体を当てると
+# 【同時実行数】上限の既定は 20 だが、この収集タスクには過剰である。並列化が
+# 効くのは**取得先のホストが分かれている分だけ**で、同じホストへ複数体を当てると
 # fetch_gate.py の間隔制御（ホスト単位）で互いに待ち合うだけになる。
 # 待つ時間は増え、体数ぶんのトークンはそのまま払う。名簿の実測は次のとおり。
 #
@@ -505,14 +508,21 @@ export ROUTINE_TIMEOUT_SEC
 #   movies : theaters 85件 /  25ホスト → チェーンが同一ホストに集中している。
 #            さらにステップ1（新作カレンダー）が集約サイト数件に偏るため、
 #            並列度を上げてもゲート待ちの行列が伸びるだけになる
-#   events : spots 230件 / 217ホスト → 競合はほぼ起きない
+#   events : spots 201件 / 184ホスト → 競合はほぼ起きない（2026-08-22、栃木・群馬を除外後）
 #
 # movies だけ低いのはこのためで、件数の少なさが理由ではない。
 #
-# **スキルごとに値を変えられる場所はここしかない。** settings.json の env は
-# セッション全体にしか効かず、スキル単位で差し替える仕組みが（2026-08-20 時点で）
-# 存在しない。シェルの環境変数は settings.json より優先されるので、ここで
-# export した値が当日のセッションを支配する。
+# 【モデル】既定は events=haiku、lives/movies=sonnet。2026-08-21 の実測で
+# Haiku は「JSONLを返さず要約だけ返す」失敗が起きやすく、前回分の再発見率も
+# 低かった（SKILL.md「サブエージェントへの指示に必ず含めること」で緩和を
+# 図ったが、根本的な能力差は残る）。events はコストと速度を優先して Haiku を
+# 使い続けるが、lives/movies は同じ失敗が起きたときの手直しコストのほうが
+# 高いと判断し、Sonnet を使う。ROUTINE_MODEL で個別に上書きできる。
+#
+# **スキルごとに値を変えられる場所はここしかない。** settings.json の env・model は
+# セッション全体にしか効かず、スキル単位で差し替える仕組みが（2026-08-22 時点で）
+# 存在しない。シェルの環境変数・CLIフラグは settings.json より優先されるので、
+# ここで export した値・渡したフラグが当日のセッションを支配する。
 #
 # 孫エージェントの禁止（CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1）は曜日で
 # 変わらないので settings.json に置いてある。二重に書かない。
@@ -521,12 +531,13 @@ export ROUTINE_TIMEOUT_SEC
 # ここはその写しなので、**あちらを変えたらここも変えること。**
 # ============================================================
 case "$(date +%u)" in
-  3) SUBAGENT_LIMIT=3 ;; # 水: kanto-live-collector
-  4) SUBAGENT_LIMIT=2 ;; # 木: kanto-movie-collector（ホストが25しかない）
-  *) SUBAGENT_LIMIT=3 ;; # 金・およびテスト実行: kanto-event-collector
+  3) SUBAGENT_LIMIT=3; DEFAULT_MODEL=sonnet ;; # 水: kanto-live-collector
+  4) SUBAGENT_LIMIT=2; DEFAULT_MODEL=sonnet ;; # 木: kanto-movie-collector（ホストが25しかない）
+  *) SUBAGENT_LIMIT=3; DEFAULT_MODEL=haiku  ;; # 金・およびテスト実行: kanto-event-collector
 esac
 export CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS="$SUBAGENT_LIMIT"
-log "サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止）"
+ROUTINE_MODEL="${ROUTINE_MODEL:-$DEFAULT_MODEL}"
+log "サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止） / モデル: ${ROUTINE_MODEL}"
 
 CLAUDE_CMD=("$CLAUDE_BIN")
 if command -v timeout >/dev/null 2>&1; then
@@ -539,6 +550,7 @@ fi
 log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
 
 "${CLAUDE_CMD[@]}" -p "$PROMPT" \
+  --model "$ROUTINE_MODEL" \
   --permission-mode bypassPermissions \
   --output-format stream-json \
   --verbose \
@@ -710,6 +722,23 @@ quarantine_and_restore() {
   if git_q checkout -- data docs; then
     log "data/ docs/ を HEAD の内容に戻しました（検証を通らなかった回は、丸ごと無かったことにする）"
     log "  （切り詰められたCSVを置いたままにすると、翌週それが「前回分」として扱われ、差分検知が壊れるため）"
+
+    # data/.prev/ は .gitignore 対象なので、上の checkout では戻らない。
+    # 今回の回が --init していれば、taken_at（「今日 --init した」記録）が
+    # そのまま残り、**翌日以降の無関係なセッションを is_noop 判定に巻き込む**
+    # （前日の失敗した movies 収集の taken_at が残ったせいで、翌日 events だけを
+    # 触った無関係なセッションが movies の「収穫0件」判定に巻き込まれて足止め
+    # された実例がある。`docs/COLLECTION-PROTOCOL.md` 第11章）。
+    # 「今日は --init していない」状態に戻すため、今回変更されていた
+    # データセットの meta.json だけを消す（無ければ prev_taken_at() は
+    # None を返し、is_noop の対象から外れる）。
+    while IFS= read -r f; do
+      case "$f" in
+        data/events.csv) rm -f "$REPO_DIR/data/.prev/events.meta.json" ;;
+        data/lives.csv)  rm -f "$REPO_DIR/data/.prev/lives.meta.json" ;;
+        data/movies.csv) rm -f "$REPO_DIR/data/.prev/movies.meta.json" ;;
+      esac
+    done <<< "$changed"
   else
     log "WARNING: data/ docs/ を HEAD に戻せませんでした。手動で確認してください"
   fi

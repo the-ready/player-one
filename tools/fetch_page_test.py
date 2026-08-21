@@ -175,12 +175,34 @@ check("空行は残らない（トークンを食うだけで何も伝えない�
 check("原文の改行は行を割らない",
       fp.extract_text("<table><tr>\n<td>A</td>\n<td>B</td>\n</tr></table>"), "A\tB")
 
+# HTML仕様では `</td>` `</tr>` はどちらも省略できる。実在のサイトで実際に
+# 省略されており、以前は対応するセルが1件も見つからず**行が丸ごと消えた**
+# （392セルのスケジュール表が0行になった実例）。開きタグの位置だけで区切る
+# 実装に直したので、閉じタグの有無で結果が変わらないことをここで固定する。
+check("</td> が省略されていても列が割れる",
+      fp.extract_text("<table><tr><td>A<td>B</tr><tr><td>C<td>D</tr></table>"), "A\tB\nC\tD")
+check("</tr> が省略されていても行が割れる",
+      fp.extract_text("<table><tr><td>A</td><td>B</td><tr><td>C</td><td>D</td></table>"),
+      "A\tB\nC\tD")
+check("<th> と <td> が混在し、かつ両方とも閉じタグ省略",
+      fp.extract_text("<table><tr><th>日付<th>演目<tr><td>8/01<td>映画A</table>"),
+      "日付\t演目\n8/01\t映画A")
+
 print("リンク抽出（--links）")
 LINKS = fp.extract_links(TEXT_HTML, "https://ex.jp/a/b.html")
 check("相対URLが絶対になる", LINKS[0], ("詳細", "https://ex.jp/detail?id=1"))
 check("# つきと重複は落ちる", len(LINKS), 2)
 check("外部リンクは残る", LINKS[1][1], "https://other.example/x")
 
-TOTAL = 40
+# 計測用パラメータ違いだけの同一ページを別リンクとして数えない。
+# 出力するURL自体は正規化せず、最初に見つかった元のURLをそのまま返す。
+TRACK_LINKS = fp.extract_links(
+    '<a href="/x?utm_source=a&id=1">A</a><a href="/x?utm_source=b&id=1">B</a>'
+    '<a href="/x?id=2">C</a>',
+    "https://ex.jp/")
+check("utm_* 違いは重複として1件に畳まれる", len(TRACK_LINKS), 2)
+check("残る側は最初に見つかった元のURLのまま", TRACK_LINKS[0][1], "https://ex.jp/x?utm_source=a&id=1")
+
+TOTAL = 44
 print(f"\n{TOTAL - fails}/{TOTAL} 件が期待どおり")
 sys.exit(1 if fails else 0)

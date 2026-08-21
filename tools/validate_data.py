@@ -429,6 +429,13 @@ def validate_main(name, rows, enums, rep):
         pref = (r.get("pref") or "").strip()
         if pref and pref not in enums["pref"]:
             rep.error(where, f"pref に未知の値 {pref!r}（都県の絞り込みから漏れます）")
+        # イベントの対象地域は1都4県（東京・神奈川・埼玉・千葉・茨城）に絞って
+        # ある（映画・ライブは引き続き栃木・群馬が対象なので、PREFS 自体は
+        # 変えていない）。ここは収集ルールの逸脱であって、表示が壊れるわけでは
+        # ないので ERROR ではなく WARNING にする——ERROR にすると検証の対象を
+        # データセットで分岐させる必要が生じ、この検証の構造が複雑になる。
+        elif name == "events.csv" and pref in ("tochigi", "gunma"):
+            rep.warn(where, f"pref={pref!r} はイベントの対象地域（1都4県）から外れています")
 
         # リンク
         for col in ("url", "official_url", "venue_url", "theater_url", "apple_music_url"):

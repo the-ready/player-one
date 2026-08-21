@@ -166,6 +166,9 @@ export const THEATER_KINDS = {
   single: "名画座・特設会場",
 };
 
+// **検証（tools/validate_data.py）の正本はこの8キーのまま**——映画・ライブは
+// 引き続き栃木・群馬を対象に含む。イベントだけ対象地域を1都4県に絞ったので、
+// イベントタブで出す都県チップは TABS.event.prefKeys（下）で個別に絞り込む。
 export const PREFS = [
   { key: "tokyo", label: "東京都" },
   { key: "kanagawa", label: "神奈川県" },
@@ -401,6 +404,10 @@ export const TABS = {
     noun: "イベント", // 「◯件のイベント」「該当するイベントが…」
     csv: "./data/events.csv",
     columns: EVENT_COLUMNS,
+    // 対象地域が1都4県（東京・神奈川・埼玉・千葉・茨城）なので、都県チップも
+    // それに合わせて絞る。未指定なら ui-area.js は PREFS を全部出す
+    // （映画・ライブはこのキーを持たないので、従来どおり8キー全部出る）。
+    prefKeys: ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki", "other"],
     keyPrefix: "e",
     paneId: "eventPane",
     listId: "list",

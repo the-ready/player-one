@@ -51,22 +51,51 @@ fi
 PROBLEMS=""
 add_problem() { PROBLEMS="${PROBLEMS}$1"$'\n'; }
 
+# purge_ended.py / diff_data.py は「実際に触ったデータセットだけ」に絞る。
+#
+# 以前は引数なし（＝events/lives/movies の3つとも）で回していた。対話セッションで
+# events.csv だけを更新したところ、無関係な movies.csv の終了日超過行が
+# purge_ended.py によって黙って書き換わり、その movies.csv が「新規・変更・消滅が
+# すべて0件」という diff_data.py の空回り検知に引っかかって足止めされたことがある
+# （`docs/COLLECTION-PROTOCOL.md` 第11章）。触っていないデータセットにまで
+# 検証の副作用が及ぶのは、対話セッションでは筋が通らない。
+#
+# ルーチン実行（週次）は、Claude のセッションが purge_ended.py を呼ばずに終えた
+# 回の安全網として、これまでどおり3つとも回す（claude-routine.sh 側の設計）。
+# こちらのフックは「今回のターンが何を壊したか」だけを見ればよい。
+if [ "$IS_ROUTINE" -eq 1 ]; then
+  DATASETS="events lives movies"
+else
+  changed_csv="$(git status --porcelain -- data/events.csv data/lives.csv data/movies.csv 2>/dev/null)"
+  DATASETS=""
+  printf '%s\n' "$changed_csv" | grep -q "data/events.csv" && DATASETS="$DATASETS events"
+  printf '%s\n' "$changed_csv" | grep -q "data/lives.csv"  && DATASETS="$DATASETS lives"
+  printf '%s\n' "$changed_csv" | grep -q "data/movies.csv" && DATASETS="$DATASETS movies"
+fi
+
 # 終了日を過ぎた行を先に機械的に片付ける。終了日と今日を比べるだけの判断で、
 # モデルの確認を要らないので、検証で落として直させるのではなくここで直接適用する
 # （決定論的に守らせたい規則はフックに置く。設計書 第9.1.5節）。説明のない消滅を
 # diff_data.py が拾わないよう、必ず下の検証より先に走らせる。
-if ! out="$(python3 "tools/purge_ended.py" 2>&1)"; then
-  add_problem "python3 tools/purge_ended.py が失敗しました:"$'\n'"$(printf '%s' "$out" | tail -c 3000)"
+for ds in $DATASETS; do
+  if ! out="$(python3 "tools/purge_ended.py" "$ds" 2>&1)"; then
+    add_problem "python3 tools/purge_ended.py ${ds} が失敗しました:"$'\n'"$(printf '%s' "$out" | tail -c 3000)"
+  fi
+done
+
+# validate_data.py はデータセットを跨いだ整合性（会場名の名簿との一致など）を
+# 見る設計で引数を取らないため、絞らずに常に全体を回す。「収集が途中で終わった」
+# 形——ヘッダーだけ・ファイルごと欠損・0バイト——はすべてここが ERROR で落とす
+# （「データ行がありません」「ファイルがありません」）。行数を別途数えても
+# 同じことを二度言うだけなので、数えない。
+if ! out="$(python3 "tools/validate_data.py" 2>&1)"; then
+  add_problem "python3 tools/validate_data.py が失敗しました:"$'\n'"$(printf '%s' "$out" | tail -c 3000)"
 fi
 
-# 「収集が途中で終わった」形——ヘッダーだけ・ファイルごと欠損・0バイト——は
-# すべて validate_data.py が ERROR で落とす（「データ行がありません」「ファイルが
-# ありません」）。ここで行数を別途数えても同じことを二度言うだけなので、数えない。
-for tool in validate_data diff_data; do
-  if out="$(python3 "tools/${tool}.py" 2>&1)"; then
-    continue
+for ds in $DATASETS; do
+  if ! out="$(python3 "tools/diff_data.py" "$ds" 2>&1)"; then
+    add_problem "python3 tools/diff_data.py ${ds} が失敗しました:"$'\n'"$(printf '%s' "$out" | tail -c 3000)"
   fi
-  add_problem "python3 tools/${tool}.py が失敗しました:"$'\n'"$(printf '%s' "$out" | tail -c 3000)"
 done
 
 [ -n "$PROBLEMS" ] || exit 0

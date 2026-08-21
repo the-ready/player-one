@@ -13,10 +13,15 @@
 ## 手順
 
 1. 実行日の曜日を確認し、実行するスキルを1つ決める。
-   - 水曜日 → `kanto-live-collector`
-   - 木曜日 → `kanto-movie-collector`
-   - 金曜日 → `kanto-event-collector`
-   - それ以外の曜日 → テスト実行の可能性が高い。ユーザから特段の指示がなければ `kanto-event-collector` を実行する
+   - 水曜日 → `kanto-live-collector`（Sonnet）
+   - 木曜日 → `kanto-movie-collector`（Sonnet）
+   - 金曜日 → `kanto-event-collector`（Haiku）
+   - それ以外の曜日 → テスト実行の可能性が高い。ユーザから特段の指示がなければ `kanto-event-collector` を実行する（Haiku）
+
+   **モデルは `claude-routine.sh` が起動時に `--model` で渡す**ので、無人実行では
+   このセッション自身が既に該当モデルで動いている。あなた自身のモデルを
+   途中で変える必要はない。対話セッションで手動実行するときは `--model` が
+   渡らないので、対話中のモデルのままになる（`/model` で確認・変更できる）。
 
    **手順書は `.claude/skills/<スキル名>/SKILL.md` を Read で直接読むこと。`/kanto-...` のスラッシュコマンドで呼び出さない。**
    同じ名前のコピーが `~/.claude/skills/` にもあり、こちらは手動同期なので古いことがある

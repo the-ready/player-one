@@ -337,10 +337,13 @@ def cmd_worklist(name, rows, args):
 
     counts = {"A": 0, "B": 0, "C": 0}
     place_col = "theater" if name == "movies.csv" else "venue"
+    wanted_prefs = set(args.pref or [])
     for r in rows:
         tier, reasons = tier_of(name, r, today)
         counts[tier] += 1
         if args.tier and tier not in args.tier:
+            continue
+        if wanted_prefs and (r.get("pref") or "") not in wanted_prefs:
             continue
         span = f"{(r.get(START_COL[name]) or '')[5:]}〜{(r.get('end_date') or '')[5:]}".strip("〜")
         print("\t".join([
@@ -445,8 +448,14 @@ def load_carried(name):
 
 def cmd_dispose(name, rows, args):
     known = {row_uid(name, r): r for r in rows}
+    # 追記は append-only、読み出しは「同じ uid なら最後の行が勝つ」実装なので
+    # （load_dispositions）、重複追記そのものはエラーにしない——訂正は
+    # 正当な操作である。ただし今回の実行で3回書き換えた実例（renamed →
+    # notfound → renamed）のように、無警告だと矛盾した履歴が黙って積み上がる。
+    # 気づけるように、上書きだけは知らせる。
+    existing = load_dispositions(name)
     raw = sys.stdin.read()
-    recs = []
+    recs, seen_in_batch = [], {}
     for i, line in enumerate((l for l in raw.splitlines() if l.strip()), start=1):
         try:
             obj = json.loads(line)
@@ -463,7 +472,12 @@ def cmd_dispose(name, rows, args):
             )
         if st == "renamed" and not (obj.get("to") or "").strip():
             raise SystemExit(f"ERROR: {i}行目 renamed には to（新しいuid）が要ります")
+        prior = seen_in_batch.get(uid_) or existing.get(uid_)
+        if prior and prior.get("status") != st:
+            print(f"WARNING: uid {uid_!r} は既に {prior['status']!r} として処分済みでした"
+                  f"（→ {st!r} で上書き）", file=sys.stderr)
         obj["title"] = known[uid_].get("title", "")
+        seen_in_batch[uid_] = obj
         recs.append(obj)
 
     os.makedirs(PREV, exist_ok=True)
@@ -503,6 +517,9 @@ def main():
     p.add_argument("dataset", help="events / lives / movies")
     p.add_argument("--worklist", action="store_true", help="棚卸し用の圧縮一覧を出す")
     p.add_argument("--tier", help="worklist を tier で絞る（例: A / AB）")
+    p.add_argument("--pref", action="append",
+                   help="worklist をこの pref に絞る（複数可）。都県ごとにサブエージェントへ"
+                        "渡す担当分だけを切り出すのに使う")
     p.add_argument("--uid", action="append", help="この uid の行を全列で出す（複数可）")
     p.add_argument("--venue", action="append",
                    help="この会場の行を全列で出す（複数可。部分一致・表記ゆれを吸収する）")

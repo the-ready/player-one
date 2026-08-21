@@ -25,7 +25,18 @@ export function initArea() {
   el.locateMsg = document.getElementById("locateMsg");
   el.mapStatus = document.getElementById("mapAreaStatus");
 
-  buildPrefChips();
+  buildPrefChips(curTab().prefKeys);
+  el.regionRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".region-chip");
+    if (!btn) return;
+    const st = curState();
+    const next = st.pref === btn.dataset.key ? null : btn.dataset.key;
+    setPlaceFilter(st, next ? "pref" : null, next);
+    syncPrefChips();
+    updateMapAreaStatus();
+    renderVenueList();
+    refreshNow({ push: true });
+  });
   el.venueQ.addEventListener("input", renderVenueList);
   el.kinds.addEventListener("click", (e) => {
     const btn = e.target.closest(".venue-kind");
@@ -63,22 +74,17 @@ export function initArea() {
 
 /* ---------- 都県チップ ---------- */
 
-function buildPrefChips() {
-  el.regionRow.innerHTML = PREFS.map(
-    (pr) =>
-      `<button type="button" class="region-chip" data-key="${pr.key}" aria-pressed="false">${pr.label}</button>`,
-  ).join("");
-  el.regionRow.addEventListener("click", (e) => {
-    const btn = e.target.closest(".region-chip");
-    if (!btn) return;
-    const st = curState();
-    const next = st.pref === btn.dataset.key ? null : btn.dataset.key;
-    setPlaceFilter(st, next ? "pref" : null, next);
-    syncPrefChips();
-    updateMapAreaStatus();
-    renderVenueList();
-    refreshNow({ push: true });
-  });
+// タブごとに出すチップを絞る（`TABS.<tab>.prefKeys`）。未指定のタブ（映画・
+// ライブ）は従来どおり PREFS を全部出す——検証の正本である PREFS 自体は
+// 一切変更していないので、この2タブの挙動は変わらない。
+function buildPrefChips(keys) {
+  const list = keys ? PREFS.filter((pr) => keys.includes(pr.key)) : PREFS;
+  el.regionRow.innerHTML = list
+    .map(
+      (pr) =>
+        `<button type="button" class="region-chip" data-key="${pr.key}" aria-pressed="false">${pr.label}</button>`,
+    )
+    .join("");
 }
 
 export function syncPrefChips() {
@@ -162,6 +168,7 @@ export function syncAreaForTab() {
   el.pickerLabel.textContent = place.pickerLabel;
   buildVenueKinds();
   renderVenueList();
+  buildPrefChips(curTab().prefKeys);
   syncPrefChips();
   updateMapAreaStatus();
   syncLocateMsg();

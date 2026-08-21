@@ -378,9 +378,17 @@ HREF_RE = re.compile(r'href\s*=\s*["\']([^"\']+)["\']', re.I)
 DROP_RE = re.compile(
     r'(?is)<(script|style|noscript|svg|head|template|iframe|object|canvas)\b[^>]*>.*?</\1\s*>')
 COMMENT_RE = re.compile(r'(?is)<!--.*?-->')
-# 表は行ごとに畳む。行と列の対応を残すのが `--text` の要点である
-TR_RE = re.compile(r'(?is)<tr\b[^>]*>(.*?)</tr\s*>')
-TD_RE = re.compile(r'(?is)<(td|th)\b[^>]*>(.*?)</\1\s*>')
+# 表は行ごとに畳む。行と列の対応を残すのが `--text` の要点である。
+#
+# **境界は閉じタグではなく、開きタグの出現位置で決める。** HTML仕様では
+# `</td>` `</tr>` はどちらも省略できる（実在のサイトで実際に省略されている）。
+# 以前は `<td>...</td>` の対応を要求しており、閉じタグを省略したページでは
+# 対応するセルが1件も見つからず、**行の中身が丸ごと消えた**（392セルの
+# スケジュール表が0行になった実例がある）。開きタグの位置だけで区切れば、
+# 閉じタグの有無によらず崩れない。
+TABLE_RE = re.compile(r'(?is)<table\b[^>]*>(.*?)</table\s*>')
+TR_OPEN_RE = re.compile(r'(?is)<tr\b[^>]*>')
+CELL_OPEN_RE = re.compile(r'(?is)<(?:td|th)\b[^>]*>')
 # 改行に落とすブロック要素。開きタグ・閉じタグのどちらでも改行にする
 BLOCK_RE = re.compile(
     r'(?is)<\s*/?\s*(br|hr|p|div|li|tr|h[1-6]|section|article|header|footer|table|'
@@ -397,18 +405,28 @@ SEP = "\x00"
 
 
 def _flatten_rows(h):
-    """`<tr>` を1行に畳み、セルを SEP で繋ぐ。
+    """`<table>` を、行ごとに1行・セルごとに SEP 区切りのテキストへ畳む。
 
-    セルを「`</td>` を区切りに置き換える」だけで扱うと、**セルの中に `<p>` や
-    `<br>` があるページで行が割れる**——割れた結果、区切りが行頭に来て
-    「整形の余り」として捨てられ、392セルのスケジュール表が0行になった。
-    行を先に取り出して畳めば、セルの中身が何であっても1行に収まる。
+    行・セルの境界は開きタグの出現位置で決める（上のコメント）。セルの中に
+    `<p>` や `<br>` が入っていても、次のセルの開きタグまでは同じセルの中身
+    として扱われるので割れない。
+
+    **入れ子の `<table>` は正しく展開できない**（内側の表を先に畳んでしまい、
+    外側の行の一部として結合できない）。収集対象（会場・劇場の上映スケジュール
+    のような単純な表）にtableの入れ子はほぼ現れないため、そこまでは作り込まない
+    ——完全なHTMLツリーが要るなら、このスクリプトの領分を超える。
     """
-    def one(m):
-        cells = [re.sub(r"\s+", " ", TAG_RE.sub(" ", c)).strip()
-                 for _, c in TD_RE.findall(m.group(1))]
-        return "\n" + SEP.join(cells) + "\n" if cells else "\n"
-    return TR_RE.sub(one, h)
+    def cells_of(row_html):
+        parts = CELL_OPEN_RE.split(row_html)[1:]     # [0] は最初のセルより前の余り
+        return [re.sub(r"\s+", " ", TAG_RE.sub(" ", c)).strip() for c in parts]
+
+    def one_table(m):
+        rows = TR_OPEN_RE.split(m.group(1))[1:]      # [0] は最初の行より前の余り
+        lines = [SEP.join(cells_of(r)) for r in rows]
+        lines = [l for l in lines if l]              # セルが1つも取れなかった行は捨てる
+        return ("\n" + "\n".join(lines) + "\n") if lines else "\n"
+
+    return TABLE_RE.sub(one_table, h)
 
 
 def extract_text(html):
@@ -442,6 +460,23 @@ def extract_text(html):
     return h.replace(SEP, "\t").strip()
 
 
+# 重複判定だけに使う。計測用パラメータ違いの同一ページを、別リンクとして
+# 数えないようにする（出力するURL自体はここで削らず、元のまま返す）。
+_TRACKING_PARAMS = {
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "fbclid", "gclid", "yclid", "msclkid", "mc_cid", "mc_eid",
+}
+
+
+def _dedup_key(url):
+    """重複判定用のキー。計測用パラメータとフラグメントを無視する。"""
+    parts = urllib.parse.urlsplit(url)
+    q = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+         if k.lower() not in _TRACKING_PARAMS]
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(q), ""))
+
+
 def extract_links(html, base):
     """`(文字列, 絶対URL)` の組を出す。重複は最初の1件だけ残す。
 
@@ -456,9 +491,10 @@ def extract_links(html, base):
         if href.startswith(("#", "javascript:", "mailto:", "tel:")):
             continue
         url = urllib.parse.urljoin(base, href)
-        if url in seen:
+        key = _dedup_key(url)
+        if key in seen:
             continue
-        seen.add(url)
+        seen.add(key)
         label = re.sub(r"\s+", " ", TAG_RE.sub("", htmlmod.unescape(m.group(2)))).strip()
         out.append((label, url))
     return out

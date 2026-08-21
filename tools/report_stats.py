@@ -91,6 +91,10 @@ BALANCE = {
 }
 
 PREFS = ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki", "tochigi", "gunma", "other"]
+# イベントだけ対象地域が1都4県（栃木・群馬は対象外）。「都県ごとに floor 件
+# 以上」のバランスチェックをここだけ絞らないと、栃木・群馬が常に0件のまま
+# 「floorに満たない」警告が毎回出てしまう。
+EVENT_PREFS = ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki"]
 
 
 def read_current(name):
@@ -146,7 +150,10 @@ def analyse(name):
         c = counts(cur, col)
         res["balance"][col] = c
         if floor:
-            keys = PREFS[:7] if col == "pref" else sorted(c)
+            if col == "pref":
+                keys = EVENT_PREFS if name == "events.csv" else PREFS[:7]
+            else:
+                keys = sorted(c)
             short = [k for k in keys if c.get(k, 0) < floor]
             if col == "pref" and short:
                 res["warnings"].append(

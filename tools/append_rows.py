@@ -52,7 +52,7 @@ import budget
 import prev_rows as prevmod
 import roster
 from rowkey import uid as row_uid
-from validate_data import EXPECTED_HEADERS
+from validate_data import EXPECTED_HEADERS, load_enums
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -69,6 +69,42 @@ ROSTER_OF = {
 
 # 会場に紐づく事実。行ではなく場所の属性なので、同じ会場の別の行からも引ける。
 VENUE_FACTS = ["lat", "lng", "parking", "nearest_station", "venue_url", "theater_url"]
+
+# 列挙値を持つ列と、その許可集合の名前（load_enums() のキー）。
+#
+# 以前はここを検証しておらず、`cats` に config.js に無いキー（`photo` `film`
+# など）が実際に書き込まれたことがある。書いた時点では何も起きず、
+# `validate_data.py` まで届いて初めて ERROR になるので、**その回の収集が
+# 丸ごと巻き戻される**（Stop フック・claude-routine.sh の双方が ERROR を
+# 理由に data/ を戻す）。数十件書いた後にまとめて弾かれるより、書く瞬間に
+# 1件だけ弾くほうが被害が小さい。
+ENUM_COLUMNS = {
+    "events.csv": {"cats": "cats"},
+    "movies.csv": {"genre": "movie_genre", "screening_type": "screening_type"},
+    "lives.csv": {"genre": "live_genre", "live_type": "live_type"},
+}
+
+
+def check_enum_columns(name, records):
+    """列挙値を検証する。複数値は `|` 区切り。空欄は許容する（必須は別の話）。"""
+    cols = ENUM_COLUMNS.get(name)
+    if not cols:
+        return
+    enums = load_enums()
+    bad = []
+    for i, obj in enumerate(records, start=1):
+        for col, enum_key in cols.items():
+            raw = (obj.get(col) or "").strip()
+            if not raw:
+                continue
+            for v in (x.strip() for x in raw.split("|")):
+                if v and v not in enums[enum_key]:
+                    bad.append(f"{i}件目 {col}={v!r}（使えるのは: {', '.join(sorted(enums[enum_key]))}）")
+    if bad:
+        raise SystemExit(
+            "ERROR: config.js の定義に無いキーがあります。書く前に直してください:\n  "
+            + "\n  ".join(bad)
+        )
 
 # 空欄なら黙って前回値で埋める列。読み・座標・アクセスなど、時間で変わらないもの。
 # lineup_id（フェスの日割りラインナップの参照キー）もここに入る。値は書き手が決めた
@@ -328,6 +364,8 @@ def main():
         unknown = [k for k in obj if k not in headers and k not in CONTROL_KEYS]
         if unknown:
             print(f"WARNING: {i}件目に {name} にない列があります（無視します）: {unknown}", file=sys.stderr)
+
+    check_enum_columns(name, records)
 
     by_uid, by_place = build_prev_index(name, headers, current_path=path)
     filled, misses = apply_carryover(name, headers, records, by_uid, by_place)
