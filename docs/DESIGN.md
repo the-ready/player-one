@@ -1282,7 +1282,7 @@ tools/
   report_stats.py             中核列の充足率と分布を前回と比べて出す（第9.3.2節）
   robots_rules.py             robots.txt の判定規則（Allow/Disallow の最長一致・RFC 9309）
   fetch_gate.py               取得の直前にURL単位で可否を判定し、間隔を空ける門
-  fetch_page.py               ゲートを通してページ本体を取り、JSON-LD/sitemap/ICS を抜く
+  fetch_page.py               ゲートを通してページ本体を取り、本文/リンク/JSON-LD/sitemap/ICS を抜く
   check_robots.py             調査元サイトの robots.txt を着手前に一望する
   purge_source.py             あるサイトの痕跡を洗い出し、掲載データから消す
   *_test.py / *_test.mjs      判定・抽出・表示の検証（ネットワーク不要のものと Playwright のもの）

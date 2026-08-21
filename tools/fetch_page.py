@@ -19,11 +19,13 @@ robots.txt の判定も `Crawl-delay` の消化も行われない。** 矛盾の
 ページなら、**1回の取得から何十件もの行を機械的に取り出せる**。予算という
 制約に対して、「節約する」以外の答えを出せる唯一の経路である。
 
-  --raw       生HTML（既定で先頭 20,000 文字まで。--limit で変えられる）
+  --text      **本文だけ**（表はタブ区切りで残る。既定で先頭 20,000 文字まで）
+  --links     リンクを「文字列<TAB>絶対URL」で（一覧から詳細へ辿るとき）
   --sitemap   sitemap.xml からURLと lastmod を出す（新着ページの検出に使える）
   --jsonld    schema.org の JSON-LD を抜く
   --events    その中の Event 系を、CSVの列に近い形に正規化して出す
   --ics       ICS フィードから VEVENT を出す
+  --raw       生HTML。**--out が必須**（標準出力には出さない）
 
 `--events` が拾う `eventStatus` は、このプロジェクトが最も落としたくない
 **中止・延期**（`EventCancelled` / `EventPostponed`）をそのまま持っている。
@@ -34,11 +36,23 @@ robots.txt の判定も `Crawl-delay` の消化も行われない。** 矛盾の
 > 先はほとんど無く、あっても `WebSite` / `BreadcrumbList` / `Organization` 止まり
 > だった（催しの詳細ページには載っていることがある）。**期待して総当たりしない
 > こと。** 引数なしで実行すると「そのページから何が取れるか」だけを数行で返すので、
-> まずそれを見て、載っていなければ `--raw` に切り替えればよい。
+> まずそれを見て、載っていなければ `--text` に切り替えればよい。
 >
 > 逆に言えば、このツールの主な取り分は JSON-LD ではなく次の2つである。
-> **`--raw`**（`WebFetch` の markdown 化で崩れる一覧の構造が、そのまま読める）と
+> **`--text`**（`WebFetch` の markdown 化で崩れる一覧の構造が、タブ区切りで残る）と
 > **`--sitemap`**（`lastmod` で新着ページだけを絞れる）。どちらも検索を消費しない。
+
+## `--raw` を既定の経路にしない理由
+
+以前は本文を読む手段が `--raw` しか無く、それが最大の消費源になっていた。
+**生HTMLの信号率は実測3%である**（2026-08-21 の実行が残した12ページ、
+988,579文字中の本文31,081文字）。残る97%はタグ・スクリプト・トラッキングで、
+文脈を埋めながらモデルの想起精度を下げる（context rot）。
+
+**これは節約の話ではなく精度の話である。** 雑音を落とすと、同じ調査がより
+少ないトークンで、より正確になる。だから `--raw` は `--out` 必須にしてあり、
+標準出力へは出さない。生HTMLが本当に要る場面（`__NEXT_DATA__` の取り出し、
+壊れた表の目視）ではファイルに落として `grep` すればよい。
 
 ## UA と robots の関係（重要）
 
@@ -52,15 +66,18 @@ robots.txt の判定も `Crawl-delay` の消化も行われない。** 矛盾の
 
 使い方:
     python3 tools/fetch_page.py <URL>                 # 何が取れるページかを先に見る
+    python3 tools/fetch_page.py <URL> --text          # 本文を読む（ふつうはこれ）
+    python3 tools/fetch_page.py <URL> --links         # 詳細ページのURLを集める
     python3 tools/fetch_page.py <URL> --events
     python3 tools/fetch_page.py <URL> --jsonld --type Event
     python3 tools/fetch_page.py <URL> --sitemap --since 2026-08-01
     python3 tools/fetch_page.py <URL> --ics
-    python3 tools/fetch_page.py <URL> --raw --limit 40000 --out temp/page.html
+    python3 tools/fetch_page.py <URL> --raw --out temp/page.html   # 生HTMLはファイルへ
 """
 
 import argparse
 import gzip
+import html as htmlmod
 import io
 import json
 import os
@@ -334,6 +351,118 @@ FEED_RE = re.compile(
     re.I)
 HREF_RE = re.compile(r'href\s*=\s*["\']([^"\']+)["\']', re.I)
 
+# ============================================================
+# 本文の抽出（--text）
+#
+# **生HTMLの信号率は3%しかない。** 2026-08-21 の実行が temp/ に残した12ページを
+# 実測したところ、988,579文字のうち本文は31,081文字だった（麻布台ヒルズの
+# ページは187,803文字中2,344文字＝1.2%）。残りはタグ・スクリプト・
+# トラッキング・cookieバナーである。
+#
+# これは「高いだけ」の問題ではない。文脈が伸びるほどモデルの想起精度は落ちる
+# （context rot。transformer の注意は n トークンで n² の対を張るため、
+# 伸びるほど1対あたりが薄まる）。**雑音97%は、注意を薄めながら課金される。**
+#
+# これまでこのツールが本文を出す手段は `--raw` しか無く、構造化データが
+# 載っていないページでは選択肢が実質1つだった。だから `--raw` が88回呼ばれ、
+# その解析のための使い捨てスクリプトが194回書かれている。**モデルの判断ミス
+# ではなく、道具が他の道を用意していなかった。**
+#
+# ただし単純にタグを消すだけでは `--raw` の代わりにならない。`--raw` が必要
+# だった理由は「一覧の行と列の対応が意味を持つ」ためで（`WebFetch` の
+# markdown 化で崩れるのがまさにそこ）、全部の空白を畳むと同じものを壊す。
+# **セルの区切りをタブに、ブロックの区切りを改行に落として、表の形を残す。**
+# ============================================================
+
+# 中身ごと捨てる要素。ここに本文は無く、あるのは実装の都合だけである。
+DROP_RE = re.compile(
+    r'(?is)<(script|style|noscript|svg|head|template|iframe|object|canvas)\b[^>]*>.*?</\1\s*>')
+COMMENT_RE = re.compile(r'(?is)<!--.*?-->')
+# 表は行ごとに畳む。行と列の対応を残すのが `--text` の要点である
+TR_RE = re.compile(r'(?is)<tr\b[^>]*>(.*?)</tr\s*>')
+TD_RE = re.compile(r'(?is)<(td|th)\b[^>]*>(.*?)</\1\s*>')
+# 改行に落とすブロック要素。開きタグ・閉じタグのどちらでも改行にする
+BLOCK_RE = re.compile(
+    r'(?is)<\s*/?\s*(br|hr|p|div|li|tr|h[1-6]|section|article|header|footer|table|'
+    r'thead|tbody|ul|ol|dl|dt|dd|blockquote|pre|figcaption|form|nav|main|aside)\b[^>]*>')
+TAG_RE = re.compile(r'(?s)<[^>]+>')
+
+
+# セルの区切りは、いったんタブではなくこの記号で持つ。**HTMLの原文にはタブが
+# 字下げとして大量に入っており**、最初からタブで表すと「列の区切り」と
+# 「ただの字下げ」が同じ文字になって区別できなくなる（実際、`<td>` が7個しか
+# 無いページから67行のタブ行が出た）。空白ではない記号を使えば、空白を畳む
+# 処理を素通りできる。
+SEP = "\x00"
+
+
+def _flatten_rows(h):
+    """`<tr>` を1行に畳み、セルを SEP で繋ぐ。
+
+    セルを「`</td>` を区切りに置き換える」だけで扱うと、**セルの中に `<p>` や
+    `<br>` があるページで行が割れる**——割れた結果、区切りが行頭に来て
+    「整形の余り」として捨てられ、392セルのスケジュール表が0行になった。
+    行を先に取り出して畳めば、セルの中身が何であっても1行に収まる。
+    """
+    def one(m):
+        cells = [re.sub(r"\s+", " ", TAG_RE.sub(" ", c)).strip()
+                 for _, c in TD_RE.findall(m.group(1))]
+        return "\n" + SEP.join(cells) + "\n" if cells else "\n"
+    return TR_RE.sub(one, h)
+
+
+def extract_text(html):
+    """HTMLから本文だけを抜く。表はタブ区切りの行として残す。"""
+    h = DROP_RE.sub(" ", html)
+    h = COMMENT_RE.sub(" ", h)
+
+    # **原文の改行と字下げを先に潰す。** HTMLでは原文の空白は表示上ひとつの
+    # 空白に畳まれるもので、行の区切りを意味しない。ここを残したまま進めると、
+    # `</td>` が行頭に来ているだけのページで「列の区切りが全部行頭にある」と
+    # 誤認して、表がまるごと消える（実際に392セルのスケジュール表が0行になった）。
+    # **行と列は、この後にタグから作る。原文の見た目からは作らない。**
+    h = re.sub(r"\s+", " ", h)
+
+    h = _flatten_rows(h)
+    h = BLOCK_RE.sub("\n", h)
+    h = TAG_RE.sub("", h)
+    h = htmlmod.unescape(h)
+
+    # unescape 後に出てくる空白（&nbsp; など）をここで揃える
+    h = h.replace("\xa0", " ").replace("\t", " ")
+    # 改行以外の空白を畳む（SEP は空白ではないので、この網に掛からず残る）
+    h = re.sub(r"[^\S\n]+", " ", h)
+    h = re.sub(r" *\n *", "\n", h)
+    h = re.sub(r" *%s *" % SEP, SEP, h)
+    # 行頭・行末の空セルは、列ではなく整形の余りである
+    h = re.sub(r"(?m)^%s+" % SEP, "", h)
+    h = re.sub(r"(?m)%s+$" % SEP, "", h)
+    h = re.sub(r"%s{2,}" % SEP, SEP, h)      # 空セルの連なりは1つに畳む
+    h = re.sub(r"\n{2,}", "\n", h)           # 空行はトークンを食うだけで何も伝えない
+    return h.replace(SEP, "\t").strip()
+
+
+def extract_links(html, base):
+    """`(文字列, 絶対URL)` の組を出す。重複は最初の1件だけ残す。
+
+    一覧ページから詳細ページへ辿るのに要る。これが無かったため、実行時には
+    `grep -o 'href="[^"]*"'` を手で書く回が24回あった。**同じものを毎回
+    書かせるなら、道具が持つべきである。**
+    """
+    out, seen = [], set()
+    for m in re.finditer(r'(?is)<a\b[^>]*\bhref\s*=\s*["\']([^"\']+)["\'][^>]*>(.*?)</a\s*>',
+                         html):
+        href = m.group(1).strip()
+        if href.startswith(("#", "javascript:", "mailto:", "tel:")):
+            continue
+        url = urllib.parse.urljoin(base, href)
+        if url in seen:
+            continue
+        seen.add(url)
+        label = re.sub(r"\s+", " ", TAG_RE.sub("", htmlmod.unescape(m.group(2)))).strip()
+        out.append((label, url))
+    return out
+
 
 def print_overview(url, html, ctype):
     """まず「このページから何が取れるか」だけを出す。
@@ -342,7 +471,12 @@ def print_overview(url, html, ctype):
     数行で示し、次に打つ手（--events / --jsonld / --raw）を選べるようにする。
     """
     print(f"# {url}")
-    print(f"#   Content-Type: {ctype or '不明'} / 本文 {len(html):,} 文字")
+    body = extract_text(html)
+    pct = (100.0 * len(body) / len(html)) if html else 0.0
+    # 生HTMLの文字数だけを出していたが、それは**これから払う額ではない**。
+    # `--text` で実際に文脈へ入る量を並べて出す（多くのページで数十分の1になる）。
+    print(f"#   Content-Type: {ctype or '不明'} / 生HTML {len(html):,} 文字 → "
+          f"本文 {len(body):,} 文字（信号率 {pct:.1f}%）")
     t = TITLE_RE.search(html)
     if t:
         print(f"#   <title>: {re.sub(r'\s+', ' ', t.group(1)).strip()[:100]}")
@@ -362,13 +496,15 @@ def print_overview(url, html, ctype):
         print("#   JSON-LD: なし")
 
     if "__NEXT_DATA__" in html:
-        print("#   __NEXT_DATA__ あり（Next.js。`--raw` で取り出してJSONを読めます）")
+        print("#   __NEXT_DATA__ あり（Next.js。"
+              "`--raw --out temp/page.html` で落として、そのファイルからJSONを読めます）")
 
     feeds = [urllib.parse.urljoin(url, m.group(1))
              for tag in FEED_RE.findall(html) for m in [HREF_RE.search(tag)] if m]
     if feeds:
         print("#   フィード: " + " ".join(dict.fromkeys(feeds)))
     print(f"#   sitemap の候補: {urllib.parse.urljoin(url, '/sitemap.xml')}")
+    print("#   → 内容を読むなら `--text`、詳細ページへ辿るなら `--links`")
     print(f"# {budget.summary_line(budget.load())}")
 
 
@@ -381,12 +517,17 @@ def main():
     p.add_argument("--events", action="store_true", help="JSON-LD の Event 系を正規化して出す")
     p.add_argument("--sitemap", action="store_true", help="sitemap XML として読む")
     p.add_argument("--ics", action="store_true", help="ICS として読む")
-    p.add_argument("--raw", action="store_true", help="生の本文を出す")
+    p.add_argument("--text", action="store_true",
+                   help="本文だけを出す（表はタブ区切りで残る）。**内容が要るときはこれを使う**")
+    p.add_argument("--links", action="store_true",
+                   help="リンクを「文字列<TAB>絶対URL」で出す（一覧から詳細へ辿るとき）")
+    p.add_argument("--raw", action="store_true",
+                   help="生HTML。**--out が必須**（標準出力には出さない。--text を使うこと）")
     p.add_argument("--type", help="--jsonld を @type で絞る（部分一致・大小無視）")
     p.add_argument("--since", help="--sitemap を lastmod で絞る YYYY-MM-DD")
     p.add_argument("--limit", type=int, default=None,
-                   help=f"--raw の出力文字数（既定 {DEFAULT_LIMIT}）／"
-                        f"--sitemap・--ics・--jsonld の件数（既定 {DEFAULT_ROWS}）")
+                   help=f"--text の出力文字数（既定 {DEFAULT_LIMIT}）／"
+                        f"--sitemap・--ics・--jsonld・--links の件数（既定 {DEFAULT_ROWS}）")
     p.add_argument("--out", help="本文をこのファイルにも保存する（temp/ 配下を推奨）")
     args = p.parse_args()
 
@@ -396,6 +537,21 @@ def main():
     # 常に 20000 のほうが勝ち、200 という既定が出番を持たなかった）。
     char_limit = args.limit if args.limit is not None else DEFAULT_LIMIT
     row_limit = args.limit if args.limit is not None else DEFAULT_ROWS
+
+    # `--raw` を標準出力へ流させない。実測した信号率は3%で、残る97%はタグと
+    # スクリプトである（`extract_text` の上のコメント）。**取得の前に落とす**
+    # ——ここで弾けば、無駄な取得そのものが起きない。
+    if args.raw and not args.out:
+        raise SystemExit(
+            "ERROR: --raw は --out と一緒に使ってください（生HTMLは標準出力に出しません）。\n"
+            "\n"
+            "  本文が欲しいなら:      --text   ← ほとんどの場合これです\n"
+            "  リンクが欲しいなら:    --links\n"
+            "  生HTMLが本当に要るなら: --raw --out temp/page.html してから grep する\n"
+            "\n"
+            "生HTMLの97%はタグ・スクリプト・トラッキングで、文脈を埋めながら\n"
+            "モデルの想起精度を下げます（実測: 988,579文字中、本文は31,081文字）。"
+        )
 
     text, ctype = fetch(args.url)
 
@@ -465,12 +621,32 @@ def main():
             print(f"# {len(blocks)}件", file=sys.stderr)
         return 0
 
-    if args.raw:
-        print(text[:char_limit])
-        if len(text) > char_limit:
-            print(f"\n# …{len(text) - char_limit:,}文字を省略しました"
-                  "（--limit で増やせます。--out でファイルに落とすほうが安全です）",
+    if args.text:
+        body = extract_text(text)
+        print(body[:char_limit])
+        pct = (100.0 * len(body) / len(text)) if text else 0.0
+        note = ""
+        if len(body) > char_limit:
+            note = f" ※{len(body) - char_limit:,}文字を省略（--limit で増やせます）"
+        print(f"# 本文 {len(body):,}文字 / 生HTML {len(text):,}文字（信号率 {pct:.1f}%）{note}",
+              file=sys.stderr)
+        return 0
+
+    if args.links:
+        links = extract_links(text, args.url)
+        for label, u in links[:row_limit]:
+            print(f"{label}\t{u}")
+        if len(links) > row_limit:
+            print(f"# {len(links)}件中{row_limit}件のみ出力しました（--limit で増やせます）",
                   file=sys.stderr)
+        else:
+            print(f"# {len(links)}件", file=sys.stderr)
+        return 0
+
+    if args.raw:
+        # ここに来るのは --out がある場合だけ（上で弾いてある）。本文は既に
+        # 保存済みなので、読み方だけを示して終わる。
+        print("# 生HTMLは標準出力に出しません。上のファイルを grep してください。")
         return 0
 
     print_overview(args.url, text, ctype)

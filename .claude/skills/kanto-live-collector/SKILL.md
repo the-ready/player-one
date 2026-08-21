@@ -63,8 +63,8 @@ python3 tools/fetch_gate.py --check <URL>   # 判定だけ（待たない・記�
 ```
 
 > **`curl` でページ本体を取りに行かないこと。** ゲートを迂回することになる。
-> 生HTMLが要るときは `python3 tools/fetch_page.py <URL> --raw` を使う——
-> **ゲートを通したうえで本文を取る正規の手段**である（下記「検索を使わずに済ませる」）。
+> ページの内容が要るときは `python3 tools/fetch_page.py <URL> --text` を使う——
+> **ゲートを通したうえで本文だけを取る正規の手段**である（下記「検索を使わずに済ませる」）。
 
 > **拒否されている先でも、許可された経路があることがある。** connpass は
 > `Disallow: /` だが `Allow: /*.ics` を併記しており、
@@ -462,16 +462,22 @@ python3 tools/budget.py --report --verbose                   # 工程別の内�
 
 **1回の取得から複数の行が取れる経路を優先する。** どれも `WebSearch` を消費しない。
 
-| 経路                                             | 何が取れるか                                                            |
-| ------------------------------------------------ | ----------------------------------------------------------------------- |
-| `roster.py --list --urls` / `prev_rows.py --uid` | 調査先のURL・前回の `official_url`（**知っているURLを検索し直さない**） |
-| `fetch_page.py <URL>`                            | **そのページから何が取れるか**の要約。次の手はこれを見てから選ぶ        |
-| `fetch_page.py <URL> --raw`                      | 生HTML。**`WebFetch` の markdown 化で崩れる一覧の構造がそのまま読める** |
-| `fetch_page.py <URL> --sitemap --since <日付>`   | その施設の**新着ページだけ**                                            |
-| `fetch_page.py <URL> --events` / `--ics`         | 日付・会場・**中止/延期**が構造化された形で                             |
+| 経路                                             | 何が取れるか                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `roster.py --list --urls` / `prev_rows.py --uid` | 調査先のURL・前回の `official_url`（**知っているURLを検索し直さない**）                     |
+| `fetch_page.py <URL>`                            | **そのページから何が取れるか**の要約。次の手はこれを見てから選ぶ                            |
+| `fetch_page.py <URL> --text`                     | **本文だけ**。表はタブ区切りで残る（`WebFetch` の markdown 化で崩れる一覧の構造が保たれる） |
+| `fetch_page.py <URL> --links`                    | 「文字列＋絶対URL」の一覧。**一覧ページから詳細ページへ辿るとき**                           |
+| `fetch_page.py <URL> --sitemap --since <日付>`   | その施設の**新着ページだけ**                                                                |
+| `fetch_page.py <URL> --events` / `--ics`         | 日付・会場・**中止/延期**が構造化された形で                                                 |
 
-> **会場スケジュールのように「行と列の対応が意味を持つ」ページでは `--raw` を使う。**
-> JSON-LD は期待するほど普及していないので総当たりしないこと（第6.5.9節）。
+> **会場スケジュールのように「行と列の対応が意味を持つ」ページでも `--text` でよい。**
+> セルはタブ区切りで残る。JSON-LD は期待するほど普及していないので総当たりしないこと（第6.5.9節）。
+>
+> **`--raw`（生HTML）は `--out` が無いと動かない。** 実測した信号率は3%——216ページ・
+> 3,190万文字を通したところ、本文は76万文字（42分の1）だった。残る97%はタグ・スクリプト・
+> トラッキングで、**文脈を埋めながらモデルの想起精度を下げる**。生HTMLが本当に要る場面
+> （`__NEXT_DATA__` の取り出しなど）は `--raw --out temp/page.html` で落として `grep` する。
 
 **`data/venues.csv` はほぼ全件にURLが入っている（`data/festivals.csv` も同様）。知っているURLを検索し直さないこと。**
 
@@ -1069,12 +1075,15 @@ EOF
 ### 公式ページからの取り出し方（実測）
 
 `WebFetch` はHTMLをmarkdown化してから渡すため、一覧の構造が失われやすい。
-**生HTMLを取って機械的に抜くほうが確実で、しかも検索の予算を一切消費しない。**
+**ページ本文を取って機械的に抜くほうが確実で、しかも検索の予算を一切消費しない。**
 
 ```bash
-python3 tools/fetch_page.py <ラインナップページのURL> --raw --limit 60000
-python3 tools/fetch_page.py <URL> --out temp/lineup.html   # 大きいページはファイルへ
+python3 tools/fetch_page.py <ラインナップページのURL> --text
+python3 tools/fetch_page.py <ラインナップページのURL> --links   # 日別ページに分かれている場合
 ```
+
+出演者一覧は表かリストで組まれていることが多く、`--text` はどちらも構造を保つ
+（表はタブ区切りの行になる）。**生HTMLは要らない。**
 
 > **`curl` は使わない。** フックを通らないので robots.txt の判定も `Crawl-delay` の
 > 消化も行われず、この文書が冒頭で禁じている行為そのものになる。`fetch_page.py` は
@@ -1221,7 +1230,7 @@ APIを1回叩いて確かめる。こちらはツールの対象外である。
 - [ ] 価格比較を行っていないか（このタブでは行わない）
 - [ ] **`python3 tools/budget.py --report --verbose` で工程別の消費を確認し、報告に含めたか**（記憶で書いていないか）
 - [ ] 撤退を判断する前に、**残り時間**を確認したか（上限6時間。まだ余っているのに早く畳んでいないか）
-- [ ] 一覧の構造が意味を持つページを、`fetch_page.py --raw` ではなく `WebFetch` で読んで崩していないか
+- [ ] 一覧の構造が意味を持つページを、`fetch_page.py --text` ではなく `WebFetch` で読んで崩していないか
 - [ ] 予算切れで工程を打ち切った場合、その事実を報告に書いたか（件数を埋めるために未検証の行を足していないか）
 - [ ] 再確認できずに前回値で持ち越した tier C の行について、**`onsale_*` を空欄にした**か
 
@@ -1317,7 +1326,7 @@ APIを1回叩いて確かめる。こちらはツールの対象外である。
 1. 実行日を確認し、対象期間（公演日3ヶ月以内 **または** 受付締切3ヶ月以内）を確定する
 2. `python3 tools/append_rows.py lives --init` と `python3 tools/append_lineup.py --init`（`lives.csv` の前回分は `data/.prev/` に自動退避される。**先に `--init` してから棚卸しを取ること**——先週の `carried.jsonl` が今回分に更新されるのは `--init` の中でなので、順序を逆にすると「先週、確認できないまま消えた行」が1週遅れて表示される）
 3. **`python3 tools/prev_rows.py lives --worklist` で前回分の棚卸しリストを取る**（省略禁止）。**先頭に出る「先週、確認できないまま消えた行」を最初に片付ける**
-4. `python3 tools/roster.py venues --list --pref {都県} --urls` で調査対象を引き、**4列目のURLを直接開いて**「既存行の再確認」と「新規の発見」を同じ1回の調査で済ませる（検索の枠5回）。**会場スケジュールは `python3 tools/fetch_page.py <URL> --raw` で取る**——`WebFetch` の markdown 化は公演名と日付の対応を崩す。収穫の記録は `append_rows.py` が自動で行う
+4. `python3 tools/roster.py venues --list --pref {都県} --urls` で調査対象を引き、**4列目のURLを直接開いて**「既存行の再確認」と「新規の発見」を同じ1回の調査で済ませる（検索の枠5回）。**会場スケジュールは `python3 tools/fetch_page.py <URL> --text` で取る**——`WebFetch` の markdown 化は公演名と日付の対応を崩すが、`--text` はタブ区切りで残す。収穫の記録は `append_rows.py` が自動で行う
 5. `python3 tools/roster.py festivals --list --urls` でフェスを確認し、開催情報・出演者発表の更新を拾う。**名簿に無いフェスも探す**（枠20回。主にこの探索に使う）
 6. プレイガイド・音楽メディアで、小箱公演・急な公演を補完する（枠20回）
 7. **`python3 tools/purge_ended.py lives` で、公演日を過ぎた行を先に機械的に取り除く**（検索は使わない。消した行には `expired` の処分が自動で付き、参照していた `lineups.csv` の行も一緒に片付く）
@@ -1327,7 +1336,7 @@ APIを1回叩いて確かめる。こちらはツールの対象外である。
 11. **`tour_id` 単位で全公演の受付状況を並べ、一部の公演にだけ出ている枠を `limited_sale` に記録する**（ツアーで公演ごとに確認し直す価値があるのは、この受付状況と限定枠**だけ**である）
 12. 転売サイトを除外し、正規経路の `url` を選定する
 13. 駐車場・最寄り駅は**初出の会場について1行だけ**書く（残りは自動補完される）。`lat`/`lng` は空欄で渡す。メインアーティストの Apple Music アーティストページは iTunes Search API を**1回**叩き、確信が持てなければ空欄にする（これは `lives.csv` 側の話で、日割り側は下の 13.5 でツールが埋める）
-    13.5. **フェスの日割りラインナップを `python3 tools/append_lineup.py` で書き、続けて `python3 tools/fill_apple_music.py` を実行する**（前者は公式ページを `fetch_page.py --raw` で取って機械的に抜き、後者は書き終えた名前のぶんだけ Apple Music のリンクを埋める。**どちらも検索の予算を消費しないので、予算切れを理由に飛ばさない**。「フェスの日割りラインナップ」章と「Apple Music アーティストリンク」章）
+    13.5. **フェスの日割りラインナップを `python3 tools/append_lineup.py` で書き、続けて `python3 tools/fill_apple_music.py` を実行する**（前者は公式ページを `fetch_page.py --text` で取って機械的に抜き、後者は書き終えた名前のぶんだけ Apple Music のリンクを埋める。**どちらも検索の予算を消費しないので、予算切れを理由に飛ばさない**。「フェスの日割りラインナップ」章と「Apple Music アーティストリンク」章）
 14. **`python3 tools/prev_rows.py lives --dispose` で、残った消えた公演（7で片付いた分を除く）1件ずつに理由を記録する**（中止は `cancelled`、確認できなかったものは `notfound`）
 15. `python3 tools/roster.py venues --gc` と `python3 tools/roster.py festivals --gc` で名簿を整理する
 16. `python3 tools/diff_data.py lives` と `python3 tools/validate_data.py` を実行し、どちらも**終了コード0**であることを確認する（`diff_data.py` は**収穫が0件でも落ちる**）

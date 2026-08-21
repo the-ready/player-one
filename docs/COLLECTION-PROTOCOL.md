@@ -528,18 +528,20 @@ Crawl-delay: 5
 
 ```bash
 python3 tools/fetch_page.py <URL>                      # 何が取れるページかを先に見る
-python3 tools/fetch_page.py <URL> --raw --limit 40000  # 生HTML（構造が保たれる）
+python3 tools/fetch_page.py <URL> --text               # 本文だけ（ふつうはこれ）
+python3 tools/fetch_page.py <URL> --links              # 詳細ページのURLを集める
 python3 tools/fetch_page.py <URL> --sitemap --since 2026-08-01
 python3 tools/fetch_page.py <URL> --events             # JSON-LD の Event 系を正規化
 python3 tools/fetch_page.py <URL> --ics                # ICS フィード
 ```
 
 引数なしで実行すると「そのページから何が取れるか」だけを数行で返す。**先にこれを見て、
-次の手を選ぶ。** いきなり `--raw` を出すと、それだけで文脈が埋まる。
+次の手を選ぶ。**
 
 | 得られるもの | 使いどころ                                                                                            |
 | ------------ | ----------------------------------------------------------------------------------------------------- |
-| `--raw`      | 会場の公演カレンダー・料金表など、**行と列の対応が意味を持つ**ページ                                  |
+| `--text`     | 会場の公演カレンダー・料金表など、**行と列の対応が意味を持つ**ページ。表はタブ区切りで残る            |
+| `--links`    | 一覧ページから詳細ページへ辿るとき。相対URLは絶対URLに直り、重複は落ちる                              |
 | `--sitemap`  | `lastmod` で絞れば、その施設の**新着ページだけ**を検索0回で見つけられる                               |
 | `--events`   | `eventStatus` に `EventCancelled` / `EventPostponed` が入る。**中止・延期を文章から読み取るより確実** |
 | `--ics`      | 自治体・ホール・connpass など。日付と会場が構造化されている                                           |
@@ -547,7 +549,26 @@ python3 tools/fetch_page.py <URL> --ics                # ICS フィード
 > **構造化データは期待するほど普及していない。** 2026-08 に名簿の施設・劇場・横断
 > サイトを実測したところ、トップページに `Event` 型の JSON-LD を出していた先は
 > ほとんど無く、あっても `WebSite` / `BreadcrumbList` 止まりだった。**総当たりしないこと。**
-> 引数なしの確認は1回の取得で済むので、それで無ければ `--raw` に切り替える。
+> 引数なしの確認は1回の取得で済むので、それで無ければ `--text` に切り替える。
+
+##### `--raw`（生HTML）を既定の経路にしない理由
+
+`--raw` は **`--out` が無いと動かない**。標準出力へ生HTMLを流さない、という制約である。
+
+**生HTMLの信号率は実測2.4%**（2026-08-21 の実行が残した216ページ、3,190万文字に対して
+本文76万文字＝42分の1）。残る97%はタグ・スクリプト・トラッキング・cookieバナーで、
+本文は入っていない。
+
+これを**節約の話だと読み違えないこと。** 文脈が伸びるほどモデルの想起精度は落ちる
+（transformer の注意は n トークンで n² の対を張るので、伸びるほど1対あたりが薄まる）。
+**雑音97%は、注意を薄めながら課金される。** 落とせば、同じ調査がより少ないトークンで、
+より正確になる——トレードオフではない。
+
+以前は本文を読む手段が `--raw` しか無かったため、2026-08-21 の実行では `--raw` が88回、
+その出力を解析する使い捨てスクリプトが194回書かれた。**モデルの判断ではなく、道具が
+他の道を用意していなかったことの結果である。** 生HTMLが本当に要る場面
+（`__NEXT_DATA__` の取り出し、壊れた表の目視）は `--raw --out temp/page.html` で
+落として `grep` する。
 
 #### UA と robots の関係
 
@@ -843,7 +864,8 @@ python3 tools/budget.py --report --verbose                   # 工程別の内�
 | `prev_rows.py <ds> --uid / --venue`      | 0       | 前回の `official_url` `url`                    |
 | `fetch_page.py <URL> --sitemap --since`  | 取得1回 | その施設の**新着ページだけ**                   |
 | `fetch_page.py <URL> --ics` / `--events` | 取得1回 | 日付・会場・**中止状態**が構造化された形で     |
-| `fetch_page.py <URL> --raw`              | 取得1回 | 一覧の構造が崩れない生HTML（6.5.9）            |
+| `fetch_page.py <URL> --text`             | 取得1回 | 一覧の構造が崩れない本文（6.5.9）              |
+| `fetch_page.py <URL> --links`            | 取得1回 | 詳細ページの絶対URL一覧（6.5.9）               |
 | `fill_apple_music.py`                    | 0       | ラインナップの Apple Music リンク              |
 
 **1回の取得から複数の行が取れる経路を優先する。** 施設のカレンダーページ1枚から
@@ -862,13 +884,13 @@ python3 tools/budget.py --report --verbose                   # 工程別の内�
 3. python3 tools/roster.py <名簿> --list --urls      今回調べる先（URL付き＝検索不要）
 4. 会場ごとに調査 ―― 既存行の再確認と新規の発見を同時に行う
      ├ python3 tools/budget.py --phase "<工程名>"    工程の切り替わりで打つ
-     ├ 検索を使わない経路を先に当たる（第8.8節。fetch_page.py の --raw / --sitemap / --ics）
+     ├ 検索を使わない経路を先に当たる（第8.8節。fetch_page.py の --text / --links / --sitemap / --ics）
      ├ 必須列が揃った行はそこで打ち切る（充足条件・第8.3節）
      ├ 5〜10件ごとに append_rows.py で追記（変更のない列は _carry）
      │   └ 収穫の記録（roster --hit）と [進捗] 行は、このとき自動で出る
      └ 名簿に無い会場を見つけたら roster.py --add
 4.5 python3 tools/append_lineup.py                   フェスの日割り（livesのみ）
-     ├ 公式ページを fetch_page.py --raw で取って機械的に抜く。検索を使わない
+     ├ 公式ページを fetch_page.py --text で取って機械的に抜く。検索を使わない
      └ python3 tools/fill_apple_music.py             続けて Apple Music リンクを埋める
 5. python3 tools/purge_ended.py <ds>                 終了日を過ぎた行を機械的に取り除く（第5.1節）
 6. python3 tools/prev_rows.py <ds> --dispose         残った消えた行の説明（5で片付いた分を除く）

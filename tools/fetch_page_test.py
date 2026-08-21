@@ -140,6 +140,47 @@ check("会場", evs[0]["location"], "歴史民俗博物館")
 check("日時つき DTSTART でも日付を取れる", evs[1]["dtstart"], "2026-08-15")
 check("中止が STATUS から取れる", evs[1]["status"], "CANCELLED")
 
-TOTAL = 30
+# ---------------------------------------------------------------- 本文抽出
+
+# `--text` が守るべきものは2つある。**雑音を落とすこと**と、
+# **一覧の行と列の対応を壊さないこと**。後者は `--raw` が存在した理由そのもので、
+# ここが崩れると「安くなったが読めない」道具になる。
+TEXT_HTML = """<html><head><title>t</title>
+<script>var ua = navigator.userAgent;</script>
+<style>.a{color:red}</style></head>
+<body>
+<div>お知らせ</div>
+<table>
+<tr><th>日付</th><th>演目</th></tr>
+<tr><td>8/01</td>
+<td><p>国境の南</p><br>116分</td></tr>
+</table>
+<p>料金 &yen;1,300</p>
+<a href="/detail?id=1">詳細</a><a href="#top">上へ</a><a href="/detail?id=1">重複</a>
+<a href="https://other.example/x">外部</a>
+</body></html>"""
+
+print("本文抽出（--text）")
+TXT = fp.extract_text(TEXT_HTML)
+LINES = TXT.split("\n")
+check("script の中身は残らない", "navigator" in TXT, False)
+check("style の中身は残らない", "color:red" in TXT, False)
+check("表の見出しが列のまま残る", "日付\t演目" in LINES, True)
+check("セルに <p>/<br> があっても行が割れない", "8/01\t国境の南 116分" in LINES, True)
+check("実体参照が戻る", "料金 ¥1,300" in LINES, True)
+check("空行は残らない（トークンを食うだけで何も伝えない）", "" in LINES, False)
+
+# `</td>` が行頭に置かれた書き方のページで、表が392セルまるごと消えたことがある。
+# **原文の改行は行の区切りではない**（HTMLでは空白1つに畳まれる）という規則を固定する。
+check("原文の改行は行を割らない",
+      fp.extract_text("<table><tr>\n<td>A</td>\n<td>B</td>\n</tr></table>"), "A\tB")
+
+print("リンク抽出（--links）")
+LINKS = fp.extract_links(TEXT_HTML, "https://ex.jp/a/b.html")
+check("相対URLが絶対になる", LINKS[0], ("詳細", "https://ex.jp/detail?id=1"))
+check("# つきと重複は落ちる", len(LINKS), 2)
+check("外部リンクは残る", LINKS[1][1], "https://other.example/x")
+
+TOTAL = 40
 print(f"\n{TOTAL - fails}/{TOTAL} 件が期待どおり")
 sys.exit(1 if fails else 0)
