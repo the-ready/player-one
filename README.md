@@ -16,6 +16,7 @@ assets/
     cards.js  render.js
     ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-controls.js
     main.js                   起動とタブ切り替えの配線のみ
+    wallpaper.js               ヘッダーの壁紙（水玉／動的な空）。他モジュールと独立
   vendor/leaflet/             Leaflet 1.9.4（同梱。CDNではない）
 data/                         週次で差し替えるデータ。ここだけ触れば中身が更新される
   events.csv                  イベント

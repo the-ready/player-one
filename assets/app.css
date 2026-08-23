@@ -248,6 +248,391 @@ h1.pop-title {
   max-width: 42em;
 }
 
+/* ---------- ヘッダーの壁紙（dynamic） ----------
+   明石の実際の太陽・月の位置を、端末の時計から毎分1回だけ描き直す
+   （requestAnimationFrame のループは持たない）。
+   位置はすべて % 指定で、ヘッダーの高さ・幅が変わっても比率で追従する。
+   数式・雲や月のかたち・可読性の仕組みは assets/js/wallpaper.js 側にある。
+
+   雲・星は太陽高度をキーにした色を @property 登録した custom property で
+   持つ。素の custom property は補間されず、時間帯が変わる瞬間に
+   パッと切り替わってしまうため。 */
+@property --wp-sky-top {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a9d0e2;
+}
+@property --wp-sky-mid {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d5e5e2;
+}
+@property --wp-sky-bot {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f3ecd9;
+}
+@property --wp-haze {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f7d9ae;
+}
+@property --wp-cloud-fill {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --wp-cloud-line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #33302b;
+}
+@property --wp-cloud-shade {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e7e0d2;
+}
+@property --wp-glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffd98a;
+}
+
+header.pop-header.wp-on {
+  background: transparent;
+  /* 文字色は空の明るさで切り替える。JSが .wp-night を付け外しする。 */
+  transition: color 0.8s linear;
+}
+.wp {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    --wp-sky-top 1.4s linear,
+    --wp-sky-mid 1.4s linear,
+    --wp-sky-bot 1.4s linear,
+    --wp-haze 1.4s linear,
+    --wp-cloud-fill 1.4s linear,
+    --wp-cloud-line 1.4s linear,
+    --wp-cloud-shade 1.4s linear,
+    --wp-glow 1.4s linear;
+}
+
+.wp-sky {
+  position: absolute;
+  inset: 0;
+  /* 真下向き（180deg）にする。少し傾けると絵に動きが出るが、
+     空の明るい側が太陽と無関係に決まってしまい、
+     日の出前なのに西が明るい、という嘘になる。
+     左右の偏りは下の .wp-haze が太陽のx座標から作る。 */
+  background: linear-gradient(
+    180deg,
+    var(--wp-sky-top) 0%,
+    var(--wp-sky-mid) 52%,
+    var(--wp-sky-bot) 100%
+  );
+}
+/* 太陽の側の地平が暖かくなる。日の出前・日の入り後もしばらく残す
+   （空が白むのは太陽が昇る前から）。 */
+.wp-haze {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10%;
+  height: 85%;
+  background: radial-gradient(
+    70% 120% at var(--wp-sun-x, 50%) 100%,
+    var(--wp-haze) 0%,
+    transparent 72%
+  );
+  opacity: var(--wp-haze-a, 0);
+  transition: opacity 1.4s linear;
+}
+
+/* ---- 星 ---- */
+.wp-stars {
+  position: absolute;
+  inset: 0;
+  opacity: var(--wp-star-a, 0);
+  transition: opacity 1.6s linear;
+}
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--c, #fffaf0);
+  transform: translate(-50%, -50%);
+  transition: opacity 0.9s linear;
+}
+.star.tw {
+  animation: twinkle var(--dur, 4s) ease-in-out var(--dly, 0s) infinite
+    alternate;
+}
+@keyframes twinkle {
+  from {
+    opacity: 0.28;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.sparkle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.9s linear;
+}
+.sparkle.tw {
+  animation: twinkle var(--dur, 5s) ease-in-out var(--dly, 0s) infinite
+    alternate;
+}
+
+/* ---- 太陽・月 ---- */
+.wp-glow-l {
+  position: absolute;
+  left: var(--wp-sun-x, 50%);
+  top: var(--wp-sun-y, 50%);
+  width: calc(var(--wp-orb) * 6.5);
+  height: calc(var(--wp-orb) * 6.5);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--wp-glow) 0%, transparent 60%);
+  opacity: var(--wp-sun-glow-a, 0);
+  transition:
+    opacity 1.4s linear,
+    left 1.4s linear,
+    top 1.4s linear;
+  animation: breathe 11s ease-in-out infinite alternate;
+}
+@keyframes breathe {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+.wp-sun {
+  position: absolute;
+  width: var(--wp-orb);
+  height: var(--wp-orb);
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  transition:
+    left 1.4s linear,
+    top 1.4s linear,
+    opacity 1.2s linear;
+}
+/* 月は太陽よりわずかに小さく描く。実際の視直径はほぼ同じだが、
+   同じ大きさだと夜の空では月のほうが大きく見えてしまう。 */
+.wp-moon {
+  position: absolute;
+  width: calc(var(--wp-orb) * 0.84);
+  height: calc(var(--wp-orb) * 0.84);
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  transition:
+    left 1.4s linear,
+    top 1.4s linear,
+    opacity 1.2s linear;
+}
+.wp-sun {
+  left: var(--wp-sun-x, 50%);
+  top: var(--wp-sun-y, 120%);
+  opacity: var(--wp-sun-a, 0);
+}
+.wp-moon {
+  left: var(--wp-moon-x, 50%);
+  top: var(--wp-moon-y, 120%);
+  opacity: var(--wp-moon-a, 0);
+}
+.wp-moon-glow {
+  position: absolute;
+  left: var(--wp-moon-x, 50%);
+  top: var(--wp-moon-y, 120%);
+  width: calc(var(--wp-orb) * 2.6);
+  height: calc(var(--wp-orb) * 2.6);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(226, 232, 255, 0.34) 0%,
+    rgba(226, 232, 255, 0.1) 42%,
+    transparent 68%
+  );
+  opacity: var(--wp-moon-a, 0);
+  transition:
+    opacity 1.2s linear,
+    left 1.4s linear,
+    top 1.4s linear;
+}
+
+/* ---- 雲 ---- */
+.wp-clouds {
+  position: absolute;
+  inset: 0;
+}
+.cloud {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.cloud > svg {
+  display: block;
+  overflow: visible;
+  animation: drift var(--dur, 160s) ease-in-out var(--dly, 0s) infinite
+    alternate;
+}
+@keyframes drift {
+  from {
+    transform: translateX(calc(var(--amp, 16px) * -1));
+  }
+  to {
+    transform: translateX(var(--amp, 16px));
+  }
+}
+
+/* ---- 文字の下の霞 ----
+   太陽は仕様どおり左下→中央上→右下を通るので、午前中は必ず見出しの上を
+   横切る。空の色も時間で動く以上、文字色だけで可読性を担保するのは無理がある。
+   昼用と夜用を重ねてクロスフェードしているのは、background-image が
+   transition できないため（色を1枚で補間すると薄明で中間色になって一番読みにくい）。 */
+.wp-veil {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.9s linear;
+}
+.wp-veil-night {
+  opacity: 0;
+}
+/* 弧はヘッダー全体を使う（全面レイアウト）。文字は幅の半分弱まで伸びるので、
+   横方向に一様な覆いをかける。左側だけを濃く覆う方式は、日の出の輝きが
+   ある側だけが塗り潰されて手つかずの反対側が明るく残り、光源の向きが
+   反転して見えた（実測で右が左の8.8倍）。一様にすれば全体が同じ割合で
+   沈むので、空の明暗差＝太陽の方向は保たれる。濃さで足りないぶんは
+   天体側を hazeOverText() で薄めて補う。 */
+.wp-veil-day {
+  background: rgba(
+    var(--wp-veil-day-rgb, 248, 244, 234),
+    var(--wp-veil-flat-a, 0.4)
+  );
+}
+.wp-veil-night {
+  background: rgba(
+    var(--wp-veil-night-rgb, 13, 18, 38),
+    var(--wp-veil-flat-a, 0.4)
+  );
+}
+header.pop-header.wp-night .wp-veil-day {
+  opacity: 0;
+}
+header.pop-header.wp-night .wp-veil-night {
+  opacity: 1;
+}
+/* 夜の地明かり。日本の夜空は真っ黒にならない。下端をほんのり暖かくすると
+   「暗くした昼」ではなく「夜」に見える。 */
+.wp-citylight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36%;
+  background: linear-gradient(
+    0deg,
+    rgba(255, 176, 106, 0.17) 0%,
+    rgba(255, 176, 106, 0) 100%
+  );
+  /* 星と同じ変数で出すと、真夜中まで満照のままになる（消し残った街明かり）。
+     日没直後の残照と、一晩じゅう残る街明かりは別物なので、別の変数で出す。 */
+  opacity: var(--wp-city-a, 0);
+  transition: opacity 1.6s linear;
+}
+
+/* 紙の粒。グラデーションのバンディングを隠しつつ、サイトの刷り物っぽさに寄せる。 */
+.wp-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.055;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- 夜の文字色 ---- */
+/* 空は --sunny-tint より少し暗いので、既存の --text-soft(#6b6660) だと
+   注記(11px)が4.3:1あたりまで落ちる。dynamic のときだけ1段濃くする。 */
+header.pop-header.wp-on .pop-disclaimer {
+  color: #4f4a43;
+}
+header.pop-header.wp-night h1.pop-title {
+  color: #fbf5e6;
+  text-shadow: 3px 3px 0 #4b3f7a;
+}
+header.pop-header.wp-night .pop-sub {
+  color: #ece5d6;
+}
+header.pop-header.wp-night .pop-disclaimer {
+  color: #c9c2d6;
+}
+header.pop-header.wp-night .kicker-pop {
+  background: #fbf5e6;
+  color: #2a2f52;
+}
+header.pop-header.wp-night .stat-chip,
+header.pop-header.wp-night .tab-chip,
+header.pop-header.wp-night .wp-toggle {
+  border-color: #2a2f52;
+  box-shadow:
+    3px 3px 0 #2a2f52,
+    0 0 0 1.5px rgba(251, 245, 230, 0.85);
+  color: #2a2f52;
+}
+header.pop-header.wp-night .tab-chip[aria-selected="true"] {
+  background: #2a2f52;
+  color: #fff;
+}
+header.pop-header.wp-night .stat-chip b {
+  color: #a8405f;
+}
+
+/* ---- 壁紙切り替えボタン ----
+   static/dynamic を切り替える丸ボタン。サイトの chip と同じ語彙
+   （白地・3px インク枠・3px3px0 の影）を円形に詰めている。 */
+.wp-toggle {
+  position: absolute;
+  top: 1.1rem;
+  right: clamp(1rem, 4vw, 3rem);
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+.wp-toggle svg {
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+}
+/* [hidden] の既定UAスタイルは HTML 要素向けで、SVG 要素には
+   効かない実装があった（属性は付くのに display が block のまま）。
+   ここで明示的に効かせる。 */
+.wp-toggle svg[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud > svg,
+  .star.tw,
+  .sparkle.tw,
+  .wp-glow-l {
+    animation: none !important;
+  }
+}
+
 /* ---------- locate feedback ---------- */
 @keyframes btnPulse {
   0%,
@@ -2466,6 +2851,8 @@ footer p {
   .cal-menu,
   .skip-link,
   .blob,
+  .wp,
+  .wp-toggle,
   .card-actions,
   .tab-group,
   .directory {
