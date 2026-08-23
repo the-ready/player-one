@@ -515,7 +515,8 @@ def print_overview(url, html, ctype):
           f"本文 {len(body):,} 文字（信号率 {pct:.1f}%）")
     t = TITLE_RE.search(html)
     if t:
-        print(f"#   <title>: {re.sub(r'\s+', ' ', t.group(1)).strip()[:100]}")
+        title_text = re.sub(r"\s+", " ", t.group(1)).strip()[:100]
+        print(f"#   <title>: {title_text}")
 
     blocks = jsonld_blocks(html)
     if blocks:
