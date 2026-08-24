@@ -59,15 +59,70 @@
     />
     <link rel="stylesheet" href="assets/app.css" />
     <script type="module" src="assets/js/main.js"></script>
+    <script type="module" src="assets/js/wallpaper.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#mainContent">本文へスキップ</a>
 
-    <header class="pop-header">
-      <span class="blob b1" aria-hidden="true"></span>
-      <span class="blob b2" aria-hidden="true"></span>
-      <span class="blob b3" aria-hidden="true"></span>
-      <span class="blob b4" aria-hidden="true"></span>
+    <header class="pop-header wp-on" id="hdr">
+      <!-- 水玉（static）。dynamic が既定なので初期状態は隠す -->
+      <span class="blob b1" aria-hidden="true" hidden></span>
+      <span class="blob b2" aria-hidden="true" hidden></span>
+      <span class="blob b3" aria-hidden="true" hidden></span>
+      <span class="blob b4" aria-hidden="true" hidden></span>
+
+      <!-- 空（dynamic、既定）。奥から手前の順。中身は wallpaper.js が組み立てる -->
+      <div class="wp" id="wp" aria-hidden="true">
+        <div class="wp-sky"></div>
+        <div class="wp-haze"></div>
+        <div class="wp-stars" id="stars"></div>
+        <div class="wp-moon-glow"></div>
+        <svg class="wp-moon" id="moon" viewBox="-50 -50 100 100"></svg>
+        <div class="wp-glow-l"></div>
+        <svg class="wp-sun" id="sun" viewBox="-50 -50 100 100"></svg>
+        <div class="wp-clouds" id="clouds"></div>
+        <div class="wp-citylight"></div>
+        <div class="wp-veil wp-veil-day"></div>
+        <div class="wp-veil wp-veil-night"></div>
+        <div class="wp-grain"></div>
+      </div>
+
+      <button
+        type="button"
+        class="wp-toggle"
+        id="wpToggleBtn"
+        aria-pressed="true"
+        aria-label="壁紙を水玉に切り替える"
+      >
+        <svg
+          id="wpToggleIconDynamic"
+          viewBox="-12 -12 24 24"
+          aria-hidden="true"
+        >
+          <circle r="6" fill="#ffca5c" stroke="var(--ink)" stroke-width="1.6" />
+          <g stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round">
+            <line x1="0" y1="-8.6" x2="0" y2="-10.8" />
+            <line x1="0" y1="8.6" x2="0" y2="10.8" />
+            <line x1="-8.6" y1="0" x2="-10.8" y2="0" />
+            <line x1="8.6" y1="0" x2="10.8" y2="0" />
+            <line x1="-6.1" y1="-6.1" x2="-7.6" y2="-7.6" />
+            <line x1="6.1" y1="6.1" x2="7.6" y2="7.6" />
+            <line x1="-6.1" y1="6.1" x2="-7.6" y2="7.6" />
+            <line x1="6.1" y1="-6.1" x2="7.6" y2="-7.6" />
+          </g>
+        </svg>
+        <svg
+          id="wpToggleIconStatic"
+          viewBox="-12 -12 24 24"
+          aria-hidden="true"
+          hidden
+        >
+          <circle cx="-3.8" cy="-3.2" r="4.4" fill="var(--pink)" />
+          <circle cx="4.6" cy="1" r="3.2" fill="var(--sky)" />
+          <circle cx="-1.8" cy="5.6" r="2.6" fill="var(--grape)" />
+        </svg>
+      </button>
+
       <div class="header-inner">
         <span class="kicker-pop">EVENT RADAR</span>
         <h1 class="pop-title">イベントボード</h1>
