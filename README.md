@@ -62,7 +62,7 @@ manifest.webmanifest          ホーム画面追加用
 docs/
   DESIGN.md                   設計書。何をどう決めたかと、その理由
   COLLECTION-PROTOCOL.md      3つの収集スキルが共有する手順とその理由（差分・持ち越し・予算）
-  skill-feedback.md           収集ルールの変更提案の置き場（適用は人間が判断する）
+  skill-feedback.md           収集ルールの変更提案（適用は人間が判断する）と、小さなバグの自己修正ログの置き場
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/pages.yml   main への push で Pages へデプロイ
 ```

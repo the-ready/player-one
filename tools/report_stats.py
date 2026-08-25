@@ -222,7 +222,8 @@ def main():
         for r in results:
             print_human(r)
         print("\n充足率が前回より落ちた列があれば、その理由を報告に書くこと。"
-              "\n原因が手順の側にあるなら docs/skill-feedback.md に追記する（SKILL.md は書き換えない）。")
+              "\n原因が目標件数・品質基準・禁止事項の側にあるなら docs/skill-feedback.md に追記する"
+              "（自分で書き換えない）。それ以外の小さなバグなら自分で直してよい。")
     # 数字を出すのが仕事で、良し悪しの判定はしない。落とすのは validate/diff の役目。
     return 0
 
