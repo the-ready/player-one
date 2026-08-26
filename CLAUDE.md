@@ -33,7 +33,8 @@ python3 tools/validate_data.py     # ERROR 0 であること。週次ルーチ�
 ```bash
 python3 tools/robots_test.py       # robots.txt の判定規則
 python3 tools/purge_ended_test.py  # 終了日の判定と書き換え
-python3 tools/fetch_page_test.py   # JSON-LD / sitemap / ICS の抽出規則
+python3 tools/fetch_page_test.py   # JSON-LD / sitemap / ICS / 日程行の抽出規則
+python3 tools/prev_rows_test.py    # 打ち切られた回の後始末（--carry-rest）と棚卸し
 ```
 
 Prettier は保存時にフックで自動実行される（`.claude/hooks/format-file.sh`）。手で整形しない。

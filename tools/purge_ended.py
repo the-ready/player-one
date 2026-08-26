@@ -71,9 +71,14 @@ import os
 import sys
 from datetime import date
 
-from prev_rows import PREV, disposition_path, load_dispositions, load_prev, resolve_dataset
+# 終了判定（is_ended / last_date）は prev_rows 側にある。`--worklist` と
+# `--carry-rest` も同じ規則を使うため、import の向き（こちらが prev_rows に
+# 依存する）に合わせて下位へ移した。理由は prev_rows.is_ended の説明にある。
+from prev_rows import (
+    PREV, disposition_path, is_ended, last_date, load_dispositions, load_prev, resolve_dataset,
+)
 from rowkey import uid as row_uid
-from validate_data import EXPECTED_HEADERS, START_COL
+from validate_data import EXPECTED_HEADERS
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -83,39 +88,6 @@ LINEUPS = "lineups.csv"
 
 EXPIRED_STATUS = "expired"
 EXPIRED_NOTE_FMT = "終了日（{end}）を過ぎたため tools/purge_ended.py が自動削除（未確認）"
-
-
-def _d(value):
-    try:
-        return date.fromisoformat((value or "").strip())
-    except ValueError:
-        return None
-
-
-def _last_date(row, name):
-    """判定に使う「終了日」を返す。飛び日程があればその最後の日を優先する。
-
-    `schedulePhase`（assets/js/schedule.js）と同じ優先順位: `dates` があれば
-    会期の端（`start_date`/`end_date`）ではなく実際の開催日の並びで見る。
-    """
-    days = [d.strip() for d in (row.get("dates") or "").split("|") if d.strip()]
-    if days:
-        return days[0], days[-1]
-    return (row.get(START_COL[name]) or "").strip(), (row.get("end_date") or "").strip()
-
-
-def is_ended(name, row, today):
-    """`schedulePhase` の「終了」判定と同じ規則。"""
-    start, end = _last_date(row, name)
-    if not start and not end:
-        return False  # 日付を1つも持たない行は判定不能（自由記述の date に委ねる）
-
-    backups = {b.strip() for b in (row.get("backup_date") or "").split("|") if b.strip()}
-    if today.isoformat() in backups:
-        return False  # 本日が予備日なら、表示側も「終了」より優先して出す
-
-    end_date = _d(end)
-    return bool(end_date and end_date < today)
 
 
 def _write_csv(path, headers, rows):
@@ -160,7 +132,7 @@ def _record_dispositions(name, purged_rows, today):
         u = row_uid(name, r)
         if u not in prev_uids or u in known:
             continue  # 前回データに無い（今回新規に混入した過去行）か、既に処分済み
-        _, end = _last_date(r, name)
+        _, end = last_date(name, r)
         recs.append({
             "uid": u, "status": EXPIRED_STATUS, "title": r.get("title", ""),
             "note": EXPIRED_NOTE_FMT.format(end=end or "不明"),
@@ -229,7 +201,7 @@ def main():
         verb = "見つかりました（--dry-run のため未削除）" if args.dry_run else "削除しました"
         print(f"{name}: {len(purged)}件 {verb}")
         for r in purged:
-            _, end = _last_date(r, name)
+            _, end = last_date(name, r)
             print(f"  - {r.get('title', '')[:40]}（{end or '不明'} 終了）")
         if not args.dry_run:
             if res["disposed"]:

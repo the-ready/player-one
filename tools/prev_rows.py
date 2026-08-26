@@ -34,6 +34,11 @@
     # 会場名で引く（その会場の前回分がまとめて出る）
     python3 tools/prev_rows.py events --venue 東京国立博物館
 
+    # 打ち切られたときの後始末（終了工程。終了日を過ぎた行は expired、
+    # 残りは前回値のまま書き戻す）
+    python3 tools/prev_rows.py events --carry-rest            # 何が起きるか見るだけ
+    python3 tools/prev_rows.py events --carry-rest --apply    # 実際に書き込む
+
     # 前回にあった行の「その後」を記録する（消滅行の説明。diff_data.py が要求する）
     python3 tools/prev_rows.py events --dispose <<'EOF'
     {"uid": "3f2a1b9c", "status": "ended", "note": "8/31で会期終了を公式で確認"}
@@ -222,13 +227,55 @@ def prev_taken_at(name):
         return None
 
 
-# ---------------------------------------------------------------- tier 判定
+# ------------------------------------------------------------ 終了したか
 
 def _d(value):
     try:
         return date.fromisoformat((value or "").strip())
     except ValueError:
         return None
+
+
+def last_date(name, row):
+    """判定に使う「終了日」を返す。飛び日程があればその最後の日を優先する。
+
+    `schedulePhase`（assets/js/schedule.js）と同じ優先順位: `dates` があれば
+    会期の端（`start_date`/`end_date`）ではなく実際の開催日の並びで見る。
+    """
+    days = [d.strip() for d in (row.get("dates") or "").split("|") if d.strip()]
+    if days:
+        return days[0], days[-1]
+    return (row.get(START_COL[name]) or "").strip(), (row.get("end_date") or "").strip()
+
+
+def is_ended(name, row, today):
+    """`schedulePhase` の「終了」判定と同じ規則。
+
+    ## なぜ purge_ended.py ではなくここにあるか
+
+    この規則を使う側が3つに増えた——`purge_ended.py`（今回のCSVから消す）、
+    `--worklist`（終わった行を棚卸しに出さない）、`--carry-rest`（書き戻す
+    代わりに `expired` として処分する）。うち後の2つはこのファイルにある。
+
+    `purge_ended.py` は `prev_rows` を import する側なので、規則をあちらに
+    置いたままこちらから呼ぶと循環 import になる。**依存の向きに合わせて
+    下位のこちらへ移し、`purge_ended.py` はここから import する。**
+    判定が1か所にある限り、「表示では隠れているのにCSVには残っている」も
+    「棚卸しには出るのに書き戻せない」も起きない。
+    """
+    start, end = last_date(name, row)
+    if not start and not end:
+        return False  # 日付を1つも持たない行は判定不能（自由記述の date に委ねる）
+
+    backups = {b.strip() for b in (row.get("backup_date") or "").split("|") if b.strip()}
+    if today.isoformat() in backups:
+        return False  # 本日が予備日なら、表示側も「終了」より優先して出す
+
+    end_date = _d(end)
+    return bool(end_date and end_date < today)
+
+
+# ---------------------------------------------------------------- tier 判定
 
 
 def tier_of(name, row, today):
@@ -338,7 +385,22 @@ def cmd_worklist(name, rows, args):
     counts = {"A": 0, "B": 0, "C": 0}
     place_col = "theater" if name == "movies.csv" else "venue"
     wanted_prefs = set(args.pref or [])
+    ended = 0
     for r in rows:
+        # 終了日を過ぎた行は棚卸しに出さない。
+        #
+        # 調査の枠も文脈も、**これから消す行に使う理由が無い**。実測では
+        # 2026-08-26 の events で256件中26件（約10%）がこれに当たっていた。
+        # 終了日と今日を比べるだけで確定するのに、一覧に載ればモデルの目を通り、
+        # tier A なら再確認の対象にもなる。
+        #
+        # ここでは処分を記録しない（記録は `--carry-rest` の仕事）。棚卸しは
+        # `--pref` で担当分だけを切り出す使い方をするので、ここで書き込むと
+        # **サブエージェントへ配る回数だけ、担当外の行が処分され残る。**
+        # 問い合わせは問い合わせのままにしておく。
+        if is_ended(name, r, today):
+            ended += 1
+            continue
         tier, reasons = tier_of(name, r, today)
         counts[tier] += 1
         if args.tier and tier not in args.tier:
@@ -353,6 +415,10 @@ def cmd_worklist(name, rows, args):
             ",".join(reasons)[:48],
         ]))
     print(f"\n# 内訳: A={counts['A']} B={counts['B']} C={counts['C']}")
+    if ended:
+        print(f"# 終了日を過ぎた{ended}件は一覧から除いてあります"
+              "（終了工程の tools/prev_rows.py <ds> --carry-rest --apply が "
+              "expired として処分します。調査の対象にしないこと）")
 
 
 def _venue_matches(cell, wanted):
@@ -393,6 +459,145 @@ def cmd_show(name, rows, args):
         out["_uid"] = row_uid(name, r)
         print(json.dumps(out, ensure_ascii=False))
     return 0
+
+
+# ------------------------------------------------------ 残りを機械的に片付ける
+#
+# 受付の事実だけは書き戻さない。`price_*` を残して `onsale_*` を消すのは、
+# 価格が「いつ確認した値か」を `price_checked` で示せるのに対し、受付の締切は
+# 過ぎた瞬間に**間違った案内**になるためである（設計書 第7.2.3節）。
+# `limited_sale` も同じ性質を持つので一緒に空にする。
+CARRY_REST_CLEAR = (
+    "onsale_label", "onsale_start", "onsale_start_time",
+    "onsale_end", "onsale_end_time", "limited_sale",
+)
+
+# 持ち越した目印を行に書かないのは、`note` が**画面に出る列**だからである
+# （カードに「注意」バッジとして描画され、検索の対象にもなる）。ここに内部事情を
+# 書けば、利用者には無意味な文言が持ち越した行数だけ並ぶ。何件を持ち越したかは
+# 下の要約行が stderr に出し、claude-routine.sh のログに残る。
+CARRY_REST_EXPIRED_NOTE_FMT = "終了日（{end}）を過ぎたため carry-rest が機械的に処分（未確認）"
+
+
+def _current_uids(name):
+    path = os.path.join(DATA, name)
+    if not os.path.exists(path):
+        return set()
+    with open(path, newline="", encoding="utf-8") as f:
+        return {row_uid(name, r) for r in csv.DictReader(f)}
+
+
+def _live_lineup_ids():
+    """いま lineups.csv に日割りが1行でもある lineup_id。
+
+    書き戻す行が持つ `lineup_id` の参照先が無いと `validate_data.py` が
+    「対応する行が lineups.csv に1件もありません」でERRORにする。打ち切られた
+    実行では、公演行だけ前回分・日割りは未収集という組み合わせが普通に起きる。
+    **持ち越しが検証を落とすなら、持ち越す意味が無い**ので、参照先を失った
+    `lineup_id` は落として書き戻す（日割りは翌週あらためて集め直せばよい）。
+    """
+    path = os.path.join(DATA, "lineups.csv")
+    if not os.path.exists(path):
+        return set()
+    with open(path, newline="", encoding="utf-8") as f:
+        return {(r.get("lineup_id") or "").strip() for r in csv.DictReader(f)} - {""}
+
+
+def cmd_carry_rest(name, rows, args):
+    """前回あって今回まだ書かれていない行を、機械的に片付ける。
+
+    ## なぜモデルではなくツールがやるのか
+
+    各SKILL.mdの「撤退の手順」は、この後始末をモデルの仕事として書いていた。
+    だが撤退の手順は**生きているセッションにしか実行できない。** 2026-08-26 の
+    lives 収集はアカウントの利用上限で予告なく強制終了され、その時点で書けていた
+    94行と日割り217行は、前回78行のうち41行が未処分だったせいで
+    「説明のない消滅」と判定され、`claude-routine.sh` に丸ごと巻き戻された。
+
+    **未処理の行の既定値が「消滅」であることが、打ち切りを全損に変えている。**
+    `append_rows.py --init` がCSVをヘッダーだけに切り詰める以上、前回行は
+    能動的に書き直されない限り消える。ならば既定値のほうを変える——最後に
+    残ったものを機械的に拾い、終了日を過ぎていれば `expired` として処分し、
+    そうでなければ前回値のまま書き戻す。どちらも日付の比較だけで決まるので、
+    モデルの判断も検索も要らない（設計書 第9.1.5節と同じ考え方）。
+
+    これで打ち切りは全損ではなく「新規の収穫が少ない週」に縮む。空回りを
+    成功と誤認する穴は開かない——`diff_data.py` の「収穫が0件なら落ちる」検査は
+    そのまま残るので、**何も調べずに前回分を書き戻しただけの回は依然として落ちる。**
+    """
+    today = args.today if args.today else date.today()
+
+    # **今回 `--init` していないデータセットには手を出さない。**
+    #
+    # claude-routine.sh は3データセットとも回すが、収集するのは曜日ごとに1つである。
+    # 触っていないCSVに対してこれを走らせると、前回の実行が正当に落とした行
+    # （処分記録が別の世代に回った後の行など）を掘り返して、その日の収集とは
+    # 無関係な差分をコミットに混ぜうる。`diff_data.py` の noop 検査が
+    # 「`--init` を今日実行したデータセット」だけを見るのと同じ理由で、
+    # 対象をその日の収集に閉じる。
+    #
+    # 前日も許すのは diff_data.py と同じ理由（実行の上限は6時間で、日をまたぐ）。
+    taken = prev_taken_at(name)
+    if not args.force and taken not in (today, today - timedelta(days=1)):
+        print(f"# {name}: 今回の実行で --init していないので何もしません"
+              f"（前回スナップショットの取得日 {taken or '不明'}）。"
+              "意図して動かすなら --force", file=sys.stderr)
+        return 0
+
+    current = _current_uids(name)
+    disposed = load_dispositions(name)
+    lineups = _live_lineup_ids()
+
+    carried, expired = [], []
+    for r in rows:
+        u = row_uid(name, r)
+        if u in current or u in disposed:
+            continue           # 今回書き直された／既に理由が記録されている
+        (expired if is_ended(name, r, today) else carried).append((u, r))
+
+    if expired:
+        os.makedirs(PREV, exist_ok=True)
+        with open(disposition_path(name), "a", encoding="utf-8") as f:
+            for u, r in expired:
+                _, end = last_date(name, r)
+                f.write(json.dumps({
+                    "uid": u, "status": "expired", "title": r.get("title", ""),
+                    "note": CARRY_REST_EXPIRED_NOTE_FMT.format(end=end or "不明"),
+                }, ensure_ascii=False) + "\n")
+
+    records = []
+    for u, r in carried:
+        obj = {k: v for k, v in r.items() if (v or "").strip()}
+        for col in CARRY_REST_CLEAR:
+            obj.pop(col, None)
+        if (obj.get("lineup_id") or "").strip() not in lineups:
+            # 空にするだけでは足りない。`lineup_id` は append_rows.py の
+            # CARRY_ALWAYS にあり、空欄は前回値で埋め直される（綴りの揺れを
+            # 防ぐための正しい既定である）。ここは「もう日割りは書かれない」と
+            # 分かっている終了工程なので、`_no_carry` で明示的に打ち消す。
+            obj.pop("lineup_id", None)
+            obj["_no_carry"] = "lineup_id"
+        records.append(obj)
+
+    print(f"# {name}: 書き戻し {len(records)}件 / 終了済み {len(expired)}件を expired で処分",
+          file=sys.stderr)
+
+    if not args.apply:
+        for obj in records:
+            print(json.dumps(obj, ensure_ascii=False))
+        return 0
+
+    if not records:
+        return 0
+    # 追記は append_rows.py に通す。id の採番・固定列の持ち越し・列挙値の検証・
+    # 名簿の収穫記録は、あちらに1か所だけ置いてある規則である。ここで書き込みを
+    # 真似ると、その規則が2か所に分かれる。
+    payload = "".join(json.dumps(o, ensure_ascii=False) + "\n" for o in records)
+    proc = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "append_rows.py"), args.dataset],
+        input=payload, text=True, cwd=ROOT,
+    )
+    return proc.returncode
 
 
 # ---------------------------------------------------------------- 処分の記録
@@ -524,6 +729,14 @@ def main():
     p.add_argument("--venue", action="append",
                    help="この会場の行を全列で出す（複数可。部分一致・表記ゆれを吸収する）")
     p.add_argument("--dispose", action="store_true", help="消えた行の理由を標準入力(JSONL)から記録する")
+    p.add_argument("--carry-rest", action="store_true", dest="carry_rest",
+                   help="前回あって今回まだ書かれていない行を機械的に片付ける"
+                        "（終了日を過ぎていれば expired で処分、そうでなければ前回値で書き戻す）")
+    p.add_argument("--force", action="store_true",
+                   help="--carry-rest を、今回 --init していないデータセットにも適用する")
+    p.add_argument("--apply", action="store_true",
+                   help="--carry-rest の結果を append_rows.py に通して実際に書き込む"
+                        "（既定は JSONL を標準出力に出すだけ）")
     p.add_argument("--stats", action="store_true", help="件数だけ出す")
     p.add_argument("--today", type=_parse_today, help="基準日 YYYY-MM-DD（試験用。既定は今日）")
     args = p.parse_args()
@@ -537,6 +750,8 @@ def main():
 
     if args.dispose:
         return cmd_dispose(name, rows, args)
+    if args.carry_rest:
+        return cmd_carry_rest(name, rows, args)
     if args.uid or args.venue:
         return cmd_show(name, rows, args)
     if args.stats:

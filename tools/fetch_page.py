@@ -460,6 +460,64 @@ def extract_text(html):
     return h.replace(SEP, "\t").strip()
 
 
+# ------------------------------------------------------------ 日程行だけ抜く
+#
+# 会場のスケジュールページから欲しいのは「いつ・何が」だけで、本文の大半は
+# ナビゲーション・アクセス案内・注意書きである。`--text` が返す本文をそのまま
+# 文脈に積むと、1回の取得あたり数千トークンが日程と無関係な文字で埋まる。
+#
+# 実測（2026-08-26 の lives 収集）では、1体のサブエージェントが1つの文脈で
+# 111回取得し、文脈再送だけで 24M トークンを使っていた。**1つの文脈でN回
+# 取得すると入力はNの2乗で増える**ので、1回あたりを削る効果はそのまま2乗で効く。
+#
+# ただしこれは**捨てる**処理なので、外すと調査品質が落ちる。既定にはしない
+# （`--text` はそのまま残す）。取りこぼしに気づけるよう、残した行数と落とした
+# 行数を必ず stderr に出す。
+# **日を持たない「9月」だけの行は日付として扱わない。** 月選択のナビゲーション
+# （1月〜12月が並ぶ）がそのまま12行の雑音になり、下の「次の日付行まで残す」規則と
+# 組み合わさると雑音が12倍に膨らむ。日付行の下にぶら下がる日の側は
+# `9月20日` か `20（土）` のどちらかの形を取るので、月だけの見出しを落としても
+# 公演そのものは拾える。
+DATE_LINE_RE = re.compile(
+    r"""(
+          \d{4}\s*[-/.年]\s*\d{1,2}\s*[-/.月]\s*\d{1,2}   # 2026-09-20 / 2026年9月20日
+        | \d{1,2}\s*[/.月]\s*\d{1,2}\s*日?                  # 9/20 / 9月20日 / 9.20
+        | \d{1,2}\s*日\s*[（(][日月火水木金土]                 # 20日（土）
+        | [（(][日月火水木金土][）)]                            # 曜日の括弧書きだけの日セル
+    )""",
+    re.VERBOSE,
+)
+
+
+def schedule_lines(body, limit=12):
+    """本文から、日付行と「次の日付行までにぶら下がる行」だけを残す。
+
+    ## なぜ「N行だけ残す」ではないのか
+
+    会場のスケジュールページは「日付 → その日の公演が何件か → 次の日付」という
+    形を取る。実測（東京国際フォーラムのイベントカレンダー）では1つの日付の下に
+    公演名が最大8行ぶら下がっており、**日付行の次の1行だけを残すと、残るのは
+    「一般」のような区分ラベルで、公演名がまるごと落ちた。** 捨てる処理で
+    いちばん避けたいのがこれなので、区切りは行数ではなく次の日付に置く。
+
+    `limit` は、その日にぶら下がる行数の上限である。日付が本文の途中（注意書きや
+    沿革）に1つだけ現れるページで、そこから末尾まで全部残ってしまうのを防ぐ。
+
+    戻り値は (残した行, 落とした行数)。落とした数を返すのは、呼び出し側が
+    「絞りすぎていないか」を判断できるようにするためである。
+    """
+    lines = [ln for ln in body.split("\n") if ln.strip()]
+    keep, budget = [], 0
+    for ln in lines:
+        if DATE_LINE_RE.search(ln):
+            keep.append(ln)
+            budget = limit
+        elif budget > 0:
+            keep.append(ln)
+            budget -= 1
+    return keep, len(lines) - len(keep)
+
+
 # 重複判定だけに使う。計測用パラメータ違いの同一ページを、別リンクとして
 # 数えないようにする（出力するURL自体はここで削らず、元のまま返す）。
 _TRACKING_PARAMS = {
@@ -556,6 +614,11 @@ def main():
     p.add_argument("--ics", action="store_true", help="ICS として読む")
     p.add_argument("--text", action="store_true",
                    help="本文だけを出す（表はタブ区切りで残る）。**内容が要るときはこれを使う**")
+    p.add_argument("--schedule", action="store_true",
+                   help="本文のうち日付を含む行とその続きだけを出す"
+                        "（会場のスケジュールページ向け。取りこぼしが疑わしいときは --text に戻す）")
+    p.add_argument("--context", type=int, default=12,
+                   help="--schedule で、1つの日付にぶら下げて残す行数の上限（既定12）")
     p.add_argument("--links", action="store_true",
                    help="リンクを「文字列<TAB>絶対URL」で出す（一覧から詳細へ辿るとき）")
     p.add_argument("--raw", action="store_true",
@@ -666,6 +729,18 @@ def main():
         if len(body) > char_limit:
             note = f" ※{len(body) - char_limit:,}文字を省略（--limit で増やせます）"
         print(f"# 本文 {len(body):,}文字 / 生HTML {len(text):,}文字（信号率 {pct:.1f}%）{note}",
+              file=sys.stderr)
+        return 0
+
+    if args.schedule:
+        body = extract_text(text)
+        keep, dropped = schedule_lines(body, limit=max(0, args.context))
+        out = "\n".join(keep)
+        print(out[:char_limit])
+        note = f" ※{len(out) - char_limit:,}文字を省略（--limit で増やせます）" if len(out) > char_limit else ""
+        print(f"# 日程行 {len(keep)}行を残し、{dropped}行を落としました"
+              f"（本文 {len(body):,}文字 → {len(out):,}文字）。"
+              f"欲しい公演が出ていなければ --text で本文全体を見てください{note}",
               file=sys.stderr)
         return 0
 

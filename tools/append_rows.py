@@ -123,7 +123,21 @@ CARRY_NEVER = {
     "url", "source",
 }
 
-CONTROL_KEYS = {"_carry", "_carry_from"}
+# `_no_carry` は「この列は前回値で埋めないでほしい」という指定。CARRY_ALWAYS を
+# 行単位で打ち消す唯一の手段である。
+#
+# 必要になったのは `lineup_id` のためである。この列は CARRY_ALWAYS に入っていて
+# （毎週書き直させると綴りが揺れ、lineups.csv との参照が静かに切れるため）、
+# 空で渡しても前回値が埋め直される。ふだんはそれが正しい——公演行は手順9で、
+# 日割りは手順13.5で書くので、**追記の時点で参照先がまだ無いのは普通のこと**
+# であり、ここで参照先の有無を見て落とすと正常な収集を壊す。
+#
+# 例外は `prev_rows.py --carry-rest` で、あれは「もう何も書かれない」と分かって
+# いる終了工程から呼ばれる。そこで参照先を失った lineup_id を残すと
+# validate_data.py が「対応する行が lineups.csv に1件もありません」でERRORにし、
+# **持ち越しがその週の収穫ごと落とす**。呼び出し側が文脈を知っているので、
+# 判断を呼び出し側に持たせる。
+CONTROL_KEYS = {"_carry", "_carry_from", "_no_carry"}
 
 
 def resolve_filename(arg):
@@ -283,11 +297,12 @@ def apply_carryover(name, headers, records, by_uid, by_place):
 
     for i, row in enumerate(records, start=1):
         requested = resolve_carry_request(row.pop("_carry", None), headers, i)
+        blocked = {c.strip() for c in str(row.pop("_no_carry", "") or "").split("|") if c.strip()}
         src_uid = (row.pop("_carry_from", "") or "").strip() or row_uid(name, row)
         src = by_uid.get(src_uid)
 
         for col in CARRY_ALWAYS:
-            if col not in headers or (row.get(col) or "").strip():
+            if col not in headers or col in blocked or (row.get(col) or "").strip():
                 continue
             if src and (src.get(col) or "").strip():
                 row[col] = src[col].strip()
@@ -297,7 +312,8 @@ def apply_carryover(name, headers, records, by_uid, by_place):
         place = (row.get(place_col) or "").strip()
         if place in by_place:
             for col in VENUE_FACTS:
-                if col in headers and not (row.get(col) or "").strip() and col in by_place[place]:
+                if (col in headers and col not in blocked
+                        and not (row.get(col) or "").strip() and col in by_place[place]):
                     row[col] = by_place[place][col]
                     filled["by_place"] += 1
 
@@ -306,6 +322,8 @@ def apply_carryover(name, headers, records, by_uid, by_place):
                 misses.append((i, row.get("title", "")[:30], src_uid))
                 continue
             for col in requested:
+                if col in blocked:
+                    continue
                 if not (row.get(col) or "").strip() and (src.get(col) or "").strip():
                     row[col] = src[col].strip()
                     filled["requested"] += 1

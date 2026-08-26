@@ -110,6 +110,7 @@ build_reason() {
     printf '%s\n' "このまま終えると claude-routine.sh はコミットせず、data/ と docs/ を実行前の状態に戻します（今回の収集は失われます）。"
   fi
   printf '%s\n' "消滅の説明が要るなら tools/prev_rows.py <events|lives|movies> --dispose を、行の追記・持ち越しは tools/append_rows.py <events|lives|movies> を使ってください。"
+  printf '%s\n' "残った前回行をまとめて片付けるなら tools/prev_rows.py <events|lives|movies> --carry-rest --apply（終了日を過ぎた行は expired で処分、残りは前回値のまま書き戻す）。ただし**これから調べる予定の行があるうちは使わないこと**——後から同じ公演を追記すると重複します。"
 }
 
 # JSON を組み立てられなかったときに黙って exit 0 で抜けると、**検証が落ちている

@@ -29,6 +29,74 @@ def check(desc, got, want):
         print(f"        期待: {want!r}\n        実際: {got!r}")
 
 
+# ------------------------------------------------------------ 日程行の絞り込み
+#
+# `--schedule` は本文を**捨てる**処理なので、外れ方が2つある。
+#   - 落としすぎ: 公演が一覧から消え、そのぶん静かな欠落になる
+#   - 残しすぎ  : 絞る意味が無くなる（トークンが減らない）
+#
+# とくに落としすぎは実際に起きた。最初の実装は「日付行の次の1行だけ残す」
+# だったが、東京国際フォーラムのイベントカレンダーは1つの日付の下に
+# 「区分ラベル／公演名」が交互に最大8行ぶら下がる形で、**残るのが区分ラベルの
+# 「一般」だけ、公演名は全部落ちる**という結果になった。下の CAL は実物と
+# 同じ形にしてある。
+
+CAL = "\n".join([
+    "トップ",                          # 最初の日付より前＝落ちる
+    "9月",                             # 月だけの見出しは日付にしない（月選択のナビ）
+    "10月",
+    "2026年08月01日（土）",
+    "一般",
+    "ものづくり・匠の技の祭典2026",
+    "一般",
+    "ブロードウェイミュージカル『ピーター・パン』",
+    "2026年08月02日（日）",
+    "一般",
+    "SBI証券 夏休み自由研究フェス2026",
+])
+
+FORMATS = "\n".join([
+    "09.02 水",
+    "東京ヴェルディ×ヴィッセル神戸",
+    "10/3",
+    "サカナクション SAKANAQUARIUM",
+    "2026-11-08\tUru Tour 2026\t全席指定",
+    "20日（土）",
+    "菊池桃子 ライブ",
+])
+
+
+def run_schedule_checks():
+    keep, dropped = fp.schedule_lines(CAL, limit=12)
+
+    # いちばん守りたいところ：日付の下にぶら下がる公演名が全部残る
+    check("日付の下の公演名が最後まで残る（区切りは行数ではなく次の日付）",
+          [l for l in keep if "ピーター・パン" in l or "匠の技" in l],
+          ["ものづくり・匠の技の祭典2026", "ブロードウェイミュージカル『ピーター・パン』"])
+    check("次の日付行そのものも残る", "2026年08月02日（日）" in keep, True)
+    check("最初の日付より前の行は落ちる", "トップ" in keep, False)
+    check("月だけの見出し（9月）は日付として扱わない", "9月" in keep, False)
+    check("落とした行数を返す",
+          dropped, len([l for l in CAL.split("\n") if l.strip()]) - len(keep))
+
+    # 日付の書き方のばらつき
+    fmt, _ = fp.schedule_lines(FORMATS, limit=12)
+    check("ドット表記（09.02 水）を拾う", "09.02 水" in fmt, True)
+    check("スラッシュ表記（10/3）を拾う", "10/3" in fmt, True)
+    check("タブ区切り行の中の 2026-11-08 を拾う",
+          "2026-11-08\tUru Tour 2026\t全席指定" in fmt, True)
+    check("月を持たない日セル（20日（土））を拾う", "20日（土）" in fmt, True)
+
+    # limit の上限が効く（日付が1つだけ紛れ込んだページで末尾まで残さない）
+    runaway = "\n".join(["2026年9月20日"] + [f"雑音{i}" for i in range(30)])
+    capped, _ = fp.schedule_lines(runaway, limit=3)
+    check("limit を超えてぶら下げない", len(capped), 4)
+
+    # 日付を1つも持たない本文は全部落ちる（＝--text に戻すべきだと分かる）
+    none, dropped_all = fp.schedule_lines("会社概要\nプライバシーポリシー", limit=12)
+    check("日付が無い本文では1行も残らない", (none, dropped_all), ([], 2))
+
+
 # ---------------------------------------------------------------- JSON-LD
 
 HTML = """<html><head><title>  企画展のご案内  </title>
@@ -203,6 +271,9 @@ TRACK_LINKS = fp.extract_links(
 check("utm_* 違いは重複として1件に畳まれる", len(TRACK_LINKS), 2)
 check("残る側は最初に見つかった元のURLのまま", TRACK_LINKS[0][1], "https://ex.jp/x?utm_source=a&id=1")
 
-TOTAL = 44
+print("日程行の絞り込み（--schedule）")
+run_schedule_checks()
+
+TOTAL = 54
 print(f"\n{TOTAL - fails}/{TOTAL} 件が期待どおり")
 sys.exit(1 if fails else 0)
