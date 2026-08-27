@@ -4,6 +4,7 @@
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
     "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "3"
   },
+  "outputStyle": "Concise",
   "permissions": {
     "allow": ["WebSearch", "Edit(data/**)"],
     "deny": ["Bash(rm:*)", "Bash(rm -r:*)", "Bash(rm -rf:*)", "Bash(git rm:*)"]

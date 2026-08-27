@@ -247,6 +247,42 @@ def _():
         pr.DATA, pr.PREV = orig
 
 
+@check("持ち越した行は、翌週の棚卸しで tier A に戻る")
+def _():
+    # 受付欄を空にすると tier の根拠ごと消える。それを打ち消せているかを見る
+    # （打ち消せていないと、確認できなかった行が「確認しなくてよい行」に見える）
+    r = _row(title="持ち越した公演", start_date="2026-10-20", end_date="2026-10-20",
+             onsale_label="先着受付中", onsale_start="2026-08-01",
+             onsale_end="2026-09-10", price="7,700円", price_checked="2026-08-19")
+    carried, _d = _carry_rest(prev=[r], current=[])
+    if not carried:
+        return "持ち越していない"
+    tmp = tempfile.mkdtemp(prefix="prev_rows_test_")
+    prev_dir = os.path.join(tmp, ".prev")
+    os.makedirs(prev_dir, exist_ok=True)
+    orig = (pr.DATA, pr.PREV)
+    pr.DATA, pr.PREV = tmp, prev_dir
+    try:
+        _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, [carried[0]])
+        with open(pr.unverified_path("lives.csv"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"uid": _uid(carried[0]), "title": "持ち越した公演"},
+                               ensure_ascii=False) + "\n")
+        rows, _src = pr.load_prev("lives.csv")
+        out = io.StringIO()
+        args = Args(today=date(2026, 9, 3))
+        with contextlib.redirect_stdout(out):
+            pr.cmd_worklist("lives.csv", rows, args)
+        line = [l for l in out.getvalue().splitlines() if "持ち越した公演" in l]
+    finally:
+        pr.DATA, pr.PREV = orig
+    if not line:
+        return "棚卸しに出ていない"
+    tier = line[0].split("\t")[1]
+    if tier != "A":
+        return f"tier={tier}（受付欄を空にした副作用で優先度が落ちている）"
+    return "前回は未確認のまま持ち越し" in line[0] or "理由が書かれていない"
+
+
 @check("--worklist は終了日を過ぎた行を出さない")
 def _():
     ended = _row(title="終わった公演", start_date="2026-08-01", end_date="2026-08-20")

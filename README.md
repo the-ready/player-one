@@ -45,6 +45,10 @@ tools/                        収集タスク用のスクリプト
                               セッションの記録から読むトークン。第8.7.1節）
   report_stats.py             中核列の充足率と分布を前回と比べて出す
   fetch_page.py               robots を通してページ本体を取り、本文/日程行/リンク/JSON-LD/sitemap/ICS を抜く
+  wave_gate.py                波の結果がCSVに入るまで次のサブエージェント起動を止める（第11.4節）
+  wave_gate_test.py           その判定の検証（ネットワーク不要）
+  skill_brief.py              SKILL.md から子に要る部分だけを抜く（第11.8節）
+  skill_brief_test.py         抜粋が規則を落としていないかの検証（ネットワーク不要）
   fetch_page_test.py          その抽出規則の検証（ネットワーク不要）
   purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（docs/COLLECTION-PROTOCOL.md 第5.1節）
   purge_ended_test.py         判定・書き換えの検証（ネットワーク不要）

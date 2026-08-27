@@ -56,8 +56,13 @@ lives 収集は、開始50分でアカウントの利用上限（`You've hit you
 アカウントの利用上限が何トークンなのかは、こちらからは観測できない。実測でも
 一貫していない——2026-08-20 は文脈再送 48M で打ち切られ、2026-08-12 は 59M 使って
 完走している（同じ枠を対話セッションと分け合うため）。だから
-`CACHE_READ_WARN` は上限ではなく**警告線**である。「ここを超えたら、いつ殺されても
-おかしくないので終了工程の余力を残せ」という意味しか持たない。
+`CACHE_READ_NO_NEW_WAVE` / `CACHE_READ_RETREAT` は上限ではなく**警告線**である。
+「ここを超えたら、いつ殺されてもおかしくない」という意味しか持たない。
+
+線を2つに分けたのは、1つでは間に合わなかったからである。2026-08-27 の実行は
+40M の警告を受け取った**3分16秒後**に殺された。しかもその時点で親は波の帰りを
+待って停止中で、動いている子に割り込む手段が無い。**判断が要るのは「次の波を
+投げるか」を決める瞬間**なので、警告はその手前で鳴らないと行動に変わらない。
 
 使い方:
     python3 tools/budget.py --report                # いまの消費を1行で
@@ -84,6 +89,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE_DIR = os.path.join(ROOT, "data", ".run")
 STATE = os.path.join(STATE_DIR, "budget.json")
 LOCK = STATE + ".lock"
+TOKEN_SAMPLE = os.path.join(STATE_DIR, "token_sample.json")
 
 # 検索の上限。プラットフォーム側が1セッション200回で打ち切るので、
 # 3スキルとも枠の合計を170回に置き、30回を余裕として残している。
@@ -102,10 +108,25 @@ COUNTERS = ("search", "fetch", "rows", "blocked")
 # 枠の大きさ自体は変わらないので、「/360分」の表示を省くのではなくこちらを使う。
 ROUTINE_TIMEOUT_DEFAULT_SEC = 21600
 
-# 文脈再送（cache_read）の警告線。**上限ではない**（docstring「上限そのものは
-# 分からない」を参照）。打ち切られた回の実測が 48M と 57M なので、終了工程を
-# 通し切る余力を残せる位置として、その手前に置いてある。
-CACHE_READ_WARN = 40_000_000
+# 文脈再送（cache_read）の線。**上限ではない**（docstring「上限そのものは
+# 分からない」を参照）。2段階に分けてある。
+#
+# 1段で足りなかった。2026-08-27 の実行は 03:05:22 に 40M の警告を受け取り、
+# **その3分16秒後に殺されている。** しかも警告が届いた時点で親は波の帰りを
+# 待って停止中で、動いている子に割り込む手段が無い。**間に合う位置に置くには、
+# 「次の波を投げるかどうか」を決める前に鳴る必要がある。**
+#
+#   NO_NEW_WAVE (25M) : 探索をやめる。動いている波は受け取って書き切る
+#   RETREAT     (40M) : 撤退の手順へ。終了工程だけを通す
+#
+# 実測の燃焼速度は波が動いている間で 3.3〜3.8M/分。25M なら打ち切り点
+# （実測 48M・57M）まで 6〜9分あり、波を1つ受け取って追記する余裕になる。
+CACHE_READ_NO_NEW_WAVE = 25_000_000
+CACHE_READ_RETREAT = 40_000_000
+
+# 1体のサブエージェントが1つの文脈で回ってよいターン数の目安。
+# 超えると2乗で効いてくる（第11.6節）。2026-08-27 の実測は 196/110/120 ターン。
+SUBAGENT_TURN_WARN = 60
 
 
 def _now():
@@ -189,6 +210,10 @@ def reset():
     try:
         save(_empty(_now()))
     except Exception:                                    # noqa: BLE001
+        pass
+    try:
+        os.remove(TOKEN_SAMPLE)       # 前回の実行の標本で速度を出さない
+    except OSError:
         pass
 
 
@@ -303,6 +328,19 @@ def _tally(path):
     return t
 
 
+def _turns(path):
+    """その記録に何回の応答があったか。1つの文脈で回ったターン数にあたる。"""
+    n = 0
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if '"usage"' in line:
+                    n += 1
+    except OSError:
+        pass
+    return n
+
+
 def token_usage():
     """親・子・合計のトークンを返す。**何があっても例外を投げない。**
 
@@ -316,17 +354,58 @@ def token_usage():
             return None
         parent = _tally(parent_path)
         subs = dict(empty)
+        worst = {"turns": 0, "cache_read": 0}
         for sp in sub_paths:
             one = _tally(sp)
             for k in ("cache_read", "cache_write", "output"):
                 subs[k] += one[k]
             subs["context"] = max(subs["context"], one["context"])
+            t = _turns(sp)
+            if t > worst["turns"]:
+                worst = {"turns": t, "cache_read": one["cache_read"]}
         total = {k: parent[k] + subs[k] for k in ("cache_read", "cache_write", "output")}
         total["context"] = parent["context"]
         return {"parent": parent, "subagents": subs, "total": total,
+                "worst_subagent": worst, "count": len(sub_paths),
                 "files": 1 + len(sub_paths)}
     except Exception:                                    # noqa: BLE001
         return None
+
+
+def burn_rate(cache_read):
+    """直近の文脈再送の増え方（トークン/分）。取れなければ None。
+
+    実行全体の平均では役に立たない。波が動いている間とそうでない間で桁が
+    違い、**知りたいのは「いまの速さで残り何分か」**だからである
+    （2026-08-27 は全体平均 1.4M/分に対し、波が動いている間は 3.5M/分だった）。
+    そこで前回このスクリプトを呼んだ時点との差分で出す。
+    """
+    now = _now()
+    # **budget.json には書かない。** あちらは `load()` が「古ければ数え直す」
+    # 実装なので、読んで書き戻すと**古くなった瞬間に起点が今へずれる**。
+    # `--report` は今まで読むだけの操作で、呼んだだけで経過時間が0に戻るのは
+    # 計器として筋が通らない。標本だけを別のファイルに置く。
+    prev = None
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        try:
+            with open(TOKEN_SAMPLE, encoding="utf-8") as f:
+                prev = json.load(f)
+        except (OSError, ValueError):
+            prev = None
+        tmp = TOKEN_SAMPLE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump([now, cache_read], f)
+        os.replace(tmp, TOKEN_SAMPLE)
+    except Exception:                                    # noqa: BLE001
+        return None
+    if not (isinstance(prev, list) and len(prev) == 2):
+        return None
+    dt = (now - prev[0]) / 60.0
+    dv = cache_read - prev[1]
+    if dt < 0.5 or dv <= 0:
+        return None            # 間隔が短すぎる・進んでいない
+    return dv / dt
 
 
 def _m(n):
@@ -340,7 +419,9 @@ def token_line(tk):
     サブエージェントに出せていない。比をそのまま見せれば、その逸脱が報告に出る。
     """
     t, p, c = tk["total"], tk["parent"], tk["subagents"]
-    return (f"文脈再送 {_m(t['cache_read'])}（親{_m(p['cache_read'])}・子{_m(c['cache_read'])}）"
+    worst = tk.get("worst_subagent") or {}
+    tail = f"・最長の子{worst['turns']}ターン" if worst.get("turns") else ""
+    return (f"文脈再送 {_m(t['cache_read'])}（親{_m(p['cache_read'])}・子{_m(c['cache_read'])}{tail}）"
             f" / 出力 {_m(t['output'])} / 現在の文脈 {_m(p['context'])}")
 
 
@@ -373,14 +454,32 @@ def report(st, verbose):
         print("  枠(170回)を使い切りました。SKILL.md の「撤退の手順」に入り、"
               "終了工程まで通してください（終了工程は検索を使いません）。")
     tk = token_usage()
-    if tk and tk["total"]["cache_read"] >= CACHE_READ_WARN:
-        print(f"  文脈再送が {_m(tk['total']['cache_read'])} に達しました。"
-              "利用上限で打ち切られた回の実測は 48M と 57M です——"
-              "**いつ強制終了されてもおかしくない**と考えて、"
-              "SKILL.md の「撤退の手順」に入り、終了工程の余力を残してください。")
-    if tk and tk["parent"]["cache_read"] > tk["subagents"]["cache_read"] and tk["files"] > 1:
+    if not tk:
+        return
+    cr = tk["total"]["cache_read"]
+    rate = burn_rate(cr)
+    if rate:
+        # 打ち切りの実測（48M）までの見込みを添える。上限は観測できないので
+        # 「あと何分か」ではなく「実測の打ち切り点まで何分か」と書く。
+        left = (48_000_000 - cr) / rate
+        print(f"  直近の燃焼速度 {_m(rate)}/分"
+              f"（この速さなら、打ち切りの実測 48M まで約{max(0, left):.0f}分）")
+    if cr >= CACHE_READ_RETREAT:
+        print(f"  文脈再送が {_m(cr)}。**撤退の手順に入ってください。**"
+              "利用上限で打ち切られた回の実測は 48M と 57M です。"
+              "新しい調査はやめ、終了工程（追記・処分・検証）だけを通します。")
+    elif cr >= CACHE_READ_NO_NEW_WAVE:
+        print(f"  文脈再送が {_m(cr)}。**新しい波を投げないでください。**"
+              "動いている波は受け取り、`append_rows.py` で書き切ってから終了工程へ進みます"
+              "（波を投げてしまうと、打ち切られたときに割り込む手段がありません）。")
+    if tk["parent"]["cache_read"] > tk["subagents"]["cache_read"] and tk["files"] > 1:
         print("  親の文脈再送が子より多くなっています。親が自分でページを開いている"
               "兆候です（取得はサブエージェントに出し、親は棚卸し・分割・追記・検証だけを行う）。")
+    worst = tk.get("worst_subagent") or {}
+    if worst.get("turns", 0) > SUBAGENT_TURN_WARN:
+        print(f"  1体のサブエージェントが {worst['turns']}ターン回っています"
+              f"（{_m(worst['cache_read'])}）。1つの文脈でN回呼ぶと入力はNの2乗で増えるので、"
+              f"次の波からは担当範囲を分けて**1体 {SUBAGENT_TURN_WARN}ターン以下**に収めてください。")
 
 
 def main():

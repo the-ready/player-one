@@ -551,6 +551,37 @@ else
   log "WARNING: timeout コマンドが無いため、実行時間の上限を設定できません"
 fi
 
+# 予算の計測を、起動の直前に数え直す。
+#
+# budget.py は12時間で自動的に数え直すが、**それでは足りない場面がある。**
+# 2026-08-27 の実行は、開始56秒後の最初の予算表示が
+#
+#     経過 388分/360分（残り0分）
+#
+# だった。前夜20:02に対話セッションで fetch_page.py を試した際の起点が
+# data/.run/budget.json に残っており、6時間半しか経っていなかったためである。
+# `append_rows.py --init` が数え直すので実害までは至らなかったが、モデルは
+# **着手の時点で「残り0分」を見ている**。撤退を促す表示を根拠なく出すのは、
+# 「残りを知らせないまま撤退を促せば、早く撤退する」の裏返しでしかない。
+if python3 "$REPO_DIR/tools/budget.py" --reset >/dev/null 2>&1; then
+  log "予算の計測を数え直しました"
+else
+  log "WARNING: 予算の数え直しに失敗しました（計測がずれるだけで、収集には影響しません）"
+fi
+
+# temp/ の残骸を片付ける。
+#
+# サブエージェントは temp/ に作業ファイルを置くが、誰も消していなかったため
+# 367ファイルまで溜まっていた。2026-08-27 の子は `ls temp/` を実行して、
+# **その全件を自分の文脈に取り込んでいる**。
+#
+# 2日より新しいものは残す。前回の実行が打ち切られたとき、temp/ の
+# `rows-*.jsonl` は**唯一残った調査結果**であり、人が拾い直せる必要がある。
+if [ -d "$REPO_DIR/temp" ]; then
+  removed="$(find "$REPO_DIR/temp" -maxdepth 1 -type f -mtime +2 -print -delete 2>/dev/null | wc -l)"
+  [ "${removed:-0}" -gt 0 ] && log "temp/ の2日より古いファイルを ${removed}件 片付けました"
+fi
+
 log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
 
 "${CLAUDE_CMD[@]}" -p "$PROMPT" \

@@ -385,6 +385,7 @@ def cmd_worklist(name, rows, args):
     counts = {"A": 0, "B": 0, "C": 0}
     place_col = "theater" if name == "movies.csv" else "venue"
     wanted_prefs = set(args.pref or [])
+    unverified = load_unverified(name)
     ended = 0
     for r in rows:
         # 終了日を過ぎた行は棚卸しに出さない。
@@ -402,6 +403,12 @@ def cmd_worklist(name, rows, args):
             ended += 1
             continue
         tier, reasons = tier_of(name, r, today)
+        # 前回 `--carry-rest` が未確認のまま書き戻した行は、無条件に最優先へ。
+        # 受付欄を空にした副作用で tier が下がるのを、ここで打ち消している
+        # （`unverified_path` の説明）。
+        if row_uid(name, r) in unverified:
+            tier = "A"
+            reasons = ["前回は未確認のまま持ち越し"] + reasons
         counts[tier] += 1
         if args.tier and tier not in args.tier:
             continue
@@ -477,6 +484,49 @@ CARRY_REST_CLEAR = (
 # 書けば、利用者には無意味な文言が持ち越した行数だけ並ぶ。何件を持ち越したかは
 # 下の要約行が stderr に出し、claude-routine.sh のログに残る。
 CARRY_REST_EXPIRED_NOTE_FMT = "終了日（{end}）を過ぎたため carry-rest が機械的に処分（未確認）"
+
+
+def unverified_path(name):
+    """未確認のまま持ち越した行の uid を置く場所。
+
+    ## なぜ要るのか
+
+    `--carry-rest` は受付（`onsale_*`）を空にして書き戻す。過ぎた締切を
+    そのまま載せるのは誤った案内になるからで、これ自体は正しい。
+
+    **だがその副作用で、翌週の再確認の優先度が落ちる。** `tier_of()` は
+    「締切が21日以内」「受付状況が未確定」を tier A の根拠にしており、
+    受付を空にするとその根拠ごと消える。実測すると、持ち越す前は
+    `tier=A（締切2026-09-10）` だった行が、持ち越したあとは `tier=B（理由なし）`
+    になる。**確認できなかった行が、確認しなくてよい行に見える。**
+    これはこのプロジェクトが最も避けている「静かな欠落」の作られ方そのものである。
+
+    そこで、持ち越した uid をここに残す。`--worklist` はこれを読んで、
+    該当する行を無条件に tier A へ上げる。受付欄を空にしたまま、
+    「今週こそ確かめる」という情報だけを別に持ち越す形にしてある。
+
+    毎回の `--carry-rest` で上書きする（前回分は役目を終える）。
+    """
+    return os.path.join(PREV, name.replace(".csv", ".unverified.jsonl"))
+
+
+def load_unverified(name):
+    path = unverified_path(name)
+    out = set()
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("uid"):
+                    out.add(obj["uid"])
+    except OSError:
+        pass
+    return out
 
 
 def _current_uids(name):
@@ -578,6 +628,19 @@ def cmd_carry_rest(name, rows, args):
             obj.pop("lineup_id", None)
             obj["_no_carry"] = "lineup_id"
         records.append(obj)
+
+    # 書き戻した uid を残す。翌週の `--worklist` がこれを読んで tier A に上げる。
+    # `--apply` を付けない下見でも書くのは、下見と本番で記録がずれないようにするため
+    # （どちらも「今回どれが未確認で残ったか」という同じ事実を表している）。
+    try:
+        os.makedirs(PREV, exist_ok=True)
+        with open(unverified_path(name), "w", encoding="utf-8") as f:
+            for u, r in carried:
+                f.write(json.dumps({"uid": u, "title": r.get("title", "")},
+                                   ensure_ascii=False) + "\n")
+    except OSError as e:
+        print(f"WARNING: 持ち越しの記録に失敗しました（書き戻し自体は続けます）: {e}",
+              file=sys.stderr)
 
     print(f"# {name}: 書き戻し {len(records)}件 / 終了済み {len(expired)}件を expired で処分",
           file=sys.stderr)
@@ -725,8 +788,14 @@ def main():
     p.add_argument("--pref", action="append",
                    help="worklist をこの pref に絞る（複数可）。都県ごとにサブエージェントへ"
                         "渡す担当分だけを切り出すのに使う")
-    p.add_argument("--uid", action="append", help="この uid の行を全列で出す（複数可）")
-    p.add_argument("--venue", action="append",
+    # `action="extend"` + `nargs="+"` で、`--uid a --uid b` と `--uid a b` の
+    # **両方**を受ける。以前は前者だけだったため、2026-08-27 の実行では
+    # `--uid a b c` が7回弾かれ、そのたびに usage が出力され、`--help` を
+    # 3回読み直している。数十件の uid をまとめて引くのはこの道具の主用途なので、
+    # 素直に書ける形を通らなくしておく理由が無い。
+    p.add_argument("--uid", action="extend", nargs="+",
+                   help="この uid の行を全列で出す（複数可。空白区切りでも --uid の繰り返しでも可）")
+    p.add_argument("--venue", action="extend", nargs="+",
                    help="この会場の行を全列で出す（複数可。部分一致・表記ゆれを吸収する）")
     p.add_argument("--dispose", action="store_true", help="消えた行の理由を標準入力(JSONL)から記録する")
     p.add_argument("--carry-rest", action="store_true", dest="carry_rest",
