@@ -13,9 +13,9 @@
 ## 手順
 
 1. 実行日の曜日を確認し、実行するスキルを1つ決める。
-   - 水曜日 → `kanto-live-collector`（Sonnet）
+   - 水曜日 → `kanto-event-collector`（Haiku）
    - 木曜日 → `kanto-movie-collector`（Sonnet）
-   - 金曜日 → `kanto-event-collector`（Haiku）
+   - 金曜日 → `kanto-live-collector`（Sonnet）
    - それ以外の曜日 → テスト実行の可能性が高い。ユーザから特段の指示がなければ `kanto-event-collector` を実行する（Haiku）
 
    **モデルは `claude-routine.sh` が起動時に `--model` で渡す**ので、無人実行では
