@@ -84,11 +84,13 @@ function musicLink(r) {
 
 /* ---------- 描画 ---------- */
 
+/* note は .lu-note 側で幅100%に折り返す前提のため、name・♪ の後ろに置く
+   （幅の奪い合いで name が潰れる事故については app.css の .lu-note を参照）。 */
 function artistItem(r) {
   return `<li class="lu-artist${r.isHeadliner ? " headliner" : ""}">
     <span class="lu-name">${esc(r.artist)}</span>
-    ${r.note ? `<span class="lu-note">${esc(r.note)}</span>` : ""}
     ${musicLink(r)}
+    ${r.note ? `<span class="lu-note">${esc(r.note)}</span>` : ""}
   </li>`;
 }
 

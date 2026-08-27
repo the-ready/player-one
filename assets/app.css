@@ -2478,8 +2478,9 @@ mark {
 }
 .lu-artist {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.15rem 0.4rem;
   padding: 0.28rem 0;
   border-bottom: 1px dashed #e3dfd6;
   font-size: 13px;
@@ -2493,8 +2494,12 @@ mark {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* note（ゲスト表記など長さの読めない自由記述）を1行目（name・♪）と幅を
+   奪い合わせると name が0幅まで潰れて縦一文字積みになる（第12.12節の実障害）。
+   flex-basis:100% で必ず折り返させ、専用の2行目として全幅を使わせる。 */
 .lu-note {
-  flex: none;
+  flex: 0 0 100%;
+  overflow-wrap: anywhere;
   font-size: 10.5px;
   font-weight: 700;
   color: var(--text-soft);
