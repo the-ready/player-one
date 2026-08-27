@@ -1,7 +1,7 @@
 name,venue,pref,month_hint,url,status,first_seen,last_hit,hit_count,note
 ROCK IN JAPAN FESTIVAL,蘇我スポーツ公園,chiba,9月,https://rijfes.jp/,active,2026-08-02,2026-08-12,3,2026年より9月・千葉市蘇我スポーツ公園開催(2025年までの国営ひたち海浜公園・8月から変更)
 SUMMER SONIC,ZOZOマリンスタジアム・幕張メッセ,chiba,8月,https://www.summersonic.com/,active,2026-08-02,2026-08-12,3,
-SUPERSONIC,幕張メッセ周辺,chiba,不定期,,active,2026-08-02,,0,幕張メッセ周辺での開催実態を公式サイト上で確認できず。要確認
+SUPERSONIC,幕張メッセ周辺,chiba,不定期,,retired,2026-08-02,,0,2023年にGMO SONICへ改称・発展したため終了(後継はGMO SONIC)
 JAPAN JAM,蘇我スポーツ公園,chiba,5月,https://japanjam.jp/,active,2026-08-02,,0,
 VIVA LA ROCK,埼玉スタジアム2002周辺・野外特設会場,saitama,5月,https://vivalarock.jp/,active,2026-08-02,,0,さいたまスーパーアリーナ改修休館のため2026年は埼玉スタジアム2002周辺の野外特設会場で初の野外開催(5/3〜6)
 METROCK（METROPOLITAN ROCK FESTIVAL）,若洲公園,tokyo,5月,https://metrock.jp/,active,2026-08-02,,0,
@@ -14,3 +14,11 @@ New Acoustic Camp,水上高原,gunma,9月,https://newacousticcamp.com/,active,20
 TOKYO ISLAND,海の森公園,tokyo,10月,https://tokyoisland.tokyo/,active,2026-08-02,2026-08-12,2,
 ap bank fes,会場は年により変動,,7月,https://www.apbank.jp/,active,2026-08-02,,0,
 FUJI ROCK FESTIVAL,苗場スキー場,other,7月,https://www.fujirockfestival.com/,active,2026-08-07,,0,苗場（新潟県）開催のため関東圏外だが著名フェスとして掲載
+a-nation,お台場a-nation特設会場,tokyo,10月,https://a-nation.net/,candidate,2026-08-27,2026-08-27,1,avex主催。2026年は秋開催・23年ぶりにお台場開催
+SWEET LOVE SHOWER,山中湖交流プラザきらら,other,8月,https://2026.sweetloveshower.com/,candidate,2026-08-27,2026-08-27,1,SPACE SHOWER主催。1998年から続く山梨県のフェス
+SATANIC CARNIVAL,幕張メッセ国際展示場,chiba,6月,https://satanic.jp/contents/carnival,candidate,2026-08-27,2026-08-27,1,PIZZA OF DEATH主催のパンク/ロックフェス
+POP YOURS,幕張メッセ国際展示場,chiba,4月,https://popyours.jp/,candidate,2026-08-27,2026-08-27,1,国内最大級のヒップホップフェス。2026年は初の3days
+WORLD HAPPINESS,国立代々木競技場第一体育館,tokyo,6月,https://world-happiness.com/,candidate,2026-08-27,2026-08-27,1,電気グルーヴ主催。不定期開催(2026年は9年ぶり)
+FUJI & SUN,富士山こどもの国,other,6月,https://fjsn.jp/,candidate,2026-08-27,2026-08-27,1,静岡県富士市。キャンプイン形式の野外フェス
+TOKYO IDOL FESTIVAL,お台場・青海地区特設会場,tokyo,7-8月,https://official.idolfes.com/,candidate,2026-08-27,2026-08-27,1,世界最大規模のアイドルフェス
+GMO SONIC,会場は年により変動(幕張メッセ/GMOアリーナさいたま),,不定期,https://sonic.gmo/,candidate,2026-08-27,2026-08-27,1,旧SUPERSONICが2023年に改称・発展した後継フェス
