@@ -133,6 +133,13 @@ def analyse(name):
         "core": [],
         "balance": {},
         "warnings": [],
+        # pref の網羅性に関する問題だけを、--check が拾えるよう構造化して残す。
+        # 2026-08-29 の無人実行は、千葉・群馬が調査範囲から漏れたまま最後まで
+        # 気づかれなかった。この不足自体はここの WARNING と同じ集計で検知できて
+        # いたが、report_stats.py は「数字を出すだけで良し悪しは判定しない」設計
+        # のため、誰も見ないまま流れた。coverage_issues はその数字を、判定したい
+        # 側（--check）が使える形で持たせるためのものである。
+        "coverage_issues": [],
     }
 
     for col, label in CORE.get(name, []):
@@ -158,6 +165,7 @@ def analyse(name):
             if col == "pref" and short:
                 res["warnings"].append(
                     f"{col}: {floor}件に満たない都県が{len(short)}件（{', '.join(short)}）")
+                res["coverage_issues"].extend({"kind": "floor", "pref": k} for k in short)
             elif col != "pref" and short:
                 res["warnings"].append(
                     f"{col}: {floor}件に満たない区分が{len(short)}件（{', '.join(short)}）")
@@ -176,6 +184,7 @@ def analyse(name):
         elif other * 10 > len(cur) * 2:
             res["warnings"].append(
                 f"隣接5県が多すぎます（{other}/{len(cur)}）。関東側の探索不足を疑ってください")
+            res["coverage_issues"].append({"kind": "adjacent_heavy", "pref": "other"})
 
     return res
 
@@ -210,6 +219,16 @@ def main():
     p = argparse.ArgumentParser(description="収集結果の充足率と分布を前回と比べて出す")
     p.add_argument("dataset", nargs="?", help="events / lives / movies（省略時は全部）")
     p.add_argument("--json", action="store_true", dest="as_json", help="機械可読に出す")
+    # `--check` は既定の動作を変えない。数字を出すことと良し悪しを判定することを
+    # 分ける設計（下記コメント）は保ったまま、判定してほしい側（終了工程のゲート）
+    # だけが明示的にこのフラグを付けて使う。
+    p.add_argument("--check", action="store_true",
+                   help="都県の網羅性チェックを行い、承知していない不足があれば終了コード1で返す"
+                        "（既定では判定しない。下記 --allow-short 参照）")
+    p.add_argument("--allow-short", action="append", default=[],
+                   help="この都県は今回件数が少ない／0件でよいと承知している"
+                        "（--check 用。複数指定可・カンマ区切り可。隣接5県が多すぎる警告は "
+                        "--allow-short other で承知したことにする）")
     args = p.parse_args()
 
     names = [resolve_dataset(args.dataset)] if args.dataset else \
@@ -224,7 +243,29 @@ def main():
         print("\n充足率が前回より落ちた列があれば、その理由を報告に書くこと。"
               "\n原因が目標件数・品質基準・禁止事項の側にあるなら docs/skill-feedback.md に追記する"
               "（自分で書き換えない）。それ以外の小さなバグなら自分で直してよい。")
-    # 数字を出すのが仕事で、良し悪しの判定はしない。落とすのは validate/diff の役目。
+    # 数字を出すのが仕事で、良し悪しの判定はしない。落とすのは validate/diff の役目
+    # ——ただし網羅性（pref）だけは --check で明示的に判定を頼める（下記）。
+    if not args.check:
+        return 0
+
+    allowed = set()
+    for a in args.allow_short:
+        allowed.update(v.strip() for v in a.split(",") if v.strip())
+
+    unresolved = []
+    for r in results:
+        left = [i for i in r["coverage_issues"] if i["pref"] not in allowed]
+        if left:
+            prefs = ", ".join(sorted({i["pref"] for i in left}))
+            unresolved.append(f"{r['dataset']}: {prefs}")
+
+    if unresolved:
+        print("\n--check: 都県の網羅性に承知していない不足があります"
+              "（今週その都県を実際に調べたうえで0件/僅少だったなら "
+              "--allow-short <pref> で承知したことにしてください。調べていないなら調べること）")
+        for u in unresolved:
+            print(f"  {u}")
+        return 1
     return 0
 
 

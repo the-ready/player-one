@@ -93,7 +93,7 @@ python3 tools/fetch_gate.py --check <URL>   # 判定だけ（待たない・記�
 | 5   | 名簿を整理する                                     | `python3 tools/roster.py venues --gc` と `python3 tools/roster.py festivals --gc` |
 | 6   | 差分を確定する（終了コード0）                      | `python3 tools/diff_data.py lives`                                                |
 | 7   | 検証する（ERROR 0）                                | `python3 tools/validate_data.py`                                                  |
-| 8   | 充足率と分布を出す                                 | `python3 tools/report_stats.py lives`                                             |
+| 8   | 充足率・都県の網羅性・フェス名簿との整合を確認する | `python3 tools/report_stats.py lives --check` と `python3 tools/festival_gate.py` |
 | 9   | 報告を出力する                                     | ——                                                                                |
 
 **この9つはすべてローカルのコマンドで、Web検索を1回も使わない。** つまり**検索の予算が尽きていても、コンテキストが逼迫していても、終了工程は必ず実行できる**。「予算が尽きたので終わります」という終わり方に、正当な理由は存在しない。
@@ -102,7 +102,9 @@ python3 tools/fetch_gate.py --check <URL>   # 判定だけ（待たない・記�
 >
 > **3 をここに置いてあるのは、これが「余裕があればやる工程」に見えるためである。** 検索を使わないので予算とは無関係だが、調査の側に置くと予算切れの回で丸ごと飛ぶ——実際にそれで全358行が空欄のまま定着した。**打ち切った週でも通す。**
 >
-> なお `append_lineup.py`（日割りそのものの書き出し）は調査を伴うので、この表には入らない。ただし **`--init` で `lineups.csv` を空にしたまま終えると、`lineup_id` を持つ公演行の参照が切れて 7 の検証がERRORで落ちる。** 書き出しに着手したら、そこも終わらせること。
+> なお `append_lineup.py`（日割りそのものの書き出し）は調査を伴うので、この表には入らない。ただし **`--init` で `lineups.csv` を空にしたまま終えると、`lineup_id` を持つ公演行の参照が切れて 7 の検証がERRORで落ちる。** 書き出しに着手したら、そこも終わらせること。**この検証に直面したとき、行そのものを消してはいけない**——2026-08-29 の無人実行は、まさにこのエラーを行ごと `lives.csv` から削除する応急処置で押し切り、5件のフェスを本体行ごと失った。正しい対処はエラー文にも埋め込んである：ラインナップをまだ書けるなら書く、書けないなら `python3 tools/prev_rows.py lives --uid <uid>` で該当行を確認し `lineup_id` だけを空にして書き戻す。
+>
+> **8 の `--check` / `festival_gate.py` は、都県とフェス名簿の網羅性を機械的に確認するためのものである。** 2026-08-29 の無人実行では、千葉・群馬の主要フェス会場（ROCK IN JAPAN・氣志團万博・New Acoustic Camp）が調査範囲から漏れたまま最後まで気づかれなかった。`report_stats.py lives --check` は「3件に満たない都県」「隣接5県が多すぎる」を終了コードで判定し、`festival_gate.py` は `data/festivals.csv` に登録されていて直近まで見つかっていたフェスが今回の `lives.csv` に見当たらないかを判定する。**どちらも落ちたら、まず実際にその都県・フェスを調べ直すこと。** 調べたうえで今回は本当に無い／少ないと確認できたなら、`--allow-short <pref>`（`report_stats.py`）・`--allow "<フェス名>"`（`festival_gate.py`）で明示的に承知したことにしてから終える。黙って無視しないこと——この2つは「気づかずに調査範囲から漏れる」という同じ事故を防ぐために追加した。
 
 ### やってはいけない終わり方
 
@@ -1386,11 +1388,11 @@ APIを1回叩いて確かめる。こちらはツールの対象外である。
 12. 転売サイトを除外し、正規経路の `url` を選定する
 13. 駐車場・最寄り駅は**初出の会場について1行だけ**書く（残りは自動補完される）。`lat`/`lng` は空欄で渡す。メインアーティストの Apple Music アーティストページは iTunes Search API を**1回**叩き、確信が持てなければ空欄にする（これは `lives.csv` 側の話で、日割り側は下の 13.5 でツールが埋める）
     13.5. **フェスの日割りラインナップを `python3 tools/append_lineup.py` で書き、続けて `python3 tools/fill_apple_music.py` を実行する**（前者は公式ページを `fetch_page.py --text` で取って機械的に抜き、後者は書き終えた名前のぶんだけ Apple Music のリンクを埋める。**どちらも検索の予算を消費しないので、予算切れを理由に飛ばさない**。「フェスの日割りラインナップ」章と「Apple Music アーティストリンク」章）
-14. **`python3 tools/prev_rows.py lives --dispose` で、残った消えた公演（7で片付いた分を除く）1件ずつに理由を記録する**（中止は `cancelled`、確認できなかったものは `notfound`）
+14. **`python3 tools/prev_rows.py lives --dispose` で、残った消えた公演（7で片付いた分を除く）1件ずつに理由を記録する**（中止は `cancelled`、確認できなかったものは `notfound`）。**`ended`/`notfound` は1回の呼び出しにつき合計8件までしか受け付けない**（超えるとエラーで止まる）。個別確認していない行を数十件まとめて処分する経路を塞ぐためで、8件を超えるなら複数回に分けるか、まとめて未確認のまま持ち越してよいなら次の14.5（`--carry-rest --apply`）を使う。また `ended` は `end_date`（会期）が実行日より前でない限り拒否される——会期中・開催前の行を「終了」にはできない
     14.5. **`python3 tools/prev_rows.py lives --carry-rest --apply` で、それでも残った前回行を機械的に片付ける**（終了日を過ぎた行は `expired` として処分し、残りは前回値のまま書き戻す。受付は空になる）。**14 で1件ずつ理由を付けたなら、ここは0件で通る**——理由を付けた行には手を出さない。検索を使わないので、予算切れは飛ばす理由にならない
 15. `python3 tools/roster.py venues --gc` と `python3 tools/roster.py festivals --gc` で名簿を整理する
 16. `python3 tools/diff_data.py lives` と `python3 tools/validate_data.py` を実行し、どちらも**終了コード0**であることを確認する（`diff_data.py` は**収穫が0件でも落ちる**）
-17. `python3 tools/report_stats.py lives` で充足率と分布を出す
+17. `python3 tools/report_stats.py lives --check` で充足率・都県の網羅性を確認し、`python3 tools/festival_gate.py` でフェス名簿との整合を確認する（どちらも落ちたら、まず実際に調べ直す。調べたうえで今回は無いと確認できたなら `--allow-short` / `--allow` で承知したことにする。「終了工程」表の注記を参照）
 18. 最後に、以下の要点だけを簡潔に出力する（あいさつや前置き、次の提案などの会話的な文章は付けない）
     - 件数・都県別内訳・ジャンル別内訳・会場規模別内訳（`report_stats.py` の出力をそのまま使う）
 

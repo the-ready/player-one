@@ -48,10 +48,12 @@
 
 import argparse
 import csv
+import difflib
 import json
 import os
 import subprocess
 import sys
+from collections import defaultdict
 from datetime import date, timedelta
 
 from rowkey import norm
@@ -76,6 +78,20 @@ DISPOSITIONS = {
     # 終了日と今日の日付だけを比較して機械的に付けるもの。「確認した」を騙らないよう別枠にする。
     "expired":      "終了日を過ぎたことを purge_ended.py が機械的に検出した（未確認）",
 }
+
+# `ended` / `notfound` は「この行を個別に確認した」ことが前提の処分である。
+# 2026-08-29 の無人実行では、この2つを1回の --dispose で35件まとめて処分し
+# （「確認できなかったものを統一処理します」の一言で）、うち3件は会期がまだ
+# 残っているのに ended と誤判定した。件数が多いこと自体が「個別に確認していない」
+# ことの兆候なので、上限を超えたら書き込ませない。まだ調べていないことを
+# 正直に表す経路は --carry-rest（前回値のまま書き戻す）であり、ended/notfound を
+# 使って「消滅の説明」を装う必要は無い。
+DISPOSE_RISKY_STATUSES = {"ended", "notfound"}
+DISPOSE_BATCH_LIMIT = 8
+
+# 同じ理由文（定型文）が並んでいないかの目安。ブロックはしない——同じ会場が
+# 閉館した等、正当に理由が重なることもあるため、最終判断はモデルに委ねる。
+NOTE_SIMILARITY_WARN = 0.5
 
 # --- 再確認の優先度（tier）を決めるしきい値 ---------------------------------
 # 「全行を毎週フルに調べ直す」のは高いだけでなく、後半の調査を浅くする。
@@ -714,8 +730,51 @@ def load_carried(name):
     return out
 
 
+def _reject_premature_ended(name, uid_, row, today, i):
+    """`ended` は `is_ended()` が真になる行（＝ end_date が実行日より前の行）にしか使えない。
+
+    会期の途中（今日を含む・本日が予備日）や未来の行を ended にするのは、
+    情報源を確認したのではなく日付を見誤った可能性が高い（2026-08-29 の
+    事故そのもの）。日付を1つも持たない行（自由記述の date だけの行）は
+    機械的に判定できないので、ここでは拒否しない——`is_ended()` の判定規則を
+    そのまま使うことで、`purge_ended.py`・`--worklist`・`--carry-rest` と
+    「終了とは何か」の定義がずれない。
+    """
+    _, end = last_date(name, row)
+    if not end:
+        return
+    if is_ended(name, row, today):
+        return
+    raise SystemExit(
+        f"ERROR: {i}行目 uid={uid_!r} を ended にできません。"
+        f"end_date（またはdatesの最終日、あるいは本日がbackup_dateであること）から見て、"
+        f"実行日 {today.isoformat()} 時点でまだ終了していません（end_date={end!r}）。"
+        "会期中・開催前・予備日当日の行を ended にしないこと——本当に終了を確認できたなら"
+        "日付側の登録ミスを疑い、確認できないなら notfound を使ってください。"
+    )
+
+
+def _warn_similar_notes(records):
+    """同じ status の理由文が定型文で埋まっていないかの目安を出す（ブロックしない）。"""
+    by_status = defaultdict(list)
+    for r in records:
+        if r.get("status") in DISPOSE_RISKY_STATUSES:
+            by_status[r["status"]].append((r.get("note") or "").strip())
+    for st, notes in by_status.items():
+        notes = [n for n in notes if n]
+        pairs = [(a, b) for i, a in enumerate(notes) for b in notes[i + 1:]]
+        if len(notes) < 3 or not pairs:
+            continue
+        similar = sum(1 for a, b in pairs if difflib.SequenceMatcher(None, a, b).ratio() >= NOTE_SIMILARITY_WARN)
+        if similar / len(pairs) >= 0.5:
+            print(f"WARNING: status={st!r} の理由文が{len(notes)}件中で似たものが多いです"
+                  f"（{similar}/{len(pairs)}組）。定型文で済ませず、行ごとに個別確認したか見直してください。",
+                  file=sys.stderr)
+
+
 def cmd_dispose(name, rows, args):
     known = {row_uid(name, r): r for r in rows}
+    today = args.today if args.today else date.today()
     # 追記は append-only、読み出しは「同じ uid なら最後の行が勝つ」実装なので
     # （load_dispositions）、重複追記そのものはエラーにしない——訂正は
     # 正当な操作である。ただし今回の実行で3回書き換えた実例（renamed →
@@ -740,6 +799,8 @@ def cmd_dispose(name, rows, args):
             )
         if st == "renamed" and not (obj.get("to") or "").strip():
             raise SystemExit(f"ERROR: {i}行目 renamed には to（新しいuid）が要ります")
+        if st == "ended":
+            _reject_premature_ended(name, uid_, known[uid_], today, i)
         prior = seen_in_batch.get(uid_) or existing.get(uid_)
         if prior and prior.get("status") != st:
             print(f"WARNING: uid {uid_!r} は既に {prior['status']!r} として処分済みでした"
@@ -747,6 +808,17 @@ def cmd_dispose(name, rows, args):
         obj["title"] = known[uid_].get("title", "")
         seen_in_batch[uid_] = obj
         recs.append(obj)
+
+    risky = [r for r in recs if r.get("status") in DISPOSE_RISKY_STATUSES]
+    if len(risky) > DISPOSE_BATCH_LIMIT:
+        raise SystemExit(
+            f"ERROR: 1回の --dispose で ended/notfound を{len(risky)}件まとめて処分しようとしています"
+            f"（上限{DISPOSE_BATCH_LIMIT}件）。この2つは行ごとに個別確認したことが前提の処分です。"
+            f"{DISPOSE_BATCH_LIMIT}件を超える塊は、複数回に分けて個別に確認するか、"
+            "未確認のまま残してよいなら `python3 tools/prev_rows.py <ds> --carry-rest --apply` を使ってください"
+            "（終了日を過ぎた分は自動的に expired として処分され、残りは前回値のまま書き戻されます）。"
+        )
+    _warn_similar_notes(recs)
 
     os.makedirs(PREV, exist_ok=True)
     with open(disposition_path(name), "a", encoding="utf-8") as f:

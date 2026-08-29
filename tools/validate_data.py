@@ -616,11 +616,21 @@ def validate_lineups(rows, live_rows, rep):
         seen.add(key)
 
     # 逆向き：公演側が lineup_id を持つのに1行も無い＝カードのボタンが出ない
+    #
+    # 2026-08-29 の無人実行はこのエラーに直面したとき、正規の対処
+    # （lineup_id だけ空にして行は残す）ではなく、行ごと lives.csv から
+    # 削除するその場しのぎのスクリプトで押し切った。公演そのものが
+    # 消えるのは lineup_id の不整合より大きな被害なので、対処法を
+    # エラー文自体に埋め込み、次回は探さずに済むようにしてある。
     for lid, r in fests.items():
         if lid not in used:
             rep.error(f"lives.csv({r.get('title','')[:30]})",
                       f"lineup_id={lid!r} に対応する行が {name} に1件もありません"
-                      "（カードの「全◯組の日程を見る」が出ません）")
+                      "（カードの「全◯組の日程を見る」が出ません）。"
+                      "対処: この行を削除しないこと。ラインナップをまだ書けるなら "
+                      "append_lineup.py で書く。書けないなら "
+                      f"`python3 tools/prev_rows.py <ds> --uid <uid>` で該当行を確認し、"
+                      "lineup_id列だけを空にして書き戻す（行自体・他の列は残す）")
 
 
 def check_stray_csv(rep):

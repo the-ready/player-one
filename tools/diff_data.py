@@ -49,7 +49,7 @@ import os
 import sys
 
 from prev_rows import load_dispositions, load_prev, prev_taken_at, resolve_dataset
-from rowkey import natural_key, similarity, title_key
+from rowkey import natural_key, norm, similarity, title_key
 from rowkey import uid as row_uid
 from validate_data import START_COL
 
@@ -70,6 +70,11 @@ QUIET = ["desc", "note", "official_url", "apple_music_url"]   # 変わった事�
 
 FUZZY_MIN = 0.82   # これ以上似ていれば「同じ催しの表記ゆれ」の候補として出す
 
+# フェス名簿と突き合わせた一致にはこの疑似スコアを与える（真の完全一致 1.0 は
+# 上書きしない。1対1割り当ては降順で確定するため、これより低いと通常の
+# 類似度スコアに埋もれる場合がある）。
+FESTIVAL_MATCH_SCORE = 0.97
+
 
 def read_current(name):
     path = os.path.join(DATA, name)
@@ -83,6 +88,40 @@ def index(name, rows):
     out = {}
     for r in rows:
         out[row_uid(name, r)] = r
+    return out
+
+
+def _load_festival_names():
+    """`data/festivals.csv` の name 列を正規化して返す（lives.csv 専用）。
+
+    見つからなくても壊さない——festivals.csv はライブ収集タスクが自分で
+    育てる名簿で、events.csv や movies.csv には存在しない。
+    """
+    path = os.path.join(DATA, "festivals.csv")
+    if not os.path.exists(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return [norm(r.get("name")) for r in csv.DictReader(f) if (r.get("name") or "").strip()]
+
+
+def _festival_membership(rows, festival_names):
+    """uid -> 一致したフェス名簿の名前（無ければ None）。タイトルへの部分文字列一致で見る。
+
+    編集距離ベースの類似度（`similarity()`）は「ROCK IN JAPAN」と無関係な
+    「FUJI ROCK」のような、同じ単語を多く含むだけの別イベントを高スコアに
+    してしまう（文字の集合としての重なりを見るため）。部分文字列一致なら
+    「ROCK IN JAPAN FESTIVAL」が「ROCK IN JAPAN FESTIVAL 2026 第1週」に
+    含まれる、という素直な一致だけを拾う（`tools/festival_gate.py` と同じ判定）。
+    """
+    out = {}
+    for u, r in rows.items():
+        t = norm(r.get("title"))
+        if not t:
+            continue
+        for fname in festival_names:
+            if fname and fname in t:
+                out[u] = fname
+                break
     return out
 
 
@@ -105,6 +144,23 @@ def fuzzy_pairs(name, gone, added):
             same_place_and_date = shares >= len([x for x in gnat[1:] if x])
             if s >= FUZZY_MIN or (same_place_and_date and shares >= 2 and s >= 0.45):
                 scored.append((s, gu, au))
+
+    # フェス名簿に登録済みの催しは、タイトルが大きく書き換わっていても
+    # （例：「ポムフェス2026（ポムポムプリン30周年記念）」→「ポムフェス
+    # POMPOMPURIN FESTIVAL」）、同じフェス名を含む行どうしを強くペアにする。
+    # 2026-08-29 の事故では、会場ベース調査が同じフェスを別表記で新規発見し、
+    # 元の登録行が「消滅」のまま気づかれなかった。
+    if name == "lives.csv":
+        festival_names = _load_festival_names()
+        if festival_names:
+            g_fest = _festival_membership(gone, festival_names)
+            a_fest = _festival_membership(added, festival_names)
+            a_by_fest = {}
+            for au, fname in a_fest.items():
+                a_by_fest.setdefault(fname, []).append(au)
+            for gu, fname in g_fest.items():
+                for au in a_by_fest.get(fname, []):
+                    scored.append((FESTIVAL_MATCH_SCORE, gu, au))
 
     # 1対1に割り当てる。似ている順に取り、既に使った行は再利用しない。
     pairs, used_g, used_a = [], set(), set()
