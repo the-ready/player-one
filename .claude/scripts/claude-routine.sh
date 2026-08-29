@@ -38,7 +38,9 @@
 #   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
 #   ROUTINE_PUSH         0 にすると commit までで push しない
 #   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
-#   ROUTINE_MODEL        使うモデルを固定する（既定は曜日ごとのスキルに応じて自動選択。下記参照）
+#   ROUTINE_SKILL        実行するスキルを固定する（既定は event.txt の対応表から曜日で自動選択。
+#                        水〜金以外の曜日にcronで試験実行するときに使う。下記参照）
+#   ROUTINE_MODEL        使うモデルを固定する（既定は ROUTINE_SKILL に対応するモデルを自動選択）
 #
 set -u
 set -o pipefail
@@ -60,7 +62,8 @@ usage() {
   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
   ROUTINE_PUSH         0 で push を行わない
   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
-  ROUTINE_MODEL        使うモデルを固定する（既定は曜日ごとに自動選択）
+  ROUTINE_SKILL        実行するスキルを固定する（既定は event.txt の対応表から曜日で自動選択）
+  ROUTINE_MODEL        使うモデルを固定する（既定は ROUTINE_SKILL に対応するモデルを自動選択）
 USAGE
 }
 
@@ -69,6 +72,7 @@ ROUTINE_GIT_RETRY="${ROUTINE_GIT_RETRY:-4}"
 ROUTINE_BRANCH="${ROUTINE_BRANCH:-}"
 ROUTINE_PUSH="${ROUTINE_PUSH:-1}"
 ROUTINE_CLAUDE_BIN="${ROUTINE_CLAUDE_BIN:-}"
+ROUTINE_SKILL="${ROUTINE_SKILL:-}"
 ROUTINE_MODEL="${ROUTINE_MODEL:-}"
 CHECK_ENV_ONLY=0
 
@@ -468,10 +472,78 @@ fi
 #
 # while ループはパイプの右側＝サブシェルなので、そこで立てた変数は親に返らない。
 # 最終結果（result イベントの subtype）は一時ディレクトリのファイル経由で受け取る。
+#
+# まず、実行するスキル・モデル・サブエージェントの同時実行数を決める。
+#
+# 【同時実行数】上限の既定は 20 だが、この収集タスクには過剰である。並列化が
+# 効くのは**取得先のホストが分かれている分だけ**で、同じホストへ複数体を当てると
+# fetch_gate.py の間隔制御（ホスト単位）で互いに待ち合うだけになる。
+# 待つ時間は増え、体数ぶんのトークンはそのまま払う。名簿の実測は次のとおり。
+#
+#   lives  : venues 152件 / 133ホスト → 競合はほぼ起きない
+#   movies : theaters 85件 /  25ホスト → チェーンが同一ホストに集中している。
+#            さらにステップ1（新作カレンダー）が集約サイト数件に偏るため、
+#            並列度を上げてもゲート待ちの行列が伸びるだけになる
+#   events : spots 201件 / 184ホスト → 競合はほぼ起きない（2026-08-22、栃木・群馬を除外後）
+#
+# movies だけ低いのはこのためで、件数の少なさが理由ではない。
+#
+# 【モデル】既定は events=haiku、lives/movies=sonnet。2026-08-21 の実測で
+# Haiku は「JSONLを返さず要約だけ返す」失敗が起きやすく、前回分の再発見率も
+# 低かった（SKILL.md「サブエージェントへの指示に必ず含めること」で緩和を
+# 図ったが、根本的な能力差は残る）。events はコストと速度を優先して Haiku を
+# 使い続けるが、lives/movies は同じ失敗が起きたときの手直しコストのほうが
+# 高いと判断し、Sonnet を使う。ROUTINE_MODEL で個別に上書きできる。
+#
+# 【曜日→スキル→モデルの対応】正本は event.txt の ```schedule ブロックだけに
+# 置く。**このスクリプトは自前の対応表を持たず、そこを読むだけにしてある。**
+#
+# 以前はここに曜日→モデルの対応を独自の case 文で複製していたが、event.txt 側の
+# 表を変えた際にこちらの更新が漏れ、2026-08-29 の無人実行で「金曜日は
+# kanto-live-collector（Sonnet）」のはずが「該当する case が無く既定の Haiku」に
+# 落ちる事故が起きた（さらにモデル自身も当日を金曜日と暗算し間違えるという
+# 別の誤りが重なった）。対応表を1箇所にし、モデルにも曜日を自分で選ばせず
+# このスクリプトが決めた `ROUTINE_SKILL` を渡す形にして、両方の再発を防ぐ。
+#
+# ROUTINE_SKILL を先に環境変数で渡せば（cronでの水〜金以外の試験実行など）、
+# 曜日に関わらずそのスキル・対応モデルが使われる。表に無いスキル名ならエラーで
+# 止まる（「気づかないまま既定に落ちる」より、止まって気づけるほうを選んでいる）。
+#
+# settings.json の env・model はセッション全体にしか効かず、スキル単位で
+# 差し替える仕組みが存在しない。シェルの環境変数・CLIフラグは settings.json
+# より優先されるので、ここで export した値・渡したフラグが当日のセッションを
+# 支配する——スキルごとに値を変えられる場所は実質ここしかない。
+# なお孫エージェントの禁止（CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1）は曜日で
+# 変わらないので settings.json 側に置いたままにしてあり、ここでは扱わない。
 # ============================================================
+SCHEDULE_BLOCK="$(awk '/^[[:space:]]*```schedule[[:space:]]*$/{f=1; next} /^[[:space:]]*```[[:space:]]*$/{f=0} f' "$ROUTINE_FILE")"
+[ -n "$SCHEDULE_BLOCK" ] || die "${ROUTINE_FILE} に \`\`\`schedule ブロック（曜日対応表）が見つかりません"
+
+find_schedule_row() {
+  # $1: 検索する列番号（1=曜日番号/other、2=スキル名） $2: 探す値
+  awk -v f="$1" -v v="$2" '$1 !~ /^#/ && $f == v { print; exit }' <<< "$SCHEDULE_BLOCK"
+}
+
+if [ -n "$ROUTINE_SKILL" ]; then
+  ROW="$(find_schedule_row 2 "$ROUTINE_SKILL")"
+  [ -n "$ROW" ] || die "ROUTINE_SKILL=${ROUTINE_SKILL} が ${ROUTINE_FILE} の対応表にありません。表に行を追加してください"
+else
+  ROW="$(find_schedule_row 1 "$(date +%u)")"
+  [ -n "$ROW" ] || ROW="$(find_schedule_row 1 "other")"
+  [ -n "$ROW" ] || die "${ROUTINE_FILE} の対応表に other 行（既定）がありません"
+  ROUTINE_SKILL="$(awk '{print $2}' <<< "$ROW")"
+fi
+export ROUTINE_SKILL
+
+DEFAULT_MODEL="$(awk '{print $3}' <<< "$ROW")"
+SUBAGENT_LIMIT="$(awk '{print $4}' <<< "$ROW")"
+export CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS="$SUBAGENT_LIMIT"
+ROUTINE_MODEL="${ROUTINE_MODEL:-$DEFAULT_MODEL}"
+log "実行スキル: ${ROUTINE_SKILL} / サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止） / モデル: ${ROUTINE_MODEL}"
+
 RUN_STATE="$(mktemp -d "$LOG_DIR/.run.XXXXXX")" || die "一時ディレクトリを作成できません"
 
-PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレクトリに移動し、${ROUTINE_FILE} を読み込んで、その指示に従って作業を最後まで実行してください。git の pull / commit / push はこのスクリプトが行うので、あなたは git 操作を行わないでください。"
+PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレクトリに移動し、${ROUTINE_FILE} を読み込んで、その指示に従って作業を最後まで実行してください。今回実行するスキルは \`${ROUTINE_SKILL}\` です（${ROUTINE_FILE} の対応表からこのスクリプトが決定済みです。曜日から選び直す必要はありません）。git の pull / commit / push はこのスクリプトが行うので、あなたは git 操作を行わないでください。"
 
 # ============================================================
 # フックに「これは無人のルーチンである」と伝える
@@ -499,49 +571,6 @@ export CLAUDE_ROUTINE=1
 # 時間は「まだ続けてよいか」の判断材料にはならないので、budget.py は
 # セッションの記録からトークンも読んで併記する（第8.7.1節）。
 export ROUTINE_TIMEOUT_SEC
-
-# ============================================================
-# サブエージェントの同時実行数と、使うモデルを、その日のスキルに合わせて決める
-#
-# 【同時実行数】上限の既定は 20 だが、この収集タスクには過剰である。並列化が
-# 効くのは**取得先のホストが分かれている分だけ**で、同じホストへ複数体を当てると
-# fetch_gate.py の間隔制御（ホスト単位）で互いに待ち合うだけになる。
-# 待つ時間は増え、体数ぶんのトークンはそのまま払う。名簿の実測は次のとおり。
-#
-#   lives  : venues 152件 / 133ホスト → 競合はほぼ起きない
-#   movies : theaters 85件 /  25ホスト → チェーンが同一ホストに集中している。
-#            さらにステップ1（新作カレンダー）が集約サイト数件に偏るため、
-#            並列度を上げてもゲート待ちの行列が伸びるだけになる
-#   events : spots 201件 / 184ホスト → 競合はほぼ起きない（2026-08-22、栃木・群馬を除外後）
-#
-# movies だけ低いのはこのためで、件数の少なさが理由ではない。
-#
-# 【モデル】既定は events=haiku、lives/movies=sonnet。2026-08-21 の実測で
-# Haiku は「JSONLを返さず要約だけ返す」失敗が起きやすく、前回分の再発見率も
-# 低かった（SKILL.md「サブエージェントへの指示に必ず含めること」で緩和を
-# 図ったが、根本的な能力差は残る）。events はコストと速度を優先して Haiku を
-# 使い続けるが、lives/movies は同じ失敗が起きたときの手直しコストのほうが
-# 高いと判断し、Sonnet を使う。ROUTINE_MODEL で個別に上書きできる。
-#
-# **スキルごとに値を変えられる場所はここしかない。** settings.json の env・model は
-# セッション全体にしか効かず、スキル単位で差し替える仕組みが（2026-08-22 時点で）
-# 存在しない。シェルの環境変数・CLIフラグは settings.json より優先されるので、
-# ここで export した値・渡したフラグが当日のセッションを支配する。
-#
-# 孫エージェントの禁止（CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1）は曜日で
-# 変わらないので settings.json に置いてある。二重に書かない。
-#
-# 曜日とスキルの対応の正本は .claude/routines/event.txt である。
-# ここはその写しなので、**あちらを変えたらここも変えること。**
-# ============================================================
-case "$(date +%u)" in
-  3) SUBAGENT_LIMIT=3; DEFAULT_MODEL=sonnet ;; # 水: kanto-live-collector
-  4) SUBAGENT_LIMIT=2; DEFAULT_MODEL=sonnet ;; # 木: kanto-movie-collector（ホストが25しかない）
-  *) SUBAGENT_LIMIT=3; DEFAULT_MODEL=haiku  ;; # 金・およびテスト実行: kanto-event-collector
-esac
-export CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS="$SUBAGENT_LIMIT"
-ROUTINE_MODEL="${ROUTINE_MODEL:-$DEFAULT_MODEL}"
-log "サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止） / モデル: ${ROUTINE_MODEL}"
 
 CLAUDE_CMD=("$CLAUDE_BIN")
 if command -v timeout >/dev/null 2>&1; then

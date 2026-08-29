@@ -12,16 +12,38 @@
 
 ## 手順
 
-1. 実行日の曜日を確認し、実行するスキルを1つ決める。
-   - 水曜日 → `kanto-event-collector`（Haiku）
-   - 木曜日 → `kanto-movie-collector`（Sonnet）
-   - 金曜日 → `kanto-live-collector`（Sonnet）
-   - それ以外の曜日 → テスト実行の可能性が高い。ユーザから特段の指示がなければ `kanto-event-collector` を実行する（Haiku）
+1. 実行するスキルは、下の対応表から `claude-routine.sh` が機械的に決めて `ROUTINE_SKILL` として
+   このセッションに渡している（このプロンプトの文中に書かれている）。**曜日から自分で選び直さない。**
+
+   ```schedule
+   # 曜日(date +%u: 1=月 2=火 3=水 4=木 5=金 6=土 7=日) スキル モデル 同時実行数
+   3      kanto-event-collector haiku  3
+   4      kanto-movie-collector sonnet 2
+   5      kanto-live-collector  sonnet 3
+   other  kanto-event-collector haiku  3
+   ```
+
+   **この表が唯一の正本である。** `claude-routine.sh` はこのブロックをそのまま読んで
+   `ROUTINE_SKILL`・`--model`・`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` を決めており、
+   独自の対応表は持たない。曜日を増やす・組み合わせを変えるときは、この表の行を
+   編集するだけでよい（シェルスクリプト側の変更は不要）。
+
+   **水〜金以外の曜日にcronで試験実行する場合**は、`other` 行がそのまま使われる
+   （`kanto-event-collector` / Haiku）。特定のスキルを試したいときは、
+   `claude-routine.sh` を起動する側（crontab）で `ROUTINE_SKILL=kanto-live-collector` のように
+   環境変数を渡せば、曜日に関わらずそのスキル・対応モデルが使われる（表より優先する。
+   表に無いスキル名を渡すと起動時にエラーで止まる）。
 
    **モデルは `claude-routine.sh` が起動時に `--model` で渡す**ので、無人実行では
    このセッション自身が既に該当モデルで動いている。あなた自身のモデルを
    途中で変える必要はない。対話セッションで手動実行するときは `--model` が
    渡らないので、対話中のモデルのままになる（`/model` で確認・変更できる）。
+   また `ROUTINE_SKILL` も渡らないので、実行するスキルは対話の指示に従うか、
+   指示が無ければ上の表の `other` 行を使う。**このとき曜日を自分の暗算で
+   決めてはいけない。`date` コマンドをBashで実行して確認すること。**
+   （2026-08-29の無人実行では、モデルが2026-08-29を「金曜日」と暗算し間違え、
+   本来 `other` 行が適用されるべき土曜日に `kanto-live-collector` を実行してしまい、
+   フェスの会期をまだ残しているのに`ended`として消してしまう事故につながった。）
 
    **手順書は `.claude/skills/<スキル名>/SKILL.md` を Read で直接読むこと。`/kanto-...` のスラッシュコマンドで呼び出さない。**
    同じ名前のコピーが `~/.claude/skills/` にもあり、こちらは手動同期なので古いことがある
