@@ -32,7 +32,8 @@ data/                         週次で差し替えるデータ。ここだけ�
   apple-music.json            アーティスト名→Apple MusicのURL（引き直しを避けるキャッシュ）
 .claude/skills/               3つの収集スキルと、掲載停止申請への対応手順（正本はここ）
 .claude/hooks/                規則を決定論的に守らせるフック（git の禁止・背景エージェントの禁止・整形・終了前の検証）
-.claude/routines/event.txt    週次ルーチンの手順（曜日でスキルを選ぶ）
+.claude/routines/invariants.md  週次ルーチンの不変規則（システムプロンプトとして渡す）
+.claude/skills/weekly-routine/  週次ルーチンの手順（曜日でスキルを選ぶ）
 .claude/scripts/              cron の入口（pull → 実行 → 検証 → 通った回だけ commit/push）
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
@@ -273,4 +274,4 @@ lineup_id,date,stage,artist,is_headliner,apple_music_url,note
 
 `data/lives.csv` の更新は `/kanto-live-collector` スキルが週次で担当する。
 
-**3つの収集スキルはいずれもリポジトリ内の [`.claude/skills/`](.claude/skills/) が唯一の正本**で、ホームディレクトリへの複製は運用していない。リポジトリ外に置くと、CSVの列や構成を変えてもスキル側へ伝わらないためである。週次ルーチンは `.claude/routines/event.txt` の指示でこのパスを直接読み、スラッシュコマンド名の解決には頼らない。CSVの列を変えたら `.claude/skills/` の3つを更新すること。
+**3つの収集スキルはいずれもリポジトリ内の [`.claude/skills/`](.claude/skills/) が唯一の正本**で、ホームディレクトリへの複製は運用していない。リポジトリ外に置くと、CSVの列や構成を変えてもスキル側へ伝わらないためである。週次ルーチンは `weekly-routine` スキルの指示でこのパスを直接読み、収集スキル名の解決には頼らない。CSVの列を変えたら `.claude/skills/` の3つを更新すること。

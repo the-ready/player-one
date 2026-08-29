@@ -9,14 +9,16 @@
 # ============================================================
 #   1. 多重起動の防止（ロック）
 #   2. 実行前に origin から最新を取り込む（git fetch + fast-forward マージ）
-#   3. Claude Code を起動し、.claude/routines/event.txt の手順を実行させる
+#   3. Claude Code を起動し、`/weekly-routine` の手順を実行させる
+#      （不変規則は --append-system-prompt-file で invariants.md を渡す）
 #   4. 終了日を過ぎた行の後始末（purge_ended.py）と生成物の検証
 #      （validate_data.py / diff_data.py の終了コード）
 #   5. **検証を通ったときだけ** commit して push する
 #   6. 検証を通らなかったときは生成物を logs/failed/ に退避し、data/ を HEAD に戻す
 #
 # 「最初に git pull、最後に git push」という手順は、以前は
-# .claude/routines/event.txt に書かれていた（＝Claude 自身にやらせていた）。
+# 手順の側（現 `.claude/skills/weekly-routine/SKILL.md`）に書かれていた
+# （＝Claude 自身にやらせていた）。
 # これには2つの弱点があった。
 #
 #   - Claude の実行が途中で終わると、pull も push も実行されない
@@ -38,7 +40,7 @@
 #   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
 #   ROUTINE_PUSH         0 にすると commit までで push しない
 #   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
-#   ROUTINE_SKILL        実行するスキルを固定する（既定は event.txt の対応表から曜日で自動選択。
+#   ROUTINE_SKILL        実行するスキルを固定する（既定は weekly-routine スキルの対応表から曜日で自動選択。
 #                        水〜金以外の曜日にcronで試験実行するときに使う。下記参照）
 #   ROUTINE_MODEL        使うモデルを固定する（既定は ROUTINE_SKILL に対応するモデルを自動選択）
 #
@@ -62,7 +64,7 @@ usage() {
   ROUTINE_BRANCH       push 先ブランチ（既定は現在のブランチ）
   ROUTINE_PUSH         0 で push を行わない
   ROUTINE_CLAUDE_BIN   使う claude の実体を固定する（既定は自動検出）
-  ROUTINE_SKILL        実行するスキルを固定する（既定は event.txt の対応表から曜日で自動選択）
+  ROUTINE_SKILL        実行するスキルを固定する（既定は weekly-routine スキルの対応表から曜日で自動選択）
   ROUTINE_MODEL        使うモデルを固定する（既定は ROUTINE_SKILL に対応するモデルを自動選択）
 USAGE
 }
@@ -108,7 +110,23 @@ esac
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROUTINE_FILE="$CLAUDE_DIR/routines/event.txt"
+# 手順の正本は `weekly-routine` スキル、不変規則の正本は invariants.md である。
+#
+# 以前はこの2つが `.claude/routines/event.txt` に同居していて、起動プロンプトで
+# 「このファイルを読んで従え」と言っていた。**規則が会話の履歴に乗る形だった**、
+# というのがこの分け方の理由である。Claude Code は文脈が埋まると会話を要約するので、
+# 冒頭で1度読んだだけの指示は終盤まで残る保証が無い（公式ドキュメント How Claude Code
+# works「instructions from early in the conversation can get lost」）。6時間・文脈再送
+# 25M〜40M を前提にした運用で、規則がいつ消えたか分からないのは割に合わない。
+#
+#   invariants.md  → --append-system-prompt-file で渡す。システムプロンプトは会話履歴では
+#                    ないので圧縮の対象外で、最後のターンまで必ず残る
+#   SKILL.md       → -p "/weekly-routine <スキル名>" で展開させる。手順は会話に乗ってよい
+#                    （消えても致命的でなく、消えるほど長い実行では既に終了工程にいる）
+#
+# 事故の記録そのものは docs/routine-postmortems.md に移してある。実行時には読ませない。
+ROUTINE_SKILL_FILE="$CLAUDE_DIR/skills/weekly-routine/SKILL.md"
+INVARIANTS_FILE="$CLAUDE_DIR/routines/invariants.md"
 
 # ログは .claude/logs/ に日付別で保存する（.gitignore の `logs` が効く）。
 # 同じ日に複数回実行された場合は同じファイルに追記される。
@@ -333,8 +351,12 @@ if [ -z "$CLAUDE_BIN" ]; then
 fi
 log "CLAUDE_BIN = $CLAUDE_BIN（$ver）"
 
-[ -f "$ROUTINE_FILE" ] || die "手順ファイルが見つかりません: $ROUTINE_FILE"
-log "手順ファイルを確認しました: $ROUTINE_FILE"
+[ -f "$ROUTINE_SKILL_FILE" ] || die "手順スキルが見つかりません: $ROUTINE_SKILL_FILE"
+log "手順スキルを確認しました: $ROUTINE_SKILL_FILE"
+# 不変規則が読めない回は起動しない。あれはシステムプロンプトに載る唯一の経路で、
+# 無いまま起動すると「規則が届いていないこと」に誰も気づけないまま6時間走る。
+[ -f "$INVARIANTS_FILE" ] || die "不変規則が見つかりません: $INVARIANTS_FILE"
+log "不変規則を確認しました: $INVARIANTS_FILE"
 
 # リポジトリのルート。.claude が別の場所へ移されても追随できるよう git に聞く
 REPO_DIR="$(git -C "$CLAUDE_DIR" rev-parse --show-toplevel 2>/dev/null)"
@@ -495,10 +517,10 @@ fi
 # 使い続けるが、lives/movies は同じ失敗が起きたときの手直しコストのほうが
 # 高いと判断し、Sonnet を使う。ROUTINE_MODEL で個別に上書きできる。
 #
-# 【曜日→スキル→モデルの対応】正本は event.txt の ```schedule ブロックだけに
+# 【曜日→スキル→モデルの対応】正本は weekly-routine スキルの ```schedule ブロックだけに
 # 置く。**このスクリプトは自前の対応表を持たず、そこを読むだけにしてある。**
 #
-# 以前はここに曜日→モデルの対応を独自の case 文で複製していたが、event.txt 側の
+# 以前はここに曜日→モデルの対応を独自の case 文で複製していたが、対応表側の
 # 表を変えた際にこちらの更新が漏れ、2026-08-29 の無人実行で「金曜日は
 # kanto-live-collector（Sonnet）」のはずが「該当する case が無く既定の Haiku」に
 # 落ちる事故が起きた（さらにモデル自身も当日を金曜日と暗算し間違えるという
@@ -516,8 +538,8 @@ fi
 # なお孫エージェントの禁止（CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1）は曜日で
 # 変わらないので settings.json 側に置いたままにしてあり、ここでは扱わない。
 # ============================================================
-SCHEDULE_BLOCK="$(awk '/^[[:space:]]*```schedule[[:space:]]*$/{f=1; next} /^[[:space:]]*```[[:space:]]*$/{f=0} f' "$ROUTINE_FILE")"
-[ -n "$SCHEDULE_BLOCK" ] || die "${ROUTINE_FILE} に \`\`\`schedule ブロック（曜日対応表）が見つかりません"
+SCHEDULE_BLOCK="$(awk '/^[[:space:]]*```schedule[[:space:]]*$/{f=1; next} /^[[:space:]]*```[[:space:]]*$/{f=0} f' "$ROUTINE_SKILL_FILE")"
+[ -n "$SCHEDULE_BLOCK" ] || die "${ROUTINE_SKILL_FILE} に \`\`\`schedule ブロック（曜日対応表）が見つかりません"
 
 find_schedule_row() {
   # $1: 検索する列番号（1=曜日番号/other、2=スキル名） $2: 探す値
@@ -526,11 +548,11 @@ find_schedule_row() {
 
 if [ -n "$ROUTINE_SKILL" ]; then
   ROW="$(find_schedule_row 2 "$ROUTINE_SKILL")"
-  [ -n "$ROW" ] || die "ROUTINE_SKILL=${ROUTINE_SKILL} が ${ROUTINE_FILE} の対応表にありません。表に行を追加してください"
+  [ -n "$ROW" ] || die "ROUTINE_SKILL=${ROUTINE_SKILL} が ${ROUTINE_SKILL_FILE} の対応表にありません。表に行を追加してください"
 else
   ROW="$(find_schedule_row 1 "$(date +%u)")"
   [ -n "$ROW" ] || ROW="$(find_schedule_row 1 "other")"
-  [ -n "$ROW" ] || die "${ROUTINE_FILE} の対応表に other 行（既定）がありません"
+  [ -n "$ROW" ] || die "${ROUTINE_SKILL_FILE} の対応表に other 行（既定）がありません"
   ROUTINE_SKILL="$(awk '{print $2}' <<< "$ROW")"
 fi
 export ROUTINE_SKILL
@@ -543,7 +565,16 @@ log "実行スキル: ${ROUTINE_SKILL} / サブエージェントの同時実行
 
 RUN_STATE="$(mktemp -d "$LOG_DIR/.run.XXXXXX")" || die "一時ディレクトリを作成できません"
 
-PROMPT="作業ディレクトリは ${REPO_DIR} です。まずこのディレクトリに移動し、${ROUTINE_FILE} を読み込んで、その指示に従って作業を最後まで実行してください。今回実行するスキルは \`${ROUTINE_SKILL}\` です（${ROUTINE_FILE} の対応表からこのスクリプトが決定済みです。曜日から選び直す必要はありません）。git の pull / commit / push はこのスクリプトが行うので、あなたは git 操作を行わないでください。"
+# 手順は「ファイルを読め」ではなくスラッシュコマンドで渡す。
+#
+# `-p` モードでもユーザー起動のスキルは展開される（公式ドキュメント Headless
+# 「include /skill-name in the prompt string and Claude Code expands it before
+# running」）。Read を1回挟む形と違い、**モデルが読みに行くかどうかに依存しない**
+# ——展開はモデルに届く前に済んでいる。
+#
+# スキル本文の `` !`date` `` も同じ理由でここに効く。曜日はシェルが数えて注入するので、
+# モデルの暗算が入り込む余地が無い（2026-08-29 の事故。docs/routine-postmortems.md）。
+PROMPT="/weekly-routine ${ROUTINE_SKILL}"
 
 # ============================================================
 # フックに「これは無人のルーチンである」と伝える
@@ -615,6 +646,7 @@ log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
 
 "${CLAUDE_CMD[@]}" -p "$PROMPT" \
   --model "$ROUTINE_MODEL" \
+  --append-system-prompt-file "$INVARIANTS_FILE" \
   --permission-mode bypassPermissions \
   --output-format stream-json \
   --verbose \

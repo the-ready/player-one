@@ -67,27 +67,41 @@ PREV = os.path.join(DATA, ".prev")
 NAME_MAP = {"events": "events.csv", "lives": "lives.csv", "movies": "movies.csv"}
 
 # 前回にあった行が今回無い場合に付けられる説明。diff_data.py が対応表として使う。
+#
+# **`notfound` は「消滅」ではない。** 情報源を確認できなかった、というだけで
+# 終了した根拠には一切ならない——実際、直近の実行では notfound 38件に対し
+# 確認できた ended はわずか3件だった。だから `notfound` を付けた行は
+# `cmd_dispose` が前回値のまま自動で書き戻す（受付欄は空にする）。消えるのは
+# 「情報源で終了・中止を確認できた」「対象外と確定した」「別の行に実体が残る」
+# の3種と、日付だけで機械的に確定する `expired` だけである。
 DISPOSITIONS = {
     "ended":        "会期・上映・公演が終了したことを確認した",
     "cancelled":    "中止・延期になったことを確認した",
     "out-of-scope": "対象期間（3ヶ月）や対象地域から外れた",
     "merged":       "他の行に統合した（重複の解消）",
     "renamed":      "同じ催しだが表記が変わった（to に新しい uid を書くこと）",
-    "notfound":     "今回は確認できなかった（終了したとは限らない。要注意）",
+    "notfound":     "今回は確認できなかった（行は削除しない。前回値のまま持ち越し、来週の最優先にする）",
     # モデルが情報源を確認して付ける "ended" とは違い、これは tools/purge_ended.py が
     # 終了日と今日の日付だけを比較して機械的に付けるもの。「確認した」を騙らないよう別枠にする。
     "expired":      "終了日を過ぎたことを purge_ended.py が機械的に検出した（未確認）",
 }
 
-# `ended` / `notfound` は「この行を個別に確認した」ことが前提の処分である。
-# 2026-08-29 の無人実行では、この2つを1回の --dispose で35件まとめて処分し
-# （「確認できなかったものを統一処理します」の一言で）、うち3件は会期がまだ
-# 残っているのに ended と誤判定した。件数が多いこと自体が「個別に確認していない」
-# ことの兆候なので、上限を超えたら書き込ませない。まだ調べていないことを
-# 正直に表す経路は --carry-rest（前回値のまま書き戻す）であり、ended/notfound を
-# 使って「消滅の説明」を装う必要は無い。
-DISPOSE_RISKY_STATUSES = {"ended", "notfound"}
+# `ended` は「この行を個別に確認した」ことが前提の処分である。
+# 2026-08-29 の無人実行では、これと `notfound` を1回の --dispose で35件まとめて
+# 処分し（「確認できなかったものを統一処理します」の一言で）、うち3件は会期が
+# まだ残っているのに ended と誤判定した。件数が多いこと自体が「個別に確認して
+# いない」ことの兆候なので、上限を超えたら書き込ませない。
+#
+# `notfound` はこの上限から外してある——上の変更で `notfound` はもう削除では
+# なく持ち越しになったので、「個別確認せずに大量削除する」事故がそもそも
+# 起こりえない。まとめて何件記録しても、行は消えずに残る。
+DISPOSE_RISKY_STATUSES = {"ended"}
 DISPOSE_BATCH_LIMIT = 8
+
+# 同じ理由文（定型文）が並んでいないかの目安の対象。件数の上限
+# （DISPOSE_RISKY_STATUSES）とは別に持つ——`notfound` は削除しなくなったので
+# 上限からは外したが、定型文の目安はそのまま効かせたい。
+NOTE_SCRUTINY_STATUSES = {"ended", "notfound"}
 
 # 同じ理由文（定型文）が並んでいないかの目安。ブロックはしない——同じ会場が
 # 閉館した等、正当に理由が重なることもあるため、最終判断はモデルに委ねる。
@@ -225,13 +239,37 @@ def take_snapshot(name):
         json.dump({"taken_at": date.today().isoformat(), "rows": len(rows)},
                   f, ensure_ascii=False, indent=2)
     # 退避のたびに、その時点の処分記録は「今週の分」としての役目を終える。
-    # ただし捨てずに1世代だけ残す——`notfound`（調べたが分からなかった）と
-    # `expired`（終了日を過ぎたので機械的に消えた）は、**翌週の最優先で
-    # 確かめ直すべき行**だからである。消してしまうと、確認できなかったものが
-    # 確認されないまま流れていくだけになる（`carried_path` の説明を参照）。
+    # 単純な世代交代（前の carried.jsonl を丸ごと捨てて disp で置き換える）は
+    # しない——**まだCSVに戻っていない `expired` は、何週再確認を逃しても
+    # 消さずに引き継ぐ**（`load_carried` / `carried_path` の説明を参照）。
+    #
+    # `notfound` はここで引き継がない。`cmd_dispose` が notfound を前回値の
+    # まま書き戻すようになったため（行は削除されない）、notfound の uid は
+    # 必ずこの時点の `rows`（＝退避される直前、今週まで使っていたCSV）に
+    # 含まれる。「まだCSVに戻っていない」という条件が、この違いをそのまま
+    # 反映する——expired だけが実際にCSVから消えている処分だからである。
+    cur_uids = {row_uid(name, r) for r in rows}
+    still_missing = {c["uid"]: c for c in load_carried(name) if c.get("uid") not in cur_uids}
     disp = disposition_path(name)
     if os.path.exists(disp):
-        os.replace(disp, carried_path(name))
+        with open(disp, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("status") == "expired" and obj.get("uid") not in cur_uids:
+                    still_missing[obj["uid"]] = obj
+        os.remove(disp)
+    if still_missing:
+        with open(carried_path(name), "w", encoding="utf-8") as f:
+            for obj in still_missing.values():
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    elif os.path.exists(carried_path(name)):
+        os.remove(carried_path(name))
     return len(rows)
 
 
@@ -352,37 +390,41 @@ def tier_of(name, row, today):
 # ---------------------------------------------------------------- 出力
 
 def _clip(value, width):
+    """一覧表示用に切り詰める。**この出力をそのまま書き戻さないこと。**
+
+    末尾には `…`（U+2026）ではなく U+FFFD（REPLACEMENT CHARACTER）を置く。
+    `…` は実在のタイトル・副題の末尾に正当に現れうる記号なので、それを
+    切り詰めの目印にすると「本物の `…` で終わるタイトル」と区別が付かない。
+    U+FFFD はデコード事故を示すための予約済み文字で、人が書いた本物のタイトル
+    に紛れ込むことは実質ありえない——2026-08-29 の事故（`--worklist` の34字
+    省略をそのまま書き戻し、同じ催しが旧uid/新uidの二重掲載になった）を機械的
+    に検知できるようにする（`append_rows.py` がこの文字を含む行を拒否する）。
+    """
     s = (value or "").strip().replace("\t", " ").replace("\n", " ")
-    return s if len(s) <= width else s[: width - 1] + "…"
+    return s if len(s) <= width else s[: width - 1] + "�"
 
 
 def print_carried(name):
-    """先週、確認できないまま消えた行を先に出す。
+    """まだCSVに戻っていない `expired` 行を先に出す。
 
     棚卸しの先頭に置くのは、これが**今週いちばん最初に確かめるべき行**だから
-    である。`notfound` はまだ開催中かもしれない（＝静かな欠落の候補）。
-    `expired` は会期延長を見落としていた可能性がある。どちらも前回のCSVには
-    もう残っていないので、この一覧に出さない限り二度と視界に入らない。
-    """
-    carried = load_carried(name)
-    if not carried:
-        return
-    nf = [c for c in carried if c.get("status") == "notfound"]
-    ex = [c for c in carried if c.get("status") == "expired"]
+    である。終了日を過ぎたという機械的な理由だけで消えており、会期延長を
+    見落としていた可能性がある。CSVに戻らない限り、この一覧に出さないと
+    二度と視界に入らない（`load_carried` は何週でも引き継ぐ）。
 
-    print(f"# ---- 先週、確認できないまま消えた行（{len(carried)}件・今週の最優先）----")
-    if nf:
-        print(f"# notfound {len(nf)}件: 調べたが分からなかった行。"
-              "まだ開催中なら「静かな欠落」になっている。会場ページで確かめ直すこと")
-        for c in nf:
-            print(f"#   {c.get('uid', '')}\t{_clip(c.get('title'), 40)}\t{_clip(c.get('note'), 40)}")
-    if ex:
-        print(f"# expired {len(ex)}件: 終了日を過ぎて機械的に消えた行（未確認）。"
-              "会期が延長されていた可能性があるので、その会場を開くついでに見ること")
-        for c in ex[:15]:
-            print(f"#   {c.get('uid', '')}\t{_clip(c.get('title'), 40)}")
-        if len(ex) > 15:
-            print(f"#   …ほか{len(ex) - 15}件")
+    `notfound`（確認できなかった行）はここに出さない。行は削除されずに
+    前回値のまま持ち越されるので、下の tier 分類（`--worklist` 本体）に
+    tier A として出る——`unverified.jsonl` を参照。
+    """
+    ex = load_carried(name)
+    if not ex:
+        return
+    print(f"# ---- 終了日を過ぎたまま未確認の行（{len(ex)}件・今週の最優先）----")
+    print("# 会期が延長されていた可能性があるので、その施設を開くついでに確かめること")
+    for c in ex[:15]:
+        print(f"#   {c.get('uid', '')}\t{_clip(c.get('title'), 40)}")
+    if len(ex) > 15:
+        print(f"#   …ほか{len(ex) - 15}件")
     print("#")
 
 
@@ -419,9 +461,9 @@ def cmd_worklist(name, rows, args):
             ended += 1
             continue
         tier, reasons = tier_of(name, r, today)
-        # 前回 `--carry-rest` が未確認のまま書き戻した行は、無条件に最優先へ。
-        # 受付欄を空にした副作用で tier が下がるのを、ここで打ち消している
-        # （`unverified_path` の説明）。
+        # 前回 `--carry-rest` または `--dispose notfound` が未確認のまま
+        # 書き戻した行は、無条件に最優先へ。受付欄を空にした副作用で tier が
+        # 下がるのを、ここで打ち消している（`unverified_path` の説明）。
         if row_uid(name, r) in unverified:
             tier = "A"
             reasons = ["前回は未確認のまま持ち越し"] + reasons
@@ -521,9 +563,62 @@ def unverified_path(name):
     該当する行を無条件に tier A へ上げる。受付欄を空にしたまま、
     「今週こそ確かめる」という情報だけを別に持ち越す形にしてある。
 
-    毎回の `--carry-rest` で上書きする（前回分は役目を終える）。
+    書き手は2つある——`--carry-rest`（まとめて片付けた残り）と
+    `--dispose notfound`（個別に確認できなかった行）。どちらも同じ「今週、
+    確認できずに前回値のまま持ち越した」という事実を記す。だから片方が
+    書いたあとにもう片方が呼ばれても、互いの記録を消してはいけない。
+
+    2026-08-29 に見つかった事故を踏まえ、書き込みは `_record_unverified()`
+    に一本化してある——**空で上書きしない・既存分と合流する**。以前は
+    `"w"` で無条件に開き直しており、対象0件の呼び出し（`claude-routine.sh`
+    が終了時に3データセットへ保険で打つ再実行がこれに当たる）が、
+    セッション中に正しく書けていた記録ごと0バイトへ切り詰めていた。
+
+    週をまたいだ蓄積は起きない——`take_snapshot()`（`--init`）はこのファイルに
+    触れないので、`--worklist` が読むのは常に「前回このファイルへ書かれた、
+    まだ解決していない行」だけである。ある uid がその後（今回）ちゃんと
+    書き直されれば、その uid はもう `carried`/`notfound` の計算対象に出て
+    こないので、次にこの関数が呼ばれたときに自然に引き継がれなくなる。
     """
     return os.path.join(PREV, name.replace(".csv", ".unverified.jsonl"))
+
+
+def _record_unverified(name, pairs):
+    """`(uid, title)` の一覧を、既存の unverified.jsonl に合流させる（追記ではなく合流）。
+
+    合流にする理由は上の `unverified_path` の docstring を参照。空なら書かない
+    ——対象0件の呼び出しで既存の記録を消さないため。
+    """
+    if not pairs:
+        return
+    path = unverified_path(name)
+    existing = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("uid"):
+                    existing[obj["uid"]] = obj
+    except OSError:
+        pass
+    for u, title in pairs:
+        existing[u] = {"uid": u, "title": title}
+    try:
+        os.makedirs(PREV, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            for obj in existing.values():
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+    except OSError as e:
+        print(f"WARNING: 持ち越しの記録に失敗しました（書き戻し自体は続けます）: {e}",
+              file=sys.stderr)
 
 
 def load_unverified(name):
@@ -567,6 +662,26 @@ def _live_lineup_ids():
         return set()
     with open(path, newline="", encoding="utf-8") as f:
         return {(r.get("lineup_id") or "").strip() for r in csv.DictReader(f)} - {""}
+
+
+def _build_carry_obj(row, lineups):
+    """前回値の行を、そのまま書き戻せる形に整える（受付欄は空にする）。
+
+    `--carry-rest` と `--dispose notfound` の両方が使う共通処理。**この2つは
+    「確認できないまま前回値を残す」という同じ操作**であり、規則を2箇所に
+    分けて書くと片方だけ直し忘れる壊れ方をする。
+    """
+    obj = {k: v for k, v in row.items() if (v or "").strip()}
+    for col in CARRY_REST_CLEAR:
+        obj.pop(col, None)
+    if (obj.get("lineup_id") or "").strip() not in lineups:
+        # 空にするだけでは足りない。`lineup_id` は append_rows.py の
+        # CARRY_ALWAYS にあり、空欄は前回値で埋め直される（綴りの揺れを
+        # 防ぐための正しい既定である）。ここは「もう日割りは書かれない」と
+        # 分かっている経路なので、`_no_carry` で明示的に打ち消す。
+        obj.pop("lineup_id", None)
+        obj["_no_carry"] = "lineup_id"
+    return obj
 
 
 def cmd_carry_rest(name, rows, args):
@@ -631,32 +746,14 @@ def cmd_carry_rest(name, rows, args):
                     "note": CARRY_REST_EXPIRED_NOTE_FMT.format(end=end or "不明"),
                 }, ensure_ascii=False) + "\n")
 
-    records = []
-    for u, r in carried:
-        obj = {k: v for k, v in r.items() if (v or "").strip()}
-        for col in CARRY_REST_CLEAR:
-            obj.pop(col, None)
-        if (obj.get("lineup_id") or "").strip() not in lineups:
-            # 空にするだけでは足りない。`lineup_id` は append_rows.py の
-            # CARRY_ALWAYS にあり、空欄は前回値で埋め直される（綴りの揺れを
-            # 防ぐための正しい既定である）。ここは「もう日割りは書かれない」と
-            # 分かっている終了工程なので、`_no_carry` で明示的に打ち消す。
-            obj.pop("lineup_id", None)
-            obj["_no_carry"] = "lineup_id"
-        records.append(obj)
+    records = [_build_carry_obj(r, lineups) for u, r in carried]
 
     # 書き戻した uid を残す。翌週の `--worklist` がこれを読んで tier A に上げる。
     # `--apply` を付けない下見でも書くのは、下見と本番で記録がずれないようにするため
     # （どちらも「今回どれが未確認で残ったか」という同じ事実を表している）。
-    try:
-        os.makedirs(PREV, exist_ok=True)
-        with open(unverified_path(name), "w", encoding="utf-8") as f:
-            for u, r in carried:
-                f.write(json.dumps({"uid": u, "title": r.get("title", "")},
-                                   ensure_ascii=False) + "\n")
-    except OSError as e:
-        print(f"WARNING: 持ち越しの記録に失敗しました（書き戻し自体は続けます）: {e}",
-              file=sys.stderr)
+    # 空で上書きしない・既存分（`--dispose notfound` が書いた分を含む）と
+    # 合流させる理由は `unverified_path` の docstring を参照。
+    _record_unverified(name, [(u, r.get("title", "")) for u, r in carried])
 
     print(f"# {name}: 書き戻し {len(records)}件 / 終了済み {len(expired)}件を expired で処分",
           file=sys.stderr)
@@ -686,33 +783,39 @@ def disposition_path(name):
 
 
 def carried_path(name):
-    """先週の処分記録の置き場。
+    """CSVから消えたままになっている `expired` 行の置き場。
 
-    ## なぜ1世代だけ残すのか
+    ## なぜ「消えている間ずっと」残すのか
 
-    `notfound` は「調べたが分からなかった」を正直に残すための処分で、
-    `expired` は「終了日を過ぎたことを `purge_ended.py` が機械的に検出した（未確認）」
-    という印である。どちらも**確認できていない**という意味を持つのに、
-    記録した翌週には消えて、次の実行の行動に何も影響していなかった。
+    `expired` は「終了日を過ぎたことを `purge_ended.py` が機械的に検出した
+    （未確認）」という印であり、**会期延長を見落とした行**を含みうる——延長に
+    気づかなければ古い終了日が残り、その日を過ぎた時点で機械的に消えるので、
+    まだ開催中の催しが「終了日を過ぎた」という理由だけで一覧から落ちる。
 
-    影響しないなら、それは記録ではなく言い訳である。とくに `expired` は、
-    **会期延長を見落とした行**を含みうる——延長に気づかなければ古い終了日が
-    残り、その日を過ぎた時点で機械的に消えるので、まだ開催中の催しが
-    「終了日を過ぎた」という理由だけで一覧から落ちる。この経路は
-    `purge_ended.py` の設計上どうしても残るので、翌週に拾い直せるようにしておく。
+    以前はここを1世代（先週分）だけ残していたが、2週続けて再確認が間に合わ
+    なかった行は3週目の一覧から消えてしまい、確認できないまま忘れられていた。
+    いまは `take_snapshot()` が、**その uid がまだ今回のCSVに戻っていない限り**
+    世代をまたいで引き継ぐ——何週かかっても、実際に確認できて `ended`/
+    `cancelled` として個別処分されるか、会期延長が確認されて行がCSVに
+    戻るまで、この一覧に出続ける。
+
+    `notfound` はここに含めない。`cmd_dispose` が notfound を前回値のまま
+    自動で書き戻すようになったため（行は削除されない）、notfound の uid は
+    常に今回のCSVに存在し、`take_snapshot()` の引き継ぎ条件（まだ戻って
+    いない）を満たさない。
 
     ## 呼び出し順序に依存する
 
-    このファイルへのローテートは `take_snapshot()`（＝ `append_rows.py --init`）の
+    このファイルへの反映は `take_snapshot()`（＝ `append_rows.py --init`）の
     中で行う。`--worklist`（`print_carried()`）を**先に**呼ぶと、まだ今回の
-    `--init` が起きていないので、ここにあるのは「前々回の実行の分」のままになる
+    `--init` が起きていないので、ここにあるのは「前回の実行時点」のままになる
     ——各SKILL.mdの実行手順は、この理由で `--init` を `--worklist` より先に置いている。
     """
     return os.path.join(PREV, name.replace(".csv", ".carried.jsonl"))
 
 
 def load_carried(name):
-    """先週の処分記録のうち、今週こそ確かめ直すべきものを返す。"""
+    """まだCSVに戻っていない `expired` 行を返す（何世代でも引き継がれる）。"""
     path = carried_path(name)
     if not os.path.exists(path):
         return []
@@ -725,7 +828,7 @@ def load_carried(name):
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if obj.get("status") in ("notfound", "expired"):
+            if obj.get("status") == "expired":
                 out.append(obj)
     return out
 
@@ -755,10 +858,16 @@ def _reject_premature_ended(name, uid_, row, today, i):
 
 
 def _warn_similar_notes(records):
-    """同じ status の理由文が定型文で埋まっていないかの目安を出す（ブロックしない）。"""
+    """同じ status の理由文が定型文で埋まっていないかの目安を出す（ブロックしない）。
+
+    `DISPOSE_RISKY_STATUSES`（件数の上限）とは別の対象範囲を持つ。`notfound` は
+    行を削除しなくなったので件数の上限からは外したが、「個別確認せず定型文で
+    済ませていないか」という目安としての価値はそのまま残る——むしろ `notfound`
+    こそ「調べたが分からなかった」を装った手抜きが起きやすい。
+    """
     by_status = defaultdict(list)
     for r in records:
-        if r.get("status") in DISPOSE_RISKY_STATUSES:
+        if r.get("status") in NOTE_SCRUTINY_STATUSES:
             by_status[r["status"]].append((r.get("note") or "").strip())
     for st, notes in by_status.items():
         notes = [n for n in notes if n]
@@ -812,11 +921,11 @@ def cmd_dispose(name, rows, args):
     risky = [r for r in recs if r.get("status") in DISPOSE_RISKY_STATUSES]
     if len(risky) > DISPOSE_BATCH_LIMIT:
         raise SystemExit(
-            f"ERROR: 1回の --dispose で ended/notfound を{len(risky)}件まとめて処分しようとしています"
-            f"（上限{DISPOSE_BATCH_LIMIT}件）。この2つは行ごとに個別確認したことが前提の処分です。"
-            f"{DISPOSE_BATCH_LIMIT}件を超える塊は、複数回に分けて個別に確認するか、"
-            "未確認のまま残してよいなら `python3 tools/prev_rows.py <ds> --carry-rest --apply` を使ってください"
-            "（終了日を過ぎた分は自動的に expired として処分され、残りは前回値のまま書き戻されます）。"
+            f"ERROR: 1回の --dispose で ended を{len(risky)}件まとめて処分しようとしています"
+            f"（上限{DISPOSE_BATCH_LIMIT}件）。ended は行ごとに個別確認したことが前提の処分です。"
+            f"{DISPOSE_BATCH_LIMIT}件を超える塊は、複数回に分けて個別に確認してください。"
+            "確認できていない行は notfound を使ってください"
+            "（行は削除されず前回値のまま持ち越されるので、件数の上限はありません）。"
         )
     _warn_similar_notes(recs)
 
@@ -825,6 +934,26 @@ def cmd_dispose(name, rows, args):
         for obj in recs:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
     print(f"{len(recs)}件の処分を記録しました → {os.path.relpath(disposition_path(name), ROOT)}")
+
+    # notfound は「消滅」ではない。前回値のまま自動で書き戻す
+    # （DISPOSITIONS["notfound"] の説明・`docs/COLLECTION-PROTOCOL.md` 第5節参照）。
+    notfound = [r for r in recs if r.get("status") == "notfound"]
+    if notfound:
+        lineups = _live_lineup_ids()
+        carry_objs = [_build_carry_obj(known[r["uid"]], lineups) for r in notfound]
+        payload = "".join(json.dumps(o, ensure_ascii=False) + "\n" for o in carry_objs)
+        proc = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "append_rows.py"), args.dataset],
+            input=payload, text=True, cwd=ROOT,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(
+                f"ERROR: notfound {len(notfound)}件の書き戻しに失敗しました"
+                f"（append_rows.py が exit {proc.returncode}）。上の出力を確認してください。"
+            )
+        _record_unverified(name, [(r["uid"], known[r["uid"]].get("title", "")) for r in notfound])
+        print(f"  うち notfound {len(notfound)}件は前回値のまま書き戻しました"
+              "（受付欄は空。来週 tier A で再確認）", file=sys.stderr)
     return 0
 
 

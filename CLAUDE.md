@@ -8,15 +8,17 @@
 
 ## ドキュメントの役割
 
-| ファイル                        | 何が書いてあるか                                  | いつ読む・書く                |
-| ------------------------------- | ------------------------------------------------- | ----------------------------- |
-| `docs/DESIGN.md`                | **なぜそうなっているか**（節番号つき）            | 設計判断を変える／したとき    |
-| `README.md`                     | 構成とCSVスキーマの一覧                           | 列や構成を変えたとき          |
-| `docs/COLLECTION-PROTOCOL.md`   | 収集の仕組み（uid・持ち越し・予算）               | `tools/` を変えたとき         |
-| `.claude/skills/*/SKILL.md`     | 収集タスクの指示（**正本はここ**）                | CSVの列・収集規則を変えたとき |
-| `.claude/skills/source-optout/` | 調査対象外・掲載停止の申請への対応手順            | 申請が来たとき                |
-| `docs/skill-feedback.md`        | 収集を実行して分かったこと                        | スキルの改善を提案するとき    |
-| `.claude/routines/event.txt`    | 無人実行の手順（曜日→スキル・並行調査・終了工程） | ルーチンの流れを変えたとき    |
+| ファイル                         | 何が書いてあるか                                               | いつ読む・書く                |
+| -------------------------------- | -------------------------------------------------------------- | ----------------------------- |
+| `docs/DESIGN.md`                 | **なぜそうなっているか**（節番号つき）                         | 設計判断を変える／したとき    |
+| `README.md`                      | 構成とCSVスキーマの一覧                                        | 列や構成を変えたとき          |
+| `docs/COLLECTION-PROTOCOL.md`    | 収集の仕組み（uid・持ち越し・予算）                            | `tools/` を変えたとき         |
+| `.claude/skills/*/SKILL.md`      | 収集タスクの指示（**正本はここ**）                             | CSVの列・収集規則を変えたとき |
+| `.claude/skills/source-optout/`  | 調査対象外・掲載停止の申請への対応手順                         | 申請が来たとき                |
+| `docs/skill-feedback.md`         | 収集を実行して分かったこと                                     | スキルの改善を提案するとき    |
+| `.claude/routines/invariants.md` | 無人実行で**最後まで緩まない規則**（システムプロンプトに載る） | 規則そのものを変えるとき      |
+| `.claude/skills/weekly-routine/` | 無人実行の手順（曜日→スキルの対応表・終了工程）                | ルーチンの流れを変えたとき    |
+| `docs/routine-postmortems.md`    | 無人実行で実際に起きた事故と、その塞ぎ方                       | 規則を緩めたくなったとき      |
 
 コードのコメントは**「なぜ」を書く**。この方針は既存コードを読めば分かる密度で徹底されている。合わせること。
 
@@ -36,6 +38,7 @@ python3 tools/purge_ended_test.py  # 終了日の判定と書き換え
 python3 tools/fetch_page_test.py   # JSON-LD / sitemap / ICS / 日程行の抽出規則
 python3 tools/prev_rows_test.py    # 打ち切られた回の後始末（--carry-rest）と棚卸し
 python3 tools/wave_gate_test.py    # 波の結果がCSVに入ったかの判定（止めすぎ・止めなさすぎ）
+python3 tools/budget_test.py       # 残量の線を越えた波の拒否（判定できないときは通す）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか
 ```
 

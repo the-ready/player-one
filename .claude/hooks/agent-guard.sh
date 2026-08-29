@@ -41,6 +41,12 @@
 # **書いてあるだけでは守られなかった。** 判定は tools/wave_gate.py に置く
 # （行がCSVに在るかを数えるだけなので、shell では書けない）。
 #
+# ## 三つめ —— 残量が尽きているのに投げること
+#
+# 同じ位置で「まだ投げてよい残量があるか」も見る（tools/budget.py --gate）。
+# 25M で新しい波を止め、40M で撤退させる線は、これまで --report の表示でしか
+# 伝えていなかった。表示は早すぎる側にも遅すぎる側にも外れる。
+#
 set -u
 
 [ "${CLAUDE_ROUTINE:-0}" = "1" ] || exit 0
@@ -93,6 +99,26 @@ if [ "$BG" = "false" ]; then
       exit 2
     fi
   fi
+
+  # 残量の側も見る。「まだ投げてよいか」を決める瞬間はここしかない。
+  #
+  # 25M / 40M の線は budget.py が --report に文字で出していたが、**出ているだけでは
+  # 守られなかった**（2026-08-29 は線に届かないまま4波で畳み、2026-08-27 は 40M の
+  # 警告の3分16秒後に殺されている。docs/routine-postmortems.md）。表示は早すぎる側にも
+  # 遅すぎる側にも外れ、外れたことに誰も気づけない。判断そのものを門にする。
+  #
+  # 倒し方は上の wave_gate と同じで、exit 1（線を越えた）でだけ拒否する。判定できない
+  # とき（exit 2）や python3 が無いときは通す——計測できないことを理由に収集を止めると、
+  # 被害のほうが大きい。
+  if command -v python3 >/dev/null 2>&1 && [ -f "$GATE_REPO/tools/budget.py" ]; then
+    BUDGET_OUT="$(python3 "$GATE_REPO/tools/budget.py" --gate 2>&1)"
+    BUDGET_RC=$?
+    if [ "$BUDGET_RC" -eq 1 ]; then
+      printf '%s\n' "$BUDGET_OUT" >&2
+      exit 2
+    fi
+  fi
+
   exit 0
 fi
 

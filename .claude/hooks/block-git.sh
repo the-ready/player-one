@@ -4,7 +4,7 @@
 #
 # git の pull / commit / push は `.claude/scripts/claude-routine.sh` の責任で、
 # 「検証を通った回だけ push する」というゲートはそこにしか無い。
-# `.claude/routines/event.txt` はそれを散文で伝えているが、散文は守られないことが
+# `.claude/routines/invariants.md` はそれを散文で伝えているが、散文は守られないことが
 # ある。守らせたい規則は仕組みに置く、という方針をここでも採る（DESIGN 第9.1.5節）。
 #
 # ルーチンは `--permission-mode bypassPermissions` で起動するため、settings.json の

@@ -106,6 +106,37 @@ def check_enum_columns(name, records):
             + "\n  ".join(bad)
         )
 
+
+# `prev_rows.py --worklist` / `--dispose` の一覧表示は、タイトル・会場名を
+# 表示用に切り詰め、末尾に U+FFFD（REPLACEMENT CHARACTER）を置く（`_clip` 参照）。
+# 実在のタイトルにこの文字が混じることは無いので、混じっていれば「一覧の
+# 表示用の値をそのまま書き戻した」ことの機械的な証拠になる。
+#
+# 2026-08-29 の実行では、`--worklist` が34字に切り詰めた表示用タイトルが
+# そのまま新しい行として書き戻され、同じ催しが「省略された表記の新規行」と
+# 「正しい表記の持ち越し行」の二重掲載になった。`…`（正当なタイトルの末尾にも
+# 現れうる記号）ではなく機械的に判別できる文字を切り詰めの目印にすることで、
+# この経路をここで止める。
+TRUNCATION_MARKER = "�"
+TITLE_LIKE_COLUMNS = ("title", "venue", "theater", "desc")
+
+
+def check_truncated_values(name, records):
+    bad = []
+    for i, obj in enumerate(records, start=1):
+        for col in TITLE_LIKE_COLUMNS:
+            v = obj.get(col)
+            if v and TRUNCATION_MARKER in v:
+                bad.append(f"{i}件目 {col}={v!r}")
+    if bad:
+        raise SystemExit(
+            "ERROR: 表示用に切り詰められた値（末尾が \\ufffd）がそのまま書かれようと"
+            "しています。`prev_rows.py --worklist` 等の一覧出力は表示用に34〜40字へ"
+            "切り詰めてあり、書き戻す値ではありません。`prev_rows.py <ds> --uid <uid>` "
+            "で全列を引き直してください:\n  " + "\n  ".join(bad)
+        )
+
+
 # 空欄なら黙って前回値で埋める列。読み・座標・アクセスなど、時間で変わらないもの。
 # lineup_id（フェスの日割りラインナップの参照キー）もここに入る。値は書き手が決めた
 # スラッグで、その週の調査で変わるものではない——毎週書き直させると綴りが揺れ、
@@ -338,6 +369,31 @@ def count_rows(path):
         return max(0, sum(1 for _ in f) - 1)
 
 
+def _prefix_variant_of(miss, roster_names):
+    """`miss` が、既に名簿にある名前の表記ゆれ（互いに前方一致）である可能性を返す。
+
+    見つかれば名簿側の名前を返し、無ければ None。**自動では書き換えない**——
+    前方一致だけで同一施設と決め打つと、たまたま前方一致する別施設
+    （例: 「東京タワー」と「東京タワーシティ」）を誤って同一視しかねない。
+    ここでの役目は、モデルに気づかせて `roster.py --list` で確認させることまで。
+
+    2026-08-29 に実データで見つかった実例: 名簿には「ワーナー ブラザース
+    スタジオツアー東京」が登録済みなのに、収集した行は「ワーナー ブラザース
+    スタジオツアー東京 メイキング・オブ ハリー・ポッター」という表記で書かれ、
+    名簿には無い会場として扱われた。結果、同じ施設の同じ催しが、週をまたいで
+    2つの異なる `venue` 表記＝2つの異なる uid で重複登録された
+    （`docs/DESIGN.md` 第3.4.1節・`data/events.csv` の実例を参照）。
+    """
+    n = roster._norm(miss)
+    for r in roster_names:
+        rn = roster._norm(r)
+        if not rn or rn == n:
+            continue
+        if n.startswith(rn) or rn.startswith(n):
+            return r
+    return None
+
+
 def record_roster_hits(name, records):
     """書けた行の会場を、そのまま名簿の収穫として記録する。
 
@@ -358,6 +414,20 @@ def record_roster_hits(name, records):
               + ("…" if len(uniq) > 5 else "")
               + "\n    継続的に催しがある場所なら roster.py --add で名簿に入れてください",
               file=sys.stderr)
+        try:
+            path, _key = roster.path_of(kind)
+            _head, roster_rows = roster.load(path)
+            roster_names = [r.get(_key) for r in roster_rows if r.get(_key)]
+        except (SystemExit, OSError):
+            roster_names = []
+        for miss in uniq:
+            variant_of = _prefix_variant_of(miss, roster_names)
+            if variant_of:
+                print(f"  WARNING: {kind!r} の {miss!r} は名簿の {variant_of!r} と"
+                      "同じ施設の表記ゆれの可能性があります。別施設なら無視してよいですが、"
+                      "同じ施設なら venue/theater を名簿の表記に揃えてください"
+                      "——揃えないと、同じ催しが2つの異なる uid で二重掲載されます。",
+                      file=sys.stderr)
 
 
 def main():
@@ -384,6 +454,7 @@ def main():
             print(f"WARNING: {i}件目に {name} にない列があります（無視します）: {unknown}", file=sys.stderr)
 
     check_enum_columns(name, records)
+    check_truncated_values(name, records)
 
     by_uid, by_place = build_prev_index(name, headers, current_path=path)
     filled, misses = apply_carryover(name, headers, records, by_uid, by_place)

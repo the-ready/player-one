@@ -60,6 +60,34 @@ def _row(**kw):
     return base | kw
 
 
+class _FakeCompleted:
+    def __init__(self, returncode=0):
+        self.returncode = returncode
+
+
+def _stub_subprocess_run(captured, returncode=0):
+    """`append_rows.py` を実プロセスで起動しないようにする。
+
+    `cmd_carry_rest`（--apply）と `cmd_dispose`（notfound）は、行の書き戻しを
+    `subprocess.run([sys.executable, ".../append_rows.py", ...])` に任せている。
+    このサブプロセスは新しいPythonプロセスなので、`pr.DATA` / `pr.PREV` への
+    このテストの一時ディレクトリへの差し替えを一切見ない——`append_rows.py`
+    自身の `DATA` 定数（実リポジトリの `data/`）をそのまま使ってしまう。
+
+    実際に2026-08-29の実装時、この差し替え漏れに気づかないまま `--dispose`
+    のテストを回し、**実リポジトリの `data/lives.csv` に21行のテストデータが
+    書き込まれる事故が起きた**（`git checkout -- data/lives.csv` で復旧）。
+    二度と起きないよう、`subprocess.run` 自体をここで差し替え、実プロセスを
+    一切起動しない。送られた入力（JSONLペイロード）は `captured` に積むので、
+    「何を書き戻そうとしたか」はここで検証できる——実際に書けたかどうかまでは
+    検証しない（それは `append_rows_test.py` 相当の領分）。
+    """
+    def fake_run(cmd, input=None, text=None, cwd=None):
+        captured.append(input)
+        return _FakeCompleted(returncode)
+    return fake_run
+
+
 def _carry_rest(prev, current, lineups=None, dispositions=None, today=TODAY):
     """一時ディレクトリで --carry-rest を回し、(書き戻すJSONL, 処分記録) を返す。"""
     tmp = tempfile.mkdtemp(prefix="prev_rows_test_")
@@ -67,6 +95,8 @@ def _carry_rest(prev, current, lineups=None, dispositions=None, today=TODAY):
     os.makedirs(prev_dir, exist_ok=True)
     orig = (pr.DATA, pr.PREV)
     pr.DATA, pr.PREV = tmp, prev_dir
+    orig_run = pr.subprocess.run
+    pr.subprocess.run = _stub_subprocess_run([])
     try:
         _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, prev)
         _write_csv(os.path.join(tmp, "lives.csv"), HEADERS, current)
@@ -96,23 +126,38 @@ def _carry_rest(prev, current, lineups=None, dispositions=None, today=TODAY):
         return carried, recorded
     finally:
         pr.DATA, pr.PREV = orig
+        pr.subprocess.run = orig_run
 
 
 def _uid(row):
     return pr.row_uid("lives.csv", row)
 
 
-def _dispose(prev, stdin_lines, today=TODAY, dispositions=None):
+def _dispose(prev, stdin_lines, today=TODAY, dispositions=None, capture=None, paths_out=None):
     """一時ディレクトリで --dispose を回し、(returncode, stdout, stderr) を返す。
 
     `raise SystemExit(msg)` は argparse 由来の使用法エラーと区別せず、
     ここでは「メッセージを持つ SystemExit」として stderr 側に落とす。
+
+    `capture`（リスト）を渡すと、`notfound` の書き戻しで `append_rows.py` へ
+    送られるはずだったJSONLペイロードがここに積まれる（実プロセスは起動しない。
+    `_stub_subprocess_run` 参照）。
+
+    `paths_out`（dict）を渡すと、関数が戻る時点で `pr.DATA`/`pr.PREV` は元に
+    戻ってしまうので、そのまま呼び出し元が使える一時ディレクトリのパスを
+    `paths_out["prev_dir"]` に残す（`pr.load_unverified` 等、`pr.PREV` 経由の
+    読み出しは関数を抜けた後には使えないため）。
     """
     tmp = tempfile.mkdtemp(prefix="prev_rows_test_")
     prev_dir = os.path.join(tmp, ".prev")
     os.makedirs(prev_dir, exist_ok=True)
+    if paths_out is not None:
+        paths_out["prev_dir"] = prev_dir
+        paths_out["tmp"] = tmp
     orig = (pr.DATA, pr.PREV)
     pr.DATA, pr.PREV = tmp, prev_dir
+    orig_run = pr.subprocess.run
+    pr.subprocess.run = _stub_subprocess_run(capture if capture is not None else [])
     try:
         _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, prev)
         if dispositions:
@@ -138,6 +183,7 @@ def _dispose(prev, stdin_lines, today=TODAY, dispositions=None):
         return code, out.getvalue(), err.getvalue()
     finally:
         pr.DATA, pr.PREV = orig
+        pr.subprocess.run = orig_run
 
 
 CHECKS = []
@@ -389,23 +435,23 @@ def _():
     return code == 0 or f"判定不能な行まで拒否した: {err}"
 
 
-@check("ended/notfound の一括処分には上限がある")
+@check("ended の一括処分には上限がある")
 def _():
     rows = [_row(title=f"公演{i}", start_date="2026-08-01", end_date="2026-08-20")
             for i in range(pr.DISPOSE_BATCH_LIMIT + 1)]
-    lines = [{"uid": _uid(r), "status": "notfound", "note": f"公演{i}確認できず"}
+    lines = [{"uid": _uid(r), "status": "ended", "note": f"公演{i}終了確認"}
              for i, r in enumerate(rows)]
     code, out, err = _dispose(prev=rows, stdin_lines=lines, today=date(2026, 8, 29))
     if code == 0:
         return f"上限を超えても通ってしまった: {out}"
-    return "carry-rest" in err or f"代替手段への案内が無い: {err}"
+    return "ended" in err or f"上限に触れた案内が無い: {err}"
 
 
-@check("上限以内なら ended/notfound をまとめて処分できる")
+@check("上限以内なら ended をまとめて処分できる")
 def _():
     rows = [_row(title=f"公演{i}", start_date="2026-08-01", end_date="2026-08-20")
             for i in range(pr.DISPOSE_BATCH_LIMIT)]
-    lines = [{"uid": _uid(r), "status": "notfound", "note": f"公演{i}確認できず"}
+    lines = [{"uid": _uid(r), "status": "ended", "note": f"公演{i}終了確認"}
              for i, r in enumerate(rows)]
     code, out, err = _dispose(prev=rows, stdin_lines=lines, today=date(2026, 8, 29))
     return code == 0 or f"上限以内なのに拒否された: {err}"
@@ -421,9 +467,59 @@ def _():
     return code == 0 or f"cancelled まで上限に引っかかった: {err}"
 
 
+@check("notfound は件数の上限に引っかからない（削除ではなくなったため）")
+def _():
+    rows = [_row(title=f"公演{i}", start_date="2026-10-01", end_date="2026-10-20")
+            for i in range(pr.DISPOSE_BATCH_LIMIT + 5)]
+    lines = [{"uid": _uid(r), "status": "notfound", "note": f"公演{i}確認できず"}
+             for i, r in enumerate(rows)]
+    capture = []
+    code, out, err = _dispose(prev=rows, stdin_lines=lines, today=date(2026, 8, 29),
+                               capture=capture)
+    return code == 0 or f"上限に引っかかった: {err}"
+
+
+@check("notfound は行を削除せず、前回値のまま書き戻す")
+def _():
+    r = _row(title="確認できなかった公演", start_date="2026-10-01", end_date="2026-10-20",
+             onsale_label="先着受付中", onsale_end="2026-09-10")
+    capture = []
+    code, out, err = _dispose(prev=[r], stdin_lines=[
+        {"uid": _uid(r), "status": "notfound", "note": "会場ページに記載なし"},
+    ], today=date(2026, 8, 29), capture=capture)
+    if code != 0:
+        return f"通らなかった: {err}"
+    if not capture or not capture[0]:
+        return "append_rows.py へ書き戻しが送られていない"
+    written = [json.loads(l) for l in capture[0].splitlines() if l.strip()]
+    if not any(w.get("title") == "確認できなかった公演" for w in written):
+        return f"書き戻し内容に該当行が無い: {written}"
+    row = next(w for w in written if w.get("title") == "確認できなかった公演")
+    if row.get("onsale_label") or row.get("onsale_end"):
+        return f"受付欄が空になっていない: {row}"
+    return True
+
+
+@check("notfound は unverified.jsonl に記録され、来週 tier A に上がる")
+def _():
+    r = _row(title="要再確認の公演", start_date="2026-10-01", end_date="2026-10-20")
+    paths = {}
+    code, out, err = _dispose(prev=[r], stdin_lines=[
+        {"uid": _uid(r), "status": "notfound", "note": "確認できず"},
+    ], today=date(2026, 8, 29), paths_out=paths)
+    if code != 0:
+        return f"通らなかった: {err}"
+    unv_path = os.path.join(paths["prev_dir"], "lives.unverified.jsonl")
+    if not os.path.exists(unv_path):
+        return "unverified.jsonl が作られていない"
+    with open(unv_path, encoding="utf-8") as f:
+        unv = {json.loads(l)["uid"] for l in f if l.strip()}
+    return _uid(r) in unv or f"unverified.jsonl に記録されていない: {unv}"
+
+
 @check("似た定型文が並ぶと警告が出る（ブロックはしない）")
 def _():
-    rows = [_row(title=f"公演{i}", start_date="2026-08-01", end_date="2026-08-20")
+    rows = [_row(title=f"公演{i}", start_date="2026-10-01", end_date="2026-10-20")
             for i in range(4)]
     lines = [{"uid": _uid(r), "status": "notfound", "note": "詳細確認できず"}
              for r in rows]

@@ -464,6 +464,19 @@ def report(st, verbose):
         left = (48_000_000 - cr) / rate
         print(f"  直近の燃焼速度 {_m(rate)}/分"
               f"（この速さなら、打ち切りの実測 48M まで約{max(0, left):.0f}分）")
+        # 「まだ波を投げてよいか」の判断に直接使える数字を添える。25M（新しい波を
+        # 投げないでください）に届く前提で、「あと何分」を出す——「まだ余っていそう」
+        # という感覚ではなく、この数字で決めてもらうため（「予算に余裕があるなら、
+        # 何を厚くするか」章参照）。届いた後は40M（撤退）までの残り分に切り替える。
+        if cr < CACHE_READ_NO_NEW_WAVE:
+            left_wave = (CACHE_READ_NO_NEW_WAVE - cr) / rate
+            print(f"  25M（新しい波を投げないでください）まで約{left_wave:.0f}分"
+                  "——新しい波を投げるかどうかは、この残り時間と直近の波1つぶんの"
+                  "所要時間を見比べて決める。")
+        elif cr < CACHE_READ_RETREAT:
+            left_retreat = (CACHE_READ_RETREAT - cr) / rate
+            print(f"  40M（撤退の手順）まで約{left_retreat:.0f}分。新しい波は投げず、"
+                  "動いている波の帰りを待って終了工程へ進む。")
     if cr >= CACHE_READ_RETREAT:
         print(f"  文脈再送が {_m(cr)}。**撤退の手順に入ってください。**"
               "利用上限で打ち切られた回の実測は 48M と 57M です。"
@@ -482,6 +495,58 @@ def report(st, verbose):
               f"次の波からは担当範囲を分けて**1体 {SUBAGENT_TURN_WARN}ターン以下**に収めてください。")
 
 
+
+
+def gate():
+    """新しい波を投げてよいかを終了コードで返す。`agent-guard.sh` が呼ぶ。
+
+    ## なぜ表示では足りなかったのか
+
+    25M / 40M の線は `--report` が文字で出していた。**出ているだけでは守られなかった。**
+    2026-08-29 15:30 の実行は、線のどちらにも届いていないのに4波で畳んでいる（早すぎた側）。
+    2026-08-27 の実行は 40M の警告の3分16秒後に殺されており、そのとき親は波の帰りを待って
+    停止していた——警告を読める位置に居なかった（遅すぎた側）。表示は**どちらの方向にも
+    外れる**。判断を表示に委ねている限り、外れたことに誰も気づけない。
+
+    そこで「次の波を投げるか」を決める瞬間、つまり `Agent` の起動そのものを門にする。
+    `wave_gate.py` が「前の波を書き切ったか」を見るのと同じ位置で、こちらは
+    「まだ投げてよい残量があるか」を見る。
+
+    ## 終了コード
+
+      0 : 投げてよい（線に届いていない）
+      1 : 投げてはいけない（25M以上）。理由を stderr に書く
+      2 : 判定できない（セッションの記録が読めない等）
+
+    **2 では止めない。** 計測できないことを理由に収集そのものを止めると、被害のほうが
+    大きい（`wave_gate.py` と同じ倒し方。`fetch_gate.py` が逆に倒しているのは、あちらが
+    外部への迷惑を見ているためである）。
+    """
+    tk = token_usage()
+    if not tk:
+        print("# 文脈再送を読めませんでした（セッションの記録が見つからない）。判定を見送ります。",
+              file=sys.stderr)
+        return 2
+    cr = tk["total"]["cache_read"]
+    if cr < CACHE_READ_NO_NEW_WAVE:
+        return 0
+
+    if cr >= CACHE_READ_RETREAT:
+        head = (f"文脈再送が {_m(cr)} で、撤退の線（{_m(CACHE_READ_RETREAT)}）を越えています。"
+                "**撤退の手順に入ってください。**")
+        body = ("新しい調査はやめ、終了工程（追記・処分・検証・報告）だけを通します。"
+                "未処理の前回行は `tools/prev_rows.py <ds> --carry-rest --apply` で片付けられます"
+                "（これから調べる予定の行が残っているうちは使わないこと）。")
+    else:
+        head = (f"文脈再送が {_m(cr)} で、新しい波を投げない線（{_m(CACHE_READ_NO_NEW_WAVE)}）を"
+                "越えています。**この波は投げられません。**")
+        body = ("動いている波があれば受け取り、`append_rows.py` で書き切ってから終了工程へ進んでください。"
+                "利用上限で打ち切られた回の実測は 48M と 57M です。ここから波を投げると、"
+                "打ち切られたときに動いている子へ割り込む手段がありません"
+                "（2026-08-27 は 40M の警告の3分16秒後に殺されています）。")
+    print(f"{head}\n\n{body}", file=sys.stderr)
+    return 1
+
 def main():
     p = argparse.ArgumentParser(description="この実行の消費を実測して返す")
     p.add_argument("--report", action="store_true", help="いまの消費を出す")
@@ -492,6 +557,8 @@ def main():
     p.add_argument("--n", type=int, default=1, help="--bump の件数")
     p.add_argument("--waited", type=float, default=0.0, help="--bump fetch の待機秒数")
     p.add_argument("--json", action="store_true", dest="as_json", help="機械可読に出す")
+    p.add_argument("--gate", action="store_true",
+                   help="新しい波を投げてよいかを終了コードで返す（フックが呼ぶ）")
     args = p.parse_args()
 
     if args.reset:
@@ -514,6 +581,9 @@ def main():
             save(st)
         print(f"工程を「{st['phase']}」にしました。{summary_line(st)}")
         return 0
+
+    if args.gate:
+        return gate()
 
     st = load()
 
