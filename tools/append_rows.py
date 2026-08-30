@@ -52,7 +52,7 @@ import budget
 import prev_rows as prevmod
 import roster
 from rowkey import uid as row_uid
-from validate_data import EXPECTED_HEADERS, load_enums
+from validate_data import DESC_MIN_LEN, EXPECTED_HEADERS, load_enums
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -325,6 +325,7 @@ def apply_carryover(name, headers, records, by_uid, by_place):
     place_col = "theater" if name == "movies.csv" else "venue"
     filled = {"always": 0, "requested": 0, "by_place": 0}
     misses = []
+    regressions = []
 
     for i, row in enumerate(records, start=1):
         requested = resolve_carry_request(row.pop("_carry", None), headers, i)
@@ -359,7 +360,22 @@ def apply_carryover(name, headers, records, by_uid, by_place):
                     row[col] = src[col].strip()
                     filled["requested"] += 1
 
-    return filled, misses
+        # desc の劣化検知。2026-08-30 に実データで見つかった実例（「ロン・ミュエク」
+        # 91字→11字、「のげやまマルシェ」106字→29字など21件）: 内容は変わって
+        # いないのに、会場の一覧ページの一文などで desc が書き直され、前回までの
+        # 具体的な説明より大幅に短い一般論に置き換わっていた。`_carry` は空欄の列
+        # にしか効かない（このメソッドの上のブロック）ので、モデルが何か書けば
+        # それだけで前回の良い値を上書きできてしまい、悪化する方向の書き直しを
+        # 誰も止めていなかった。半分未満に縮んだ場合だけを拾う——多少の言い回しの
+        # 変更まで拾うと、正当な書き直しにまで警告が付いて読まれなくなる。
+        if "desc" in headers and src:
+            new_desc = (row.get("desc") or "").strip()
+            old_desc = (src.get("desc") or "").strip()
+            if (new_desc and old_desc and len(old_desc) >= DESC_MIN_LEN
+                    and len(new_desc) < len(old_desc) * 0.5):
+                regressions.append((i, row.get("title", "")[:30], len(old_desc), len(new_desc)))
+
+    return filled, misses, regressions
 
 
 def count_rows(path):
@@ -457,7 +473,7 @@ def main():
     check_truncated_values(name, records)
 
     by_uid, by_place = build_prev_index(name, headers, current_path=path)
-    filled, misses = apply_carryover(name, headers, records, by_uid, by_place)
+    filled, misses, regressions = apply_carryover(name, headers, records, by_uid, by_place)
 
     start_id = read_last_id(path) + 1
     for offset, row in enumerate(records):
@@ -496,6 +512,12 @@ def main():
     for i, title, uid_ in misses:
         print(f"  WARNING: {i}件目「{title}」は _carry を指定していますが、"
               f"前回に uid={uid_} の行がありません（新規行なら _carry は不要です）",
+              file=sys.stderr)
+    for i, title, old_len, new_len in regressions:
+        print(f"  WARNING: {i}件目「{title}」は desc が前回({old_len}字)より大幅に短く"
+              f"({new_len}字)なっています。内容に変更が無いなら書き直さず "
+              '_carry に "desc" を含めて持ち越してください'
+              "（会場の一覧ページの一文だけで上書きしていないか確認）",
               file=sys.stderr)
 
 

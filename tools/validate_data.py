@@ -34,6 +34,13 @@ BOOL_OK = {"", "0", "1", "true", "false", "yes", "no"}
 # 「会期は公式サイト参照」のような、本当に何も分からない行は拾わない。
 MONTHLY_HINT = re.compile(r"\d{1,2}月|[春夏秋冬]")
 
+# desc がタイトルの言い換え・一般名詞1つ（「〜イベント」「〜展」等）で
+# 終わっていないかの目安。2026-08-30 実測で、収集スキルが Haiku に変わって
+# 以降このパターンが増え、443件中103件が40字未満（うち21件は前回まで
+# 90〜150字あった説明が書き直しで短縮されていた退行）。中身の具体性までは
+# 機械的に測れないが、極端に短い行だけは拾える。
+DESC_MIN_LEN = 30
+
 # 関東＋近縁のゆるい外接矩形。ここを外れる座標は緯度経度の取り違えを疑う。
 LAT_RANGE = (34.5, 37.5)
 LNG_RANGE = (138.0, 141.5)
@@ -379,6 +386,11 @@ def validate_main(name, rows, enums, rep):
         title = (r.get("title") or "").strip()
         if not title:
             rep.error(where, "title が空です")
+
+        desc = (r.get("desc") or "").strip()
+        if desc and len(desc) < DESC_MIN_LEN:
+            rep.warn_many(where, "desc が30字未満（目玉が具体的に書けていない可能性）",
+                          f"desc が{len(desc)}字です: {desc}")
 
         rid = (r.get("id") or "").strip()
         if rid:
