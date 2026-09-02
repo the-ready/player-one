@@ -41,7 +41,20 @@
 # **書いてあるだけでは守られなかった。** 判定は tools/wave_gate.py に置く
 # （行がCSVに在るかを数えるだけなので、shell では書けない）。
 #
-# ## 三つめ —— 残量が尽きているのに投げること
+# ## 三つめ —— 子への指示に、抜粋（手順書）が付いていないこと
+#
+# 2026-09-02 の events 収集は、`skill_brief.py` を1回実行しておきながら、
+# その抜粋を子に渡さなかった。親（当時は Haiku）は代わりに自作の1〜2KBの指示を
+# 書き、そこから **`price_official` `price_checked` `price_best` `coupon_note` が
+# 一語も残らなかった。** 子は書けと言われていない列を書けないので、新規90件の
+# 公式料金は0件で終わっている。
+#
+# SKILL.md は「サブエージェントへの指示に必ず含めること（省略禁止）」として
+# 5項目を挙げていたが、**挙げてあるだけでは守られなかった。** 5項目のうち
+# 「抜粋を渡す」だけは機械的に確認できる（指示にパスが書いてあるか）ので、
+# ここを門にする。抜粋さえ届けば、残りの4項目は抜粋の中にある。
+#
+# ## 四つめ —— 残量が尽きているのに投げること
 #
 # 同じ位置で「まだ投げてよい残量があるか」も見る（tools/budget.py --gate）。
 # 25M で新しい波を止め、40M で撤退させる線は、これまで --report の表示でしか
@@ -96,6 +109,63 @@ if [ "$BG" = "false" ]; then
     GATE_RC=$?
     if [ "$GATE_RC" -eq 1 ]; then
       printf '%s\n' "$GATE_OUT" >&2
+      exit 2
+    fi
+  fi
+
+  # 子への指示に、抜粋（`temp/brief-<ds>.md`）への参照があるか。
+  #
+  # 中身までは見ない——見ようとすると「何が書いてあれば十分か」を shell で
+  # 判定することになり、抜粋の側を変えるたびにここが古くなる。見るのは
+  # 「手順書を渡したか」だけで、渡してさえいれば規則は抜粋が運ぶ。
+  #
+  # 倒し方は wave_gate と同じで、判定できないときは通す。ROUTINE_SKILL が
+  # 無い・jq も python3 も無い、といった場合に収集そのものを止めるのは行き過ぎである。
+  case "${ROUTINE_SKILL:-}" in
+    kanto-event-collector) BRIEF_DS="events" ;;
+    kanto-live-collector)  BRIEF_DS="lives" ;;
+    kanto-movie-collector) BRIEF_DS="movies" ;;
+    *)                     BRIEF_DS="" ;;
+  esac
+  BRIEF=""
+  [ -n "$BRIEF_DS" ] && BRIEF="temp/brief-${BRIEF_DS}.md"
+
+  if [ -n "$BRIEF" ] && command -v python3 >/dev/null 2>&1; then
+    HAS_BRIEF="$(printf '%s' "$INPUT" | BRIEF="$BRIEF" python3 -c 'import json,os,sys
+try:
+    p = json.load(sys.stdin).get("tool_input", {}).get("prompt", "")
+except Exception:
+    print("unknown"); raise SystemExit(0)
+print("yes" if os.environ["BRIEF"] in p else "no")' 2>/dev/null)"
+
+    # パスを書いてあっても、ファイルが無ければ子は Read に失敗して規則を
+    # 一つも受け取らないまま調べ始める。**「書いたつもり」で素通りする経路**が
+    # ここに残っていると、このゲートは何も守っていないのと同じになる。
+    if [ "$HAS_BRIEF" = "yes" ] && [ ! -f "$GATE_REPO/$BRIEF" ]; then
+      cat >&2 <<MSG
+指示は ${BRIEF} を参照していますが、そのファイルがありません。子は Read に失敗し、規則を一つも受け取らないまま調べ始めます。
+
+  先にこれを実行してください:
+    python3 tools/skill_brief.py ${BRIEF_DS} --out ${BRIEF}
+MSG
+      exit 2
+    fi
+
+    if [ "$HAS_BRIEF" = "no" ]; then
+      cat >&2 <<MSG
+サブエージェントへの指示に、抜粋（${BRIEF}）への参照がありません。
+
+  1. まだ作っていなければ、1回だけ作る:
+       python3 tools/skill_brief.py ${BRIEF_DS} --out ${BRIEF}
+  2. 指示に次の1文を入れて起動し直す:
+       まず ${BRIEF} を Read し、そこに書かれた規則に従って調査すること。
+
+**抜粋を貼らないこと。** 貼ると親が「抜粋ぶんの出力トークン × 体数」を払うことになり、
+払えないと判断した親は自作の要約に逃げます。2026-09-02 の events 収集が実際にそうなり、
+自作の指示から料金の列（price_official / price_checked / price_best / coupon_note）が
+丸ごと落ちて、新規90件の公式料金が0件になりました。
+パスだけを書けば、子が自分で読みます。
+MSG
       exit 2
     fi
   fi

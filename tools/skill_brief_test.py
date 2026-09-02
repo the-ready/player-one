@@ -108,6 +108,35 @@ def main():
         ratio = len(brief) / len(full)
         check(f"{ds}: 全文より縮んでいる（{ratio:.0%}）", ratio < 0.85)
 
+        # ---- 表の余白潰しが「見た目だけ」であること
+        #
+        # 抜粋の3割が Prettier のテーブル整列だったので潰しているが、
+        # **潰し方を間違えると規則そのものが壊れる。** とくに `art\|ent` の
+        # ようにセルの中でエスケープした `|` は、素朴に `|` で切ると
+        # 複数値の書き方の規則が別のセルに割れて子に届く。
+        squeezed = sb.squeeze_table_padding(full)
+        check(f"{ds}: 表の余白が潰れている",
+              squeezed.count(" ") < full.count(" ") * 0.8,
+              f"{full.count(' ')} → {squeezed.count(' ')}")
+        check(f"{ds}: 潰しても行数が変わらない",
+              squeezed.count("\n") == full.count("\n"))
+        check(f"{ds}: エスケープした `|` が壊れていない",
+              squeezed.count("\\|") == full.count("\\|"),
+              f"{full.count(chr(92) + '|')} → {squeezed.count(chr(92) + '|')}")
+        # コードブロックの中は1文字も変えない（CSVヘッダーの見本・実行例が入っている）
+        def fenced(text):
+            out, on = [], False
+            for line in text.split("\n"):
+                if line.lstrip().startswith("```"):
+                    on = not on
+                elif on:
+                    out.append(line)
+            return out
+        check(f"{ds}: コードブロックの中身は変えていない", fenced(squeezed) == fenced(full))
+        # 表の外の行も変えない（余白を潰すのは表の行だけ）
+        non_table = lambda t: [l for l in t.split("\n") if not sb.TABLE_ROW_RE.match(l)]
+        check(f"{ds}: 表以外の行は変えていない", non_table(squeezed) == non_table(full))
+
     print(f"\n{'NG が %d 件あります' % fails if fails else 'すべて期待どおり'}")
     return 1 if fails else 0
 

@@ -40,6 +40,7 @@ python3 tools/prev_rows_test.py    # 打ち切られた回の後始末（--carry
 python3 tools/wave_gate_test.py    # 波の結果がCSVに入ったかの判定（止めすぎ・止めなさすぎ）
 python3 tools/budget_test.py       # 残量の線を越えた波の拒否（判定できないときは通す）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか
+python3 tools/report_stats_test.py # 網羅性と「今週あらたに書いた行」の下限の判定
 ```
 
 Prettier は保存時にフックで自動実行される（`.claude/hooks/format-file.sh`）。手で整形しない。

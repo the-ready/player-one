@@ -120,6 +120,143 @@ def _():
     return ("adjacent_heavy", "other") in kinds or f"検知していない: {res['coverage_issues']}"
 
 
+# ---------------------------------------------------------------- events の価格
+#
+# 「今週あらたに書いた行」だけを見る判定を、**持ち越し行が混ざらないこと**を軸に
+# 固定する。混ざると、`carry-rest` が書き戻した前回値が「今週調べた料金」として
+# 数えられ、2026-09-02 の失敗（新規90件の price が32%なのに全体は58%に見える）が
+# そのまま再現する。
+
+EVENT_HEADERS = EXPECTED_HEADERS["events.csv"]
+
+
+def _erow(**kw):
+    base = {"title": "催し", "venue": "会場", "pref": "tokyo", "cats": "art",
+            "start_date": "2026-09-01", "end_date": "2026-09-30"}
+    return base | kw
+
+
+@contextlib.contextmanager
+def _isolated_events(rows, prev_rows_):
+    tmp = tempfile.mkdtemp(prefix="report_stats_events_test_")
+    prev_dir = os.path.join(tmp, ".prev")
+    os.makedirs(prev_dir, exist_ok=True)
+    orig = (rs.DATA, pr.DATA, pr.PREV)
+    rs.DATA, pr.DATA, pr.PREV = tmp, tmp, prev_dir
+    try:
+        _write_csv(os.path.join(tmp, "events.csv"), EVENT_HEADERS, rows)
+        _write_csv(os.path.join(prev_dir, "events.csv"), EVENT_HEADERS, prev_rows_)
+        yield tmp
+    finally:
+        rs.DATA, pr.DATA, pr.PREV = orig
+
+
+def _analyse_events(rows, prev_rows_):
+    with _isolated_events(rows, prev_rows_):
+        return rs.analyse("events.csv")
+
+
+def _run_events(rows, prev_rows_, argv):
+    with _isolated_events(rows, prev_rows_):
+        orig_argv = sys.argv
+        sys.argv = ["report_stats.py"] + argv
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = rs.main()
+        finally:
+            sys.argv = orig_argv
+        return code, out.getvalue(), err.getvalue()
+
+
+# 前回20件（全部 price 入り）＋今週の新規20件、という形を共通の土台にする。
+#
+# 都県を5つに散らしてあるのは、**pref の網羅性ゲートを踏まないようにするため**。
+# 踏むと `--check` が1を返し、「価格の下限で落ちた」のか「都県で落ちた」のかが
+# 区別できず、この検証が価格のゲートを見ていることにならない。
+EVENT_PREFS = ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki"]
+PREV20 = [_erow(title=f"継続{i}", pref=EVENT_PREFS[i % 5], price="1000円")
+          for i in range(20)]
+
+
+def _events_week(new_with_price):
+    """継続20件（price あり）＋新規20件（うち new_with_price 件だけ price あり）"""
+    rows = list(PREV20)
+    rows += [_erow(title=f"新規{i}", pref=EVENT_PREFS[i % 5],
+                   price=("800円" if i < new_with_price else ""))
+             for i in range(20)]
+    return rows
+
+
+@check("events: 新規行の price が下限を割ると thin_issues が付く")
+def _():
+    res = _analyse_events(_events_week(4), PREV20)      # 4/20 = 20%
+    cols = {i["column"] for i in res["thin_issues"]}
+    return "price" in cols or f"検知していない: {res['thin_issues']} / {res['fresh']}"
+
+
+@check("events: 新規行の price が下限を満たせば thin_issues は空")
+def _():
+    res = _analyse_events(_events_week(18), PREV20)     # 18/20 = 90%
+    return res["thin_issues"] == [] or f"誤検知: {res['thin_issues']}"
+
+
+@check("events: 継続行の price を新規の充足率に数えない")
+def _():
+    # 継続20件は全部 price あり・新規20件は全部空。全体では50%だが、新規は0%。
+    res = _analyse_events(_events_week(0), PREV20)
+    fresh = res["fresh"]
+    if fresh["count"] != 20:
+        return f"新規の件数が合わない: {fresh}"
+    col = next(c for c in fresh["columns"] if c["column"] == "price")
+    return col["pct"] == 0 or f"持ち越しが混ざっている: {col}"
+
+
+@check("events: 新規が数件しかない週は判定しない")
+def _():
+    rows = list(PREV20) + [_erow(title=f"新規{i}", pref=EVENT_PREFS[i % 5])
+                           for i in range(3)]
+    res = _analyse_events(rows, PREV20)
+    return res["thin_issues"] == [] or f"標本が足りないのに判定した: {res['thin_issues']}"
+
+
+@check("events: --check は薄い週を終了コード1で返す")
+def _():
+    code, out, err = _run_events(_events_week(4), PREV20, ["events", "--check"])
+    if code != 1:
+        return f"薄いのに通った: code={code} {out}"
+    return "price" in out or f"どの列かが出ていない: {out}"
+
+
+@check("events: --allow-thin price で承知したことにできる")
+def _():
+    code, out, err = _run_events(_events_week(4), PREV20,
+                                 ["events", "--check", "--allow-thin", "price"])
+    return code == 0 or f"承知しても落ちた: code={code} {out}"
+
+
+@check("events: --check-fresh は都県の不足では落ちない（収集していないデータセットを巻き込まない）")
+def _():
+    # 全件 tokyo（＝都県の網羅性は明確に不足）だが、新規行の price は満たしている
+    rows = [_erow(title=f"継続{i}", price="1000円") for i in range(20)]
+    rows += [_erow(title=f"新規{i}", price="800円") for i in range(20)]
+    prev = [_erow(title=f"継続{i}", price="1000円") for i in range(20)]
+    code, out, err = _run_events(rows, prev, ["events", "--check-fresh"])
+    return code == 0 or f"都県の不足で落ちた: code={code} {out}"
+
+
+@check("events: --check-fresh は新規行が薄ければ終了コード1")
+def _():
+    code, out, err = _run_events(_events_week(4), PREV20, ["events", "--check-fresh"])
+    return code == 1 or f"薄いのに通った: code={code} {out}"
+
+
+@check("events: --check を付けなければ薄くても終了コード0（既定の動作を変えない）")
+def _():
+    code, out, err = _run_events(_events_week(4), PREV20, ["events"])
+    return code == 0 or f"--check なしで落ちた: {out}{err}"
+
+
 SHORT_ROWS = [_row(title=f"公演{i}", pref="tokyo") for i in range(3)]
 SHORT_PREFS = "kanagawa,saitama,chiba,ibaraki,tochigi,gunma,other"
 

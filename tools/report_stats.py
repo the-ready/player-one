@@ -40,6 +40,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from prev_rows import load_prev, resolve_dataset                  # noqa: E402
+from rowkey import uid as row_uid                                # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -48,6 +49,12 @@ DATA = os.path.join(ROOT, "data")
 # 件数がそろっていても仕事をしていない。
 CORE = {
     "events.csv": [
+        # `price`（画面に出る料金の文字列）が、この表に無かった。中核だと宣言して
+        # いるのは比較のほう（`price_official` / `price_best`）だが、**利用者が
+        # 実際に読むのはこの列**であり、ここが空の行はカードに料金が出ない。
+        # 2026-09-02 の回はこの列が 66%→58% に落ちたが、表に無いので数字がどこにも
+        # 出ず、報告は「price_official が5ポイント落ちた」だけを述べて終わっている。
+        ("price", "料金（画面に出る文字列）"),
         ("price_official", "公式の正規料金"),
         ("price_best", "最安経路の総額"),
         ("coupon_note", "配布中クーポン"),
@@ -89,6 +96,27 @@ BALANCE = {
     "lives.csv": {"pref": 3, "genre": None, "live_type": None},
     "movies.csv": {"pref": 2, "screening_type": None, "genre": None},
 }
+
+# 「今週あらたに書いた行」に求める下限。**全体の充足率では、この失敗は見えない。**
+#
+# 2026-09-02 の events は price 58%（前回66%）で、5ポイントの低下にしか見えない。
+# だが内訳は「継続365件は65%・新規90件は32%」で、継続分の値は
+# `prev_rows.py --carry-rest` が前回値を書き戻しただけである（あれは `onsale_*`
+# だけを空にして `price_*` は残す）。**今週その料金を実際に見た行は、ほぼ無い。**
+# 前回値の持ち越しが、調べていない事実を「充足している」に見せる。
+#
+# だから見るのは、持ち越しが混ざりようのない層——前回に無い uid の行だけ——に絞る。
+#
+# 下限を70%にしてあるのは、過去5回の実測（18% / 96% / 41% / 15% / 32%）のうち
+# 唯一まともだった回が96%で、他は明確に調査が届いていない回だからである。
+# **「毎週落ちるなら下限が高すぎる」ではなく「毎週調べられていない」が正しい読み方**
+# であることを、この数字で固定する。
+FRESH_FLOOR = {
+    "events.csv": {"price": 70},
+}
+
+# 新規が数件しかない週まで判定すると、1件の空欄で下限を割る。数えるに足りる分だけ見る。
+FRESH_MIN_SAMPLE = 10
 
 PREFS = ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki", "tochigi", "gunma", "other"]
 # イベントだけ対象地域が1都4県（栃木・群馬は対象外）。「都県ごとに floor 件
@@ -140,7 +168,28 @@ def analyse(name):
         # のため、誰も見ないまま流れた。coverage_issues はその数字を、判定したい
         # 側（--check）が使える形で持たせるためのものである。
         "coverage_issues": [],
+        # 「今週書いた行が薄い」を、判定したい側（--check）が使える形で持たせる。
+        # warnings と別に持つのは coverage_issues と同じ理由である。
+        "thin_issues": [],
     }
+
+    # 今週あらたに書いた行（前回に無い uid）。持ち越しが混ざらない層。
+    prev_uids = {row_uid(name, r) for r in prev}
+    fresh = [r for r in cur if row_uid(name, r) not in prev_uids] if prev else []
+    res["fresh"] = {"count": len(fresh), "columns": []}
+    for col, floor in FRESH_FLOOR.get(name, {}).items():
+        if cur and col not in cur[0]:
+            continue
+        n = filled(fresh, col)
+        p = pct(n, len(fresh))
+        res["fresh"]["columns"].append(
+            {"column": col, "filled": n, "pct": p, "floor": floor})
+        if len(fresh) >= FRESH_MIN_SAMPLE and p < floor:
+            res["warnings"].append(
+                f"今週の新規{len(fresh)}件のうち {col} があるのは{n}件（{p}%）。"
+                f"下限{floor}%に届いていません")
+            res["thin_issues"].append(
+                {"column": col, "pct": p, "floor": floor, "count": len(fresh), "filled": n})
 
     for col, label in CORE.get(name, []):
         if cur and col not in cur[0]:
@@ -203,6 +252,14 @@ def print_human(res):
                   f" {c['pct']:>3}%  {arrow} 前回{c['prev_pct']:>3}%"
                   f"  （{c['label']}）")
 
+    fresh = res.get("fresh") or {}
+    if fresh.get("columns"):
+        print(f"\n  今週あらたに書いた行の充足率（{fresh['count']}件・持ち越しを含まない）")
+        for c in fresh["columns"]:
+            mark = "  " if c["pct"] >= c["floor"] else "← 下限割れ"
+            print(f"    {c['column']:<18} {c['filled']:>4}/{fresh['count']:<4}"
+                  f" {c['pct']:>3}%  （下限 {c['floor']}%）{mark}")
+
     for col, c in res["balance"].items():
         if not c:
             continue
@@ -223,8 +280,25 @@ def main():
     # 分ける設計（下記コメント）は保ったまま、判定してほしい側（終了工程のゲート）
     # だけが明示的にこのフラグを付けて使う。
     p.add_argument("--check", action="store_true",
-                   help="都県の網羅性チェックを行い、承知していない不足があれば終了コード1で返す"
-                        "（既定では判定しない。下記 --allow-short 参照）")
+                   help="都県の網羅性と、今週の新規行の中核列を判定し、"
+                        "承知していない不足があれば終了コード1で返す"
+                        "（既定では判定しない。下記 --allow-short / --allow-thin 参照）")
+    # `--check` を丸ごとフックに置かない理由。
+    #
+    # `.claude/hooks/verify-data.sh` はルーチン中 events/lives/movies の3つを回す
+    # （収集していないデータセットの後始末も安全網として通すため）。そこに
+    # `--check` を置くと、**今週 events を集めている回が、先週のままの lives の
+    # 都県不足で止まる。** 網羅性は「今週その都県を調べたか」の話なので、
+    # 調べていないデータセットに対して問う意味が無い。
+    #
+    # 一方、今週の新規行の充足率は、収集していないデータセットでは新規0件＝
+    # 判定対象なしになるので、3つ回しても誤って落ちない。フックにはこちらだけを置く。
+    p.add_argument("--check-fresh", action="store_true", dest="check_fresh",
+                   help="今週あらたに書いた行の中核列だけを判定する"
+                        "（都県の網羅性は見ない。終了前フック用）")
+    p.add_argument("--allow-thin", action="append", default=[],
+                   help="この列は今週の新規行で薄くてよいと承知している"
+                        "（--check 用。列名を指定。複数指定可・カンマ区切り可）")
     p.add_argument("--allow-short", action="append", default=[],
                    help="この都県は今回件数が少ない／0件でよいと承知している"
                         "（--check 用。複数指定可・カンマ区切り可。隣接5県が多すぎる警告は "
@@ -244,16 +318,21 @@ def main():
               "\n原因が目標件数・品質基準・禁止事項の側にあるなら docs/skill-feedback.md に追記する"
               "（自分で書き換えない）。それ以外の小さなバグなら自分で直してよい。")
     # 数字を出すのが仕事で、良し悪しの判定はしない。落とすのは validate/diff の役目
-    # ——ただし網羅性（pref）だけは --check で明示的に判定を頼める（下記）。
-    if not args.check:
+    # ——ただし網羅性（pref）と今週の新規行の薄さだけは、判定を明示的に頼める（下記）。
+    if not (args.check or args.check_fresh):
         return 0
 
     allowed = set()
     for a in args.allow_short:
         allowed.update(v.strip() for v in a.split(",") if v.strip())
+    allowed_thin = set()
+    for a in args.allow_thin:
+        allowed_thin.update(v.strip() for v in a.split(",") if v.strip())
+
+    rc = 0
 
     unresolved = []
-    for r in results:
+    for r in results if args.check else []:
         left = [i for i in r["coverage_issues"] if i["pref"] not in allowed]
         if left:
             prefs = ", ".join(sorted({i["pref"] for i in left}))
@@ -265,8 +344,31 @@ def main():
               "--allow-short <pref> で承知したことにしてください。調べていないなら調べること）")
         for u in unresolved:
             print(f"  {u}")
-        return 1
-    return 0
+        rc = 1
+
+    thin = []
+    for r in results:
+        for i in r["thin_issues"]:
+            if i["column"] not in allowed_thin:
+                thin.append((r["dataset"], i))
+
+    if thin:
+        print("\n新規行の下限: 今週あらたに書いた行が、中核の列で下限を割っています")
+        for ds, i in thin:
+            print(f"  {ds}: {i['column']} {i['filled']}/{i['count']}"
+                  f"（{i['pct']}% < 下限{i['floor']}%）")
+        print("\n  持ち越した行の値は「今週確認した値」ではありません"
+              "（carry-rest は前回値をそのまま書き戻します）。"
+              "\n  料金は一覧ページには載っていないのが普通です。会場ごとに1回、"
+              "料金ページ（利用案内・入館料・チケット）を開いてください——"
+              "\n    python3 tools/fetch_page.py <会場トップ> --links | grep -E "
+              "'料金|入館|入園|チケット|利用案内|price|ticket|admission'"
+              "\n  1回の取得でその会場の全行を埋められるので、追加の検索は要りません。"
+              "\n  調べたうえで本当に確認できない行ばかりだったなら "
+              "--allow-thin <列名> で承知したことにし、その理由を報告に書いてください。")
+        rc = 1
+
+    return rc
 
 
 if __name__ == "__main__":

@@ -37,9 +37,26 @@ k 分の1になる）。だから独立した対策が要る。
 **どう取得するか**（robots・fetch_page の使い分け・検索を使わない経路）である。
 子が要るのはそこだけで、そこは丸ごと残る。
 
+## 抜粋は「貼る」のではなく「ファイルで渡す」
+
+2026-09-02 の events 収集で、この道具は**一度も使われなかった**。抜粋は
+100,676バイトあり、Bash の出力上限を超えて `tool-results/` のファイルに落ちる。
+親はそれを Read して（＝自分の文脈に約22kトークン払って）から、4体ぶんの指示に
+貼る代わりに**自分で1〜2KBに要約した**。要約の過程で「価格比較の第0〜1段階」が
+落ち、子は `price_official` を1件も書かなかった（新規90件中0件）。
+
+貼る形は、親に「抜粋ぶんの出力トークン × 体数」を払わせる。払えないと判断した
+親は要約に逃げ、**規則が落ちたことは誰にも見えない**。だから貼らせない。
+`--out` でファイルに書き、指示にはそのパスだけを書く。子が Read すれば、
+子の文脈に入る量は貼る場合と同じで、親の負担だけが消える。
+
+親が抜粋のパスを指示に書き忘れる経路は `.claude/hooks/agent-guard.sh` が塞ぐ
+（パスへの参照が無い波は起動できない）。
+
 使い方:
-    python3 tools/skill_brief.py movies              # 抜粋を出す（指示に貼る）
-    python3 tools/skill_brief.py movies --sections   # 残した節・外した節を一覧する
+    python3 tools/skill_brief.py movies                        # 標準出力に出す
+    python3 tools/skill_brief.py events --out temp/brief-events.md   # ファイルに書く（子に読ませる）
+    python3 tools/skill_brief.py movies --sections             # 残した節・外した節を一覧する
 """
 
 import argparse
@@ -94,6 +111,49 @@ PARENT_ONLY_SUB = (
 
 SUB_RE = re.compile(r"^### +(.*?)\s*$")
 
+# ------------------------------------------------------------------ 余白を潰す
+#
+# 抜粋の**30.9%が半角スペース**だった（2026-09-02 実測。events の抜粋 55,938文字
+# のうち 17,258文字）。ほぼ全部が Prettier のテーブル整列——`| \`id\` ... |` の
+# 規則の列を、その表でいちばん長いセル（250字を超えるものがある）の幅に合わせて
+# 詰めているぶんである。
+#
+# **これは削っても規則が1文字も減らない。** 節を削る方向（許可リスト化）は
+# 「規則が黙って落ちる」壊れ方をするのでこの道具が避けている手だが、
+# 余白の除去は見た目が変わるだけで、機械的に元の意味を保つ。
+# 実測で 55,938文字 → 39,000文字弱（約30%減）になる。
+#
+# 表の区切り行（`| --- | --- |`）も `---` に潰す。整列のために `-` を数十個
+# 並べているだけなので、これも意味を持たない。
+TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+# セルの区切りは `|` だが、この文書は `art\|ent` のようにエスケープした `|` を
+# セルの中で多用する。**エスケープ済みの `|` で切ると、複数値の書き方の規則が
+# 壊れた表になって子に届く。** 直前が `\` でないものだけを区切りとして扱う。
+CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")
+SEP_CELL_RE = re.compile(r"^:?-{2,}:?$")
+
+
+def squeeze_table_padding(text):
+    """表の整列用の余白を潰す。中身は変えない。
+
+    コードブロックの中は触らない——`fetch_page.py` の実行例やCSVヘッダーの
+    見本が入っており、あそこの空白は意味を持つ。
+    """
+    out, in_fence = [], False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if in_fence or not TABLE_ROW_RE.match(line):
+            out.append(line)
+            continue
+        cells = [c.strip() for c in CELL_SPLIT_RE.split(line.strip())][1:-1]
+        if cells and all(SEP_CELL_RE.match(c) for c in cells):
+            cells = ["---"] * len(cells)
+        out.append("| " + " | ".join(cells) + " |")
+    return "\n".join(out)
+
 # 「サブエージェントへの指示に必ず含めること」章と同じ規則を、抜粋の側にも
 # 固定文で埋め込んでおく。あちらは親がプロンプトに書き写す前提の一覧であり、
 # 親が書き忘れれば子には一度も届かない——2026-08-21 の実測では、これが指示に
@@ -104,7 +164,11 @@ SUBAGENT_PREAMBLE = """#
 #   - data/ には書かない。書くのは親だけ。
 #   - append_rows.py <ds> --init / append_lineup.py --init は実行しない（CSVを空にする。他の波が書いた分もろとも消える）
 #   - 結果は temp/rows-<波の名前>.jsonl に自分でJSONL（1行1件）で書く
-#   - 返答には、書いたファイルのパスと件数だけを書く。行そのものを返答に含めない"""
+#   - 返答には、書いたファイルのパスと件数だけを書く。行そのものを返答に含めない
+#   - **料金は、このタスクの中核である。** 一覧ページに料金が無いのが普通なので、
+#     会場ごとに1回だけ料金ページ（利用案内・入館料・チケット）を開いて
+#     `price` `price_official` `price_checked` を書く。手順は「価格比較とクーポン検知」章の第1段階。
+#     取得は `WebFetch` ではなく `fetch_page.py --text` を使う（料金は表で書かれており、要約では落ちる）"""
 
 HEAD_RE = re.compile(r"^## +(.*?)\s*$")
 
@@ -168,7 +232,7 @@ def build(ds):
             continue
         body, sub_dropped = strip_parent_subsections(body)
         dropped.extend(sub_dropped)
-        kept.append((head, body))
+        kept.append((head, squeeze_table_padding(body)))
     return kept, dropped, len(text)
 
 
@@ -176,6 +240,9 @@ def main():
     p = argparse.ArgumentParser(description="SKILL.md から子に要る部分だけを抜く")
     p.add_argument("dataset", help="events / lives / movies")
     p.add_argument("--sections", action="store_true", help="残した節・外した節を一覧する")
+    p.add_argument("--out", metavar="PATH",
+                   help="抜粋をファイルに書き、標準出力にはパスだけを出す"
+                        "（子に Read させる。親の文脈に抜粋を載せないための既定の使い方）")
     args = p.parse_args()
 
     kept, dropped, full = build(args.dataset)
@@ -191,12 +258,30 @@ def main():
 
     rel = os.path.relpath(skill_path(args.dataset), ROOT)
     body = "\n".join(b for _h, b in kept).strip()
-    print(f"# これは `{rel}` の抜粋です（調査担当のサブエージェント向け）。")
-    print(f"# 外してあるのは親の工程だけです（{'・'.join(d or '' for d in dropped)}）。")
-    print("# **ここに書かれていない判断が要る場合だけ**、上のファイルを読んでください。")
-    print(SUBAGENT_PREAMBLE)
-    print()
-    print(body)
+    text = "\n".join([
+        f"# これは `{rel}` の抜粋です（調査担当のサブエージェント向け）。",
+        f"# 外してあるのは親の工程だけです（{'・'.join(d or '' for d in dropped)}）。",
+        "# **ここに書かれていない判断が要る場合だけ**、上のファイルを読んでください。",
+        SUBAGENT_PREAMBLE,
+        "",
+        body,
+    ])
+
+    if args.out:
+        path = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text + "\n")
+        # **標準出力に抜粋そのものを出さない。** ここに出すと、ファイルに書いた
+        # 意味が無くなる（親の文脈に全文が載る）。出すのは、指示にそのまま
+        # 書き写せる1行だけにする。
+        print(os.path.relpath(path, ROOT))
+        print(f"# 抜粋 {len(body):,}文字 / 全文 {full:,}文字。"
+              f"サブエージェントへの指示には、このパスを Read させる1文だけを書くこと",
+              file=sys.stderr)
+        return 0
+
+    print(text)
     print(f"\n# 抜粋 {len(body):,}文字 / 全文 {full:,}文字",
           file=sys.stderr)
     return 0

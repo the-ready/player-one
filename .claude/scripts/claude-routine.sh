@@ -510,12 +510,23 @@ fi
 #
 # movies だけ低いのはこのためで、件数の少なさが理由ではない。
 #
-# 【モデル】既定は events=haiku、lives/movies=sonnet。2026-08-21 の実測で
-# Haiku は「JSONLを返さず要約だけ返す」失敗が起きやすく、前回分の再発見率も
-# 低かった（SKILL.md「サブエージェントへの指示に必ず含めること」で緩和を
-# 図ったが、根本的な能力差は残る）。events はコストと速度を優先して Haiku を
-# 使い続けるが、lives/movies は同じ失敗が起きたときの手直しコストのほうが
-# 高いと判断し、Sonnet を使う。ROUTINE_MODEL で個別に上書きできる。
+# 【モデル】親は3スキルとも Sonnet、子は events だけ Haiku（表の5列目）。
+#
+# 2026-08-21 の実測で Haiku は「JSONLを返さず要約だけ返す」失敗が起きやすく、
+# 前回分の再発見率も低かった。当初は events だけコストと速度を優先して
+# 親子ともに Haiku で走らせていたが、2026-09-02 の回で**親に使うと被害が
+# 全工程に及ぶ**ことがはっきりした。親は `skill_brief.py` の抜粋（子への手順書）を
+# 貼らずに自作の1〜2KBの指示に要約し、その要約から価格の列が丸ごと落ちて、
+# 新規90件の `price_official` が0件になっている（`docs/routine-postmortems.md`）。
+#
+# 親の成果は「規則を落とさずに指示を組み立てられるか」で決まり、落ちたことは
+# 誰にも見えない。子の仕事は「渡されたURLを開いて行を書く」で範囲が狭く、
+# 抜粋という手順書も付くので Haiku で足りる。**分けて払うのが安い。**
+#
+# 子のモデルは `CLAUDE_CODE_SUBAGENT_MODEL` で渡す。この環境変数は Agent ツールの
+# `model` 引数よりも優先されるので、**親が何を指定しても子は表のモデルになる**
+# ——親の判断に委ねない（`.claude/routines/invariants.md` と同じ考え方）。
+# ROUTINE_MODEL / ROUTINE_SUBAGENT_MODEL で個別に上書きできる。
 #
 # 【曜日→スキル→モデルの対応】正本は weekly-routine スキルの ```schedule ブロックだけに
 # 置く。**このスクリプトは自前の対応表を持たず、そこを読むだけにしてある。**
@@ -559,9 +570,21 @@ export ROUTINE_SKILL
 
 DEFAULT_MODEL="$(awk '{print $3}' <<< "$ROW")"
 SUBAGENT_LIMIT="$(awk '{print $4}' <<< "$ROW")"
+DEFAULT_SUBAGENT_MODEL="$(awk '{print $5}' <<< "$ROW")"
 export CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS="$SUBAGENT_LIMIT"
 ROUTINE_MODEL="${ROUTINE_MODEL:-$DEFAULT_MODEL}"
-log "実行スキル: ${ROUTINE_SKILL} / サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止） / モデル: ${ROUTINE_MODEL}"
+
+# 5列目が無い行（列を足す前の表）は「親と同じ」として扱う。表を書き換え忘れた
+# 回に既定の別モデルへ落ちるより、親と同じで走るほうが事故が小さい
+# ——2026-08-29 は case 文の更新漏れで既定の Haiku に落ちる事故を起こしている。
+ROUTINE_SUBAGENT_MODEL="${ROUTINE_SUBAGENT_MODEL:-${DEFAULT_SUBAGENT_MODEL:-inherit}}"
+if [ "$ROUTINE_SUBAGENT_MODEL" = "inherit" ]; then
+  unset CLAUDE_CODE_SUBAGENT_MODEL
+else
+  export CLAUDE_CODE_SUBAGENT_MODEL="$ROUTINE_SUBAGENT_MODEL"
+fi
+
+log "実行スキル: ${ROUTINE_SKILL} / サブエージェントの同時実行数: ${SUBAGENT_LIMIT}（孫の起動は settings.json で禁止） / 親モデル: ${ROUTINE_MODEL} / 子モデル: ${ROUTINE_SUBAGENT_MODEL}"
 
 RUN_STATE="$(mktemp -d "$LOG_DIR/.run.XXXXXX")" || die "一時ディレクトリを作成できません"
 
