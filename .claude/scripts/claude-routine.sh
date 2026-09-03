@@ -665,6 +665,34 @@ if [ -d "$REPO_DIR/temp" ]; then
   [ "${removed:-0}" -gt 0 ] && log "temp/ の2日より古いファイルを ${removed}件 片付けました"
 fi
 
+# 資格情報の期限を先に見る。**止めはしない**（判定できないときに収集を止める
+# ほうが害が大きい。他のゲートと同じ倒し方）。ただし失効が近いことは、失敗して
+# から気づくより前に知りたい——リフレッシュトークンの再取得は人にしかできず、
+# 気づくのが翌朝の失敗ログだと1回ぶんの収集が丸ごと落ちる。
+if command -v python3 >/dev/null 2>&1; then
+  CRED_WARN="$(python3 - <<'PYCRED' 2>/dev/null
+import datetime, json, os
+p = os.path.expanduser("~/.claude/.credentials.json")
+try:
+    o = json.load(open(p)).get("claudeAiOauth") or {}
+except Exception:
+    raise SystemExit(0)
+ms = o.get("refreshTokenExpiresAt")
+if not ms:
+    raise SystemExit(0)
+t = datetime.datetime.fromtimestamp(ms / 1000)
+left = t - datetime.datetime.now()
+if left.total_seconds() <= 0:
+    print(f"認証の refresh token が {t:%Y-%m-%d %H:%M} に失効しています。"
+          "この実行は認証に失敗する見込みです（claude を起動して /login）")
+elif left.days <= 7:
+    print(f"認証の refresh token があと{left.days}日で失効します（{t:%Y-%m-%d %H:%M}）。"
+          "失効するとルーチンは起動できません（claude を起動して /login）")
+PYCRED
+)"
+  [ -n "$CRED_WARN" ] && log "WARNING: $CRED_WARN"
+fi
+
 log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
 
 "${CLAUDE_CMD[@]}" -p "$PROMPT" \
@@ -713,6 +741,7 @@ log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
           cost=$(printf '%s' "$line" | jq -r '.total_cost_usd // empty' 2>/dev/null)
           printf '%s\n' "${result_subtype:-unknown}" > "$RUN_STATE/result_subtype"
           printf '%s\n' "${is_error:-}" > "$RUN_STATE/is_error"
+          printf '%s\n' "${result_text:-}" > "$RUN_STATE/result_text"
           echo "[$ts] [FINAL] subtype=${result_subtype} is_error=${is_error} cost=\$${cost} : ${result_text}" >> "$LOG_FILE"
           ;;
       esac
@@ -724,6 +753,8 @@ RESULT_SUBTYPE=""
 IS_ERROR=""
 [ -f "$RUN_STATE/result_subtype" ] && RESULT_SUBTYPE="$(cat "$RUN_STATE/result_subtype" 2>/dev/null)"
 [ -f "$RUN_STATE/is_error" ] && IS_ERROR="$(cat "$RUN_STATE/is_error" 2>/dev/null)"
+RESULT_TEXT=""
+[ -f "$RUN_STATE/result_text" ] && RESULT_TEXT="$(cat "$RUN_STATE/result_text" 2>/dev/null)"
 
 # ============================================================
 # 実行結果の判定
@@ -756,6 +787,50 @@ if [ "$IS_ERROR" = "true" ]; then
   RUN_OK=0
   log "ERROR: 最終結果が is_error=true でした"
 fi
+
+# ============================================================
+# 認証に失敗した回は、「収集の失敗」ではない
+#
+# 2026-09-03 の movies は、OAuth のリフレッシュトークンが起動の79分前に失効して
+# いたため、セッションが1度も動かないまま（ツール呼び出し0件で）終わった。
+# それでも下の工程はそのまま走り、`carry-rest` と `purge_ended` が data/ を
+# 書き換えてから巻き戻すので、ログの結びは
+#
+#     検証を通らなかった生成物を … に退避しました
+#     data/ docs/ を HEAD の内容に戻しました
+#
+# になる。**調べもしなかった回が「検証に落ちた回」に見える。** 読んだ人は
+# 収集側の不具合を探すことになり、実際に必要な対処（ログインし直す）に
+# たどり着けない。原因が違えば、伝える文面も止まる場所も変えるべきである。
+#
+# セッションが動いていない以上、救い出す成果も無い。退避・巻き戻しの工程を
+# 通さずにここで終える（data/ は触られていないので、戻すものが無い）。
+# ============================================================
+case "$RESULT_TEXT" in
+  *"Failed to authenticate"*|*"OAuth session expired"*|*"Invalid API key"*|*"run /login"*)
+    log "ERROR: 認証に失敗しました。セッションは1度も動いていません（収集の失敗ではありません）"
+    log "  → 対話セッションで claude を起動し、/login でログインし直してください"
+    log "  → 資格情報: ${HOME}/.claude/.credentials.json（refresh token が失効すると自動更新できません）"
+    if command -v python3 >/dev/null 2>&1; then
+      log_output "$(python3 - <<'PYEXP' 2>/dev/null
+import datetime, json, os
+p = os.path.expanduser("~/.claude/.credentials.json")
+try:
+    o = json.load(open(p)).get("claudeAiOauth") or {}
+except Exception:
+    raise SystemExit(0)
+ms = o.get("refreshTokenExpiresAt")
+if ms:
+    t = datetime.datetime.fromtimestamp(ms / 1000)
+    state = "失効済み" if t < datetime.datetime.now() else "有効"
+    print(f"  → refresh token の期限: {t:%Y-%m-%d %H:%M}（{state}）")
+PYEXP
+)"
+    fi
+    log "  → data/ は触っていないので、退避も巻き戻しも行いません"
+    exit 1
+    ;;
+esac
 
 # ============================================================
 # 生成物の検証（コミットの門番）
