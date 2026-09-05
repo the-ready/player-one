@@ -38,7 +38,9 @@ python3 tools/purge_ended_test.py  # 終了日の判定と書き換え
 python3 tools/fetch_page_test.py   # JSON-LD / sitemap / ICS / 日程行の抽出規則
 python3 tools/prev_rows_test.py    # 打ち切られた回の後始末（--carry-rest）と棚卸し
 python3 tools/wave_gate_test.py    # 波の結果がCSVに入ったかの判定（止めすぎ・止めなさすぎ）
-python3 tools/budget_test.py       # 残量の線を越えた波の拒否（判定できないときは通す）
+python3 tools/budget_test.py       # 残量の線を越えた波・取得の拒否（判定できないときは通す）
+python3 tools/run_gate_test.py     # 調べていない回（検索0・取得0／`--init` 未実行）の判定
+python3 tools/append_lineup_test.py # 日割りと公演行の合成書き込み（片方だけ書けた状態を作らない）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか
 python3 tools/report_stats_test.py # 網羅性と「今週あらたに書いた行」の下限の判定
 ```

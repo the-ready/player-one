@@ -42,6 +42,7 @@ class Args:
         self.dataset = "lives"
         self.tier = None
         self.pref = None
+        self.summary = False
         for k, v in kw.items():
             setattr(self, k, v)
 

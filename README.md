@@ -31,16 +31,16 @@ data/                         週次で差し替えるデータ。ここだけ�
   no-crawl.json               調査対象外の申請を受けたサイトの登録簿（人が編集する）
   apple-music.json            アーティスト名→Apple MusicのURL（引き直しを避けるキャッシュ）
 .claude/skills/               3つの収集スキルと、掲載停止申請への対応手順（正本はここ）
-.claude/hooks/                規則を決定論的に守らせるフック（git の禁止・背景エージェントの禁止・整形・終了前の検証）
+.claude/hooks/                規則を決定論的に守らせるフック（git の禁止・背景エージェントの禁止・波の途中の予算超過での取得停止・整形・終了前の検証）
 .claude/routines/invariants.md  週次ルーチンの不変規則（システムプロンプトとして渡す）
 .claude/skills/weekly-routine/  週次ルーチンの手順（曜日でスキルを選ぶ）
 .claude/scripts/              cron の入口（pull → 実行 → 検証 → 通った回だけ commit/push）
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
   append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し
-  append_lineup.py            フェスの日割りラインナップの書き出し
+  append_lineup.py            フェスの日割りラインナップの書き出し（`--rows` で lives.csv の行と1回の呼び出しにまとめられる）
   fill_apple_music.py         ラインナップの Apple Music リンクを一括で埋める
-  prev_rows.py / diff_data.py 前回との差分検知（詳細は docs/COLLECTION-PROTOCOL.md）
+  prev_rows.py / diff_data.py 前回との差分検知（棚卸しは --summary で件数だけにできる。詳細は docs/COLLECTION-PROTOCOL.md）
   prev_rows_test.py           --carry-rest（打ち切られた回の後始末）と棚卸しの検証（ネットワーク不要）
   budget.py                   その回の消費の実測（検索・取得・待機・追記・経過時間と、
                               セッションの記録から読むトークン。第8.7.1節）
@@ -48,7 +48,9 @@ tools/                        収集タスク用のスクリプト
   fetch_page.py               robots を通してページ本体を取り、本文/日程行/リンク/JSON-LD/sitemap/ICS を抜く
   wave_gate.py                波の結果がCSVに入るまで次のサブエージェント起動を止める（第11.4節）
   wave_gate_test.py           その判定の検証（ネットワーク不要）
-  skill_brief.py              SKILL.md から子に要る部分だけを抜く（第11.8節）
+  run_gate.py                 調べていない回（検索0・取得0／--init 未実行）をコミットさせない
+  run_gate_test.py            その判定の検証（ネットワーク不要）
+  skill_brief.py              SKILL.md から読み手（子／親）に要る部分だけを抜く（第11.7.1・11.8節）
   skill_brief_test.py         抜粋が規則を落としていないかの検証（ネットワーク不要）
   fetch_page_test.py          その抽出規則の検証（ネットワーク不要）
   purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（docs/COLLECTION-PROTOCOL.md 第5.1節）

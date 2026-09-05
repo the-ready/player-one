@@ -365,7 +365,7 @@ log "REPO_DIR   = $REPO_DIR"
 
 cd "$REPO_DIR" || die "リポジトリのルートに移動できません: $REPO_DIR"
 
-for f in tools/purge_ended.py tools/validate_data.py tools/diff_data.py; do
+for f in tools/purge_ended.py tools/validate_data.py tools/diff_data.py tools/run_gate.py; do
   [ -f "$REPO_DIR/$f" ] || die "検証スクリプトが見つかりません: $f"
 done
 
@@ -665,6 +665,30 @@ if [ -d "$REPO_DIR/temp" ]; then
   [ "${removed:-0}" -gt 0 ] && log "temp/ の2日より古いファイルを ${removed}件 片付けました"
 fi
 
+# 親向けの抜粋を先に作っておく。
+#
+# 親も SKILL.md 全文（lives で85,418字）を Read しており、その固定費が**親の毎ターン**
+# 再送されていた。親は行を書かない（棚卸し・分割・起動・追記・検証）ので、列の表や
+# 深掘りの手順は要らない。ここで作っておけば、モデルが1ターン使って作る必要も、
+# 作り忘れて全文を読む余地も無い（temp/ の掃除より後に置くこと）。
+#
+# **失敗しても止めない。** 抜粋が無ければ weekly-routine/SKILL.md の案内どおり
+# 全文を読むだけで、収集そのものは成立する。
+case "$ROUTINE_SKILL" in
+  kanto-event-collector) BRIEF_DS="events" ;;
+  kanto-live-collector)  BRIEF_DS="lives" ;;
+  kanto-movie-collector) BRIEF_DS="movies" ;;
+  *)                     BRIEF_DS="" ;;
+esac
+if [ -n "$BRIEF_DS" ] && command -v python3 >/dev/null 2>&1; then
+  if brief_out="$(python3 tools/skill_brief.py "$BRIEF_DS" --for parent \
+        --out "temp/brief-parent-${BRIEF_DS}.md" 2>&1)"; then
+    log "親向けの抜粋を作りました: temp/brief-parent-${BRIEF_DS}.md"
+  else
+    log "WARNING: 親向けの抜粋を作れませんでした（全文を読む運用で続行します）: ${brief_out}"
+  fi
+fi
+
 # 資格情報の期限を先に見る。**止めはしない**（判定できないときに収集を止める
 # ほうが害が大きい。他のゲートと同じ倒し方）。ただし失効が近いことは、失敗して
 # から気づくより前に知りたい——リフレッシュトークンの再取得は人にしかできず、
@@ -906,7 +930,29 @@ run_check "python3 tools/purge_ended.py" python3 tools/purge_ended.py || VERIFY_
 # 壊れてはいないので検証は素通りし、ここが「週次データ更新」としてコミットして
 # push した。**この門は「壊れていないか」しか見ておらず、「何か産んだか」を
 # 見ていなかった。** 空回りの回を成功として記録に残さない。
-log "検証を実行します（validate_data.py / diff_data.py）"
+log "検証を実行します（run_gate.py / validate_data.py / diff_data.py）"
+
+# 「収集した回」の形をしているか（外を1回でも見たか・開始点を通ったか）。
+#
+# 上の2本と下の2本は、いずれも**データが壊れていないか**しか見ていない。
+# 2026-09-04 20:50 の lives 収集は、起動時の予算表示が別セッションのトークンを
+# 拾って「撤退」を示したため検索0回・取得0回で終えたが、行は壊れていないので
+# validate も diff も通り（回収した77行が「新規」に数えられた）、先週の87行ごと
+# 「週次データ更新」としてコミット・push された。**空回りの一歩手前——調べずに
+# 前回分へ追記しただけの回——を、この門が止める。**
+#
+# 判定できないとき（記録が無い・古い）は exit 2 で、そのときは止めない。
+# run_check は exit 0 以外を失敗として扱うので、1 のときだけ落とす形で書く。
+run_gate_out="$(python3 tools/run_gate.py --check 2>&1)"
+run_gate_rc=$?
+log_output "$run_gate_out"
+if [ "$run_gate_rc" -eq 1 ]; then
+  VERIFY_OK=0
+  log "ERROR: python3 tools/run_gate.py --check が失敗しました（調べていない回はコミットしません）"
+else
+  log "OK: python3 tools/run_gate.py --check"
+fi
+
 run_check "python3 tools/validate_data.py" python3 tools/validate_data.py || VERIFY_OK=0
 run_check "python3 tools/diff_data.py" python3 tools/diff_data.py || VERIFY_OK=0
 

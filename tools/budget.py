@@ -61,8 +61,12 @@ lives 収集は、開始50分でアカウントの利用上限（`You've hit you
 
 線を2つに分けたのは、1つでは間に合わなかったからである。2026-08-27 の実行は
 40M の警告を受け取った**3分16秒後**に殺された。しかもその時点で親は波の帰りを
-待って停止中で、動いている子に割り込む手段が無い。**判断が要るのは「次の波を
-投げるか」を決める瞬間**なので、警告はその手前で鳴らないと行動に変わらない。
+待って停止中で、動いている子に割り込む手段が無い。判断が要るのは「次の波を
+投げるか」を決める瞬間だけではない——2026-09-04 は**最初の波そのもの**が
+40M を越えて殺されており、「次の波」の判断が一度も出番を持たなかった。そこで
+`--gate` （次の波を投げる瞬間）に加え、`--gate-fetch` （波の途中の1回の取得）
+の2つの門を置く。後者は動いている子自身が取得のたびに通るので、
+「親が波の帰りを待って停止中」でも間に合う（`gate_fetch()` の docstring）。
 
 使い方:
     python3 tools/budget.py --report                # いまの消費を1行で
@@ -74,6 +78,8 @@ lives 収集は、開始50分でアカウントの利用上限（`You've hit you
     python3 tools/budget.py --bump search
     python3 tools/budget.py --bump fetch --waited 3.2
     python3 tools/budget.py --bump rows --n 8
+    python3 tools/budget.py --gate                  # 次の波を投げてよいか（PreToolUse:Agent）
+    python3 tools/budget.py --gate-fetch             # 波の途中でも、この1回の取得をしてよいか
 """
 
 import argparse
@@ -237,6 +243,30 @@ def bump(kind, n=1, waited=0.0):
         pass
 
 
+def mark_init(name):
+    """`append_rows.py <ds> --init` を通ったことを記録する（`run_gate.py` が見る）。
+
+    収集の開始点はこの1回しかないので、通ったかどうかをここに残しておけば
+    「`--init` を飛ばしたまま前回のCSVに追記して終えた回」を後から機械的に
+    見分けられる（2026-09-04 20:50 の回がそれだった）。
+
+    `bump()` と同じく、**何があっても例外を投げない**——計測の都合で
+    `--init` そのものを失敗させない。
+    """
+    try:
+        with _lock():
+            st = load()
+            inits = st.get("inits")
+            if not isinstance(inits, list):
+                inits = []
+            if name not in inits:
+                inits.append(name)
+            st["inits"] = inits
+            save(st)
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
 def elapsed_min(st):
     return (_now() - st.get("started_at", _now())) / 60.0
 
@@ -265,27 +295,41 @@ def _projects_dir():
 
 
 def transcript_files():
-    """(親の記録, [子の記録...]) を返す。見つからなければ (None, [])。
+    """(親の記録, [子の記録...]) を返す。**自分のセッションを同定できなければ (None, [])。**
 
-    セッションIDから引くのを第一にする。`*/<sid>.jsonl` と全プロジェクトを
-    横断して探すのは、記録の置き場がリポジトリのパスをスラッグ化した名前で、
-    **その規則が将来変わりうる**ためである。IDで引ける限り規則に依存しない。
+    セッションIDだけで引く。`*/<sid>.jsonl` と全プロジェクトを横断して探すのは、
+    記録の置き場がリポジトリのパスをスラッグ化した名前で、**その規則が将来
+    変わりうる**ためである。IDで引ける限り規則に依存しない。
 
-    IDが無い（対話的に手で叩いた等）ときだけスラッグから引き、その中でいちばん
-    新しい記録を今のセッションとみなす。週次ルーチンはロックで同時実行を
-    禁じているので、無人実行では取り違えは起きない。
+    ## 「いちばん新しい記録」へのフォールバックを持たない理由
+
+    以前は、IDで引けないとき同じプロジェクトの中でいちばん新しい `.jsonl` を
+    今のセッションとみなしていた。「週次ルーチンはロックで同時実行を禁じている
+    ので取り違えは起きない」という理由づけだったが、**あのロックが防ぐのは
+    ルーチン同士の同時実行だけで、同じリポジトリで人が対話セッションを開いて
+    いる場合は防げない。**
+
+    2026-09-04 20:50 の lives 収集がこれを踏んだ。`weekly-routine/SKILL.md` は
+    起動時に `!` 埋め込みで `--report` を実行する——**セッション開始の最初期で、
+    自分の記録がまだディスクに無い瞬間**である。フォールバックは、そのとき同じ
+    プロジェクトで動いていた対話セッション（44.8M）を拾い、「文脈再送44.8M。
+    **撤退の手順に入ってください**」を文脈の先頭に載せた。モデルはそれに従い、
+    サブエージェントを1体も起動せず、検索0回・取得0回で9分で終えている
+    （`docs/routine-postmortems.md` 2026-09-04）。
+
+    **他人の数字を返すくらいなら「分からない」を返す。** 分からないときの倒し方は
+    既に決まっていて（`gate()` は 2 を返して通す、`report()` はトークンの節を出さない）、
+    そちらは計測できないことを理由に収集を止めない。取り違えだけが、収集を
+    止める方向に嘘をつける。
     """
     root = _projects_dir()
     sid = (os.environ.get("CLAUDE_CODE_SESSION_ID") or "").strip()
-    parent = None
-    if sid:
-        hits = glob.glob(os.path.join(root, "*", sid + ".jsonl"))
-        parent = hits[0] if hits else None
-    if parent is None:
-        cands = glob.glob(os.path.join(root, ROOT.replace(os.sep, "-"), "*.jsonl"))
-        parent = max(cands, key=os.path.getmtime) if cands else None
-    if parent is None:
+    if not sid:
         return None, []
+    hits = glob.glob(os.path.join(root, "*", sid + ".jsonl"))
+    if not hits:
+        return None, []
+    parent = hits[0]
     subs = sorted(glob.glob(os.path.join(parent[:-len(".jsonl")], "subagents", "*.jsonl")))
     return parent, subs
 
@@ -440,6 +484,11 @@ def summary_line(st):
     tk = token_usage()
     if tk:
         parts.append(token_line(tk))
+    else:
+        # **黙って省かない。** 省くと「トークンの節が無い＝0だった」と読めてしまい、
+        # 計器に載っていない資源がまた見えなくなる（第8.7.1節の再発）。
+        # 起動直後（自分の記録がまだ書かれていない瞬間）は、これが正常な表示である。
+        parts.append("文脈再送 未計測（このセッションの記録がまだ見つかりません）")
     return "[予算] " + " / ".join(parts)
 
 
@@ -547,6 +596,58 @@ def gate():
     print(f"{head}\n\n{body}", file=sys.stderr)
     return 1
 
+
+def gate_fetch():
+    """**波の途中でも**、この1回の取得（`fetch_page.py` / `WebSearch`）をしてよいかを
+    終了コードで返す。`.claude/hooks/fetch-budget-guard.sh` が呼ぶ。
+
+    ## `gate()` だけでは間に合わなかった実例
+
+    `gate()` は `Agent` の起動、つまり**次の波を投げる瞬間**にしか門を置けない。
+    2026-09-04 の lives 収集は、**最初の波**（フェス調査・東京バッチA・東京バッチB）
+    の中でホール系の会場に通信障害（DNS不通・SSL証明書不一致・タイムアウト）が
+    連鎖し、1体が `SUBAGENT_TURN_WARN`（60ターン）の倍を超える141ターンまで
+    膨らんで文脈再送39.4Mに達した。まだ「次の波」が一度も投げられていないので、
+    `gate()` の門は一度も開く機会がないまま、3分足らず後にアカウントの利用上限
+    （セッション制限）で子・親とも強制終了された。
+
+    親が波の帰りを待って停止している間は割り込む手段が無い（`gate()` の docstring
+    と同じ制約）が、**動いている子自身がその都度呼ぶ取得ツールなら話が違う。**
+    `fetch_page.py` の呼び出しと `WebSearch` は子から見ても「次の1回」であり、
+    その呼び出し自体を門にすれば、次の波を待たずに撤退させられる。
+
+    ## 線は撤退（40M）だけを見る
+
+    `gate()` の25M（新しい波を止める）は流用しない。25M〜40Mの間は「動いている波は
+    受け取って書き切る」設計（`gate()` 参照）で、その間の取得まで止めると波を
+    書き切れなくなる。撤退（40M）を越えた取得だけを止める——**ここを超えたら、
+    いつ殺されてもおかしくない**という同じ意味で、取得を続ける猶予がもう無い。
+
+    ## 終了コード
+
+      0 : 取得してよい（線に届いていない）
+      1 : 取得してはいけない（40M以上）。理由を stderr に書く
+      2 : 判定できない（セッションの記録が読めない等）
+
+    **2 では止めない。** `gate()` と同じ理由で、計測できないことを理由に取得を
+    止めると被害のほうが大きい。
+    """
+    tk = token_usage()
+    if not tk:
+        print("# 文脈再送を読めませんでした（セッションの記録が見つからない）。判定を見送ります。",
+              file=sys.stderr)
+        return 2
+    cr = tk["total"]["cache_read"]
+    if cr < CACHE_READ_RETREAT:
+        return 0
+    print(f"文脈再送が {_m(cr)} で、撤退の線（{_m(CACHE_READ_RETREAT)}）を越えています。\n\n"
+          "**波の途中でも、これ以上は取得しないでください。** ここまでに調べた行を "
+          "temp/rows-<波の名前>.jsonl に書き出し、返答にはパスと件数だけを書いてターンを終えてください。"
+          "利用上限で打ち切られた回の実測は 48M と 57M です。新しい波はもちろん、動いている波の中の"
+          "取得もここで打ち切ります。", file=sys.stderr)
+    return 1
+
+
 def main():
     p = argparse.ArgumentParser(description="この実行の消費を実測して返す")
     p.add_argument("--report", action="store_true", help="いまの消費を出す")
@@ -559,6 +660,8 @@ def main():
     p.add_argument("--json", action="store_true", dest="as_json", help="機械可読に出す")
     p.add_argument("--gate", action="store_true",
                    help="新しい波を投げてよいかを終了コードで返す（フックが呼ぶ）")
+    p.add_argument("--gate-fetch", action="store_true",
+                   help="波の途中でも、この1回の取得をしてよいかを終了コードで返す（フックが呼ぶ）")
     args = p.parse_args()
 
     if args.reset:
@@ -584,6 +687,9 @@ def main():
 
     if args.gate:
         return gate()
+
+    if args.gate_fetch:
+        return gate_fetch()
 
     st = load()
 

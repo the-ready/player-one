@@ -431,6 +431,9 @@ def print_carried(name):
 def cmd_worklist(name, rows, args):
     today = args.today if args.today else date.today()
     taken = prev_taken_at(name)
+    # 手で組んだ Args から呼ばれることがある（検証・他ツール）ので、
+    # 属性が無くても既定（＝従来どおり全行を出す）で動くようにしておく。
+    summary = getattr(args, "summary", False)
 
     print_carried(name)
     print(f"# {name} 前回分の棚卸しリスト（{len(rows)}件）")
@@ -438,9 +441,11 @@ def cmd_worklist(name, rows, args):
         print(f"# 前回の取得日: {taken}（{(today - taken).days}日前）")
     print("# tier A=今回必ず再確認 / B=会場ページを開いたついでに確認 / C=低頻度でよい")
     print("# 全列が要るときは: python3 tools/prev_rows.py <ds> --uid <uid>")
-    print("uid\ttier\tpref\ttitle\tvenue\t期間\t締切\t理由")
+    if not summary:
+        print("uid\ttier\tpref\ttitle\tvenue\t期間\t締切\t理由")
 
     counts = {"A": 0, "B": 0, "C": 0}
+    by_pref = {}
     place_col = "theater" if name == "movies.csv" else "venue"
     wanted_prefs = set(args.pref or [])
     unverified = load_unverified(name)
@@ -472,6 +477,13 @@ def cmd_worklist(name, rows, args):
             continue
         if wanted_prefs and (r.get("pref") or "") not in wanted_prefs:
             continue
+        by_pref.setdefault((r.get("pref") or "-"), {"A": 0, "B": 0, "C": 0})[tier] += 1
+        # `--summary` は「同じ一覧を、行の代わりに数で出す」。親は担当の割り振りと
+        # 最優先の行（上の print_carried）さえ分かればよく、**443行の一覧を親の文脈に
+        # 置くと、それが毎ターン再送される**（events で28,922字）。担当分の全行は
+        # `--pref <都県> > temp/worklist-<ds>-<都県>.md` でファイルに書き、子に Read させる。
+        if summary:
+            continue
         span = f"{(r.get(START_COL[name]) or '')[5:]}〜{(r.get('end_date') or '')[5:]}".strip("〜")
         print("\t".join([
             row_uid(name, r), tier, (r.get("pref") or ""),
@@ -479,6 +491,15 @@ def cmd_worklist(name, rows, args):
             span or "-", (r.get("onsale_end") or "")[5:] or "-",
             ",".join(reasons)[:48],
         ]))
+    if summary:
+        print("\n# 都県ごとの内訳（この一覧に出る行）")
+        for pref, c in sorted(by_pref.items(), key=lambda kv: -sum(kv[1].values())):
+            print(f"#   {pref}\tA={c['A']} B={c['B']} C={c['C']}\t計{sum(c.values())}")
+        print("# 行そのものは出していません（--summary）。担当分を子に渡すときは")
+        print(f"#   python3 tools/prev_rows.py {name.replace('.csv', '')} --worklist "
+              "--pref <都県> > temp/worklist-<ds>-<都県>.md")
+        print("# でファイルに書き、指示にはそのパスを Read させる1文だけを書くこと")
+
     print(f"\n# 内訳: A={counts['A']} B={counts['B']} C={counts['C']}")
     if ended:
         print(f"# 終了日を過ぎた{ended}件は一覧から除いてあります"
@@ -985,6 +1006,9 @@ def main():
     p = argparse.ArgumentParser(description="前回の収集結果を圧縮して参照する")
     p.add_argument("dataset", help="events / lives / movies")
     p.add_argument("--worklist", action="store_true", help="棚卸し用の圧縮一覧を出す")
+    p.add_argument("--summary", action="store_true",
+                   help="worklist を、行の代わりに都県ごとの件数で出す"
+                        "（親が担当を割り振るときに使う。最優先の行は従来どおり出る）")
     p.add_argument("--tier", help="worklist を tier で絞る（例: A / AB）")
     p.add_argument("--pref", action="append",
                    help="worklist をこの pref に絞る（複数可）。都県ごとにサブエージェントへ"

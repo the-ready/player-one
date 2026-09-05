@@ -199,6 +199,9 @@ def init_file(name, path, headers):
     # budget.py は12時間で自動的に数え直すが、明示的な起点があるならそちらが正しい
     # （同じ日に2回走らせたとき、前半の消費が後半に混ざらない）。
     budget.reset()
+    # reset() の直後に置く（reset() は状態を空にするので、順序を逆にすると消える）。
+    # 「この回は収集の開始点を通った」という事実だけを残し、run_gate.py が見る。
+    budget.mark_init(name)
     kept = prevmod.take_snapshot(name)
     with open(path, "w", newline="", encoding="utf-8") as f:
         csv.writer(f, quoting=csv.QUOTE_ALL).writerow(headers)
@@ -446,6 +449,36 @@ def record_roster_hits(name, records):
                       file=sys.stderr)
 
 
+def prepare_records(name, records):
+    """検証・持ち越し・ID採番までを行い、書き込み直前の `records` を返す（書き込みはしない）。
+
+    `main()` の本体と、他ツールからの合成呼び出し（`append_lineup.py --rows`。
+    第9.3.9節・`docs/DESIGN.md` 第12.12節）の両方から使う。**書き込みを持たない**のが
+    要点で、呼び出し側は「ここまでのバリデーションが全部通ったこと」を確認してから
+    `write_rows()` を呼べる。バリデーションを通す前に一部だけ書いてしまうと、
+    複数ファイルにまたがる合成書き込みで「片方だけ書けた」状態を作りかねない。
+    """
+    headers = EXPECTED_HEADERS[name]
+    path = os.path.join(DATA, name)
+
+    for i, obj in enumerate(records, start=1):
+        unknown = [k for k in obj if k not in headers and k not in CONTROL_KEYS]
+        if unknown:
+            print(f"WARNING: {i}件目に {name} にない列があります（無視します）: {unknown}", file=sys.stderr)
+
+    check_enum_columns(name, records)
+    check_truncated_values(name, records)
+
+    by_uid, by_place = build_prev_index(name, headers, current_path=path)
+    filled, misses, regressions = apply_carryover(name, headers, records, by_uid, by_place)
+
+    start_id = read_last_id(path) + 1
+    for offset, row in enumerate(records):
+        row["id"] = str(start_id + offset)
+
+    return headers, path, records, filled, misses, regressions, start_id
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -464,21 +497,7 @@ def main():
     if not records:
         raise SystemExit("ERROR: 標準入力からJSONLを読み込めませんでした（空です）")
 
-    for i, obj in enumerate(records, start=1):
-        unknown = [k for k in obj if k not in headers and k not in CONTROL_KEYS]
-        if unknown:
-            print(f"WARNING: {i}件目に {name} にない列があります（無視します）: {unknown}", file=sys.stderr)
-
-    check_enum_columns(name, records)
-    check_truncated_values(name, records)
-
-    by_uid, by_place = build_prev_index(name, headers, current_path=path)
-    filled, misses, regressions = apply_carryover(name, headers, records, by_uid, by_place)
-
-    start_id = read_last_id(path) + 1
-    for offset, row in enumerate(records):
-        row["id"] = str(start_id + offset)
-
+    headers, path, records, filled, misses, regressions, start_id = prepare_records(name, records)
     write_rows(path, headers, records)
 
     end_id = start_id + len(records) - 1

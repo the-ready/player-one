@@ -128,6 +128,23 @@ for ds in $DATASETS; do
   fi
 done
 
+# その回が「収集した回」の形をしているか（外を1回でも見たか・開始点を通ったか）。
+#
+# 上の3本は「データが壊れていないか」しか見ていない。2026-09-04 20:50 の lives 収集は
+# 検索0回・取得0回のまま前回のCSVに追記して終えたが、データは壊れていないので3本とも
+# 通り、そのままコミット・push された（`docs/routine-postmortems.md`）。
+#
+# ルーチンのときだけ見る。対話セッションで data/ を手直しする作業まで
+# 「調べていない」で止めるのは筋が通らない。exit 2（判定不能）では止めない
+# ——倒し方は run_gate.py の docstring にある。
+if [ "$IS_ROUTINE" -eq 1 ]; then
+  out="$(python3 "tools/run_gate.py" --check 2>&1)"
+  run_gate_rc=$?
+  if [ "$run_gate_rc" -eq 1 ]; then
+    add_problem "この回は、収集した回の形をしていません:"$'\n'"$out"
+  fi
+fi
+
 # 今週あらたに書いた行が、中核の列で下限を割っていないか。
 #
 # 2026-09-02 の events は、この門が無いまま ERROR 0 で通ってコミットされた。

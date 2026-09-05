@@ -111,6 +111,38 @@ PARENT_ONLY_SUB = (
 
 SUB_RE = re.compile(r"^### +(.*?)\s*$")
 
+# --- 親向けの抜粋（`--for parent`）------------------------------------------
+#
+# 子だけでなく**親も SKILL.md 全文を毎ターン運んでいた**。lives の全文は85,418字で、
+# 親の文脈の固定費としてターン数ぶん再送される。親の仕事は棚卸し・分割・起動・追記・
+# 検証であって（`docs/COLLECTION-PROTOCOL.md` 第11.5節）、**行そのものは親が書かない**
+# ——列の書き方・キーの一覧・深掘りの手順は子の材料である。
+#
+# ここも許可リストにはしない（上の PARENT_ONLY と同じ理由）。**新しい節は既定で
+# 両方に残る**ので、増えたときに壊れる方向は「余分に入ってトークンを食う」側になる。
+# 外すのは「行の書き方」だと確認できたものだけに限る。
+#
+# 落としたぶんが要るときのために、抜粋の先頭で全文の場所を案内する——親は
+# サブエージェントと違って自分でファイルを読める。
+CHILD_ONLY = (
+    "`desc` の書き方",
+    "駐車場・最寄り駅の書き方",
+    "会場の座標",
+    "季節イベントの検索キーワード",
+)
+
+# `### ` の部分一致で外す小節。**PARENT_ONLY_SUB に載っているものは外さない**
+# ——「ステップ0：前回分の棚卸し」「ステップ5：消えた行の説明と、差分の確定」は
+# 名前が「ステップ」で始まるが親の工程であり、そこを落とすと親が自分の手順を失う。
+CHILD_ONLY_SUB = (
+    "CSV列",                 # 列の表。3スキルとも最大の塊（12.9k〜15k字）
+    "カテゴリキー", "ジャンルキー", "公演形態キー", "上映形態キー",
+    "前売り券",              # movies: `onsale_*` の書き方
+    "料金（",                # movies: price_* の書き方
+    "`theater` 列の書き方",  # movies: 5.3k字
+    "ステップ",              # 調査手順の本体（子の手順）
+)
+
 # ------------------------------------------------------------------ 余白を潰す
 #
 # 抜粋の**30.9%が半角スペース**だった（2026-09-02 実測。events の抜粋 55,938文字
@@ -193,12 +225,27 @@ def split_sections(text):
     return out
 
 
-def is_parent_only(head):
-    return bool(head) and any(head.startswith(p) for p in PARENT_ONLY)
+def is_excluded(head, audience):
+    """その節（`## …`）を、この読み手の抜粋から外すか。"""
+    if not head:
+        return False
+    table = PARENT_ONLY if audience == "child" else CHILD_ONLY
+    return any(head.startswith(p) for p in table)
 
 
-def strip_parent_subsections(body):
-    """節の中から、親の工程の小節（`### …`）だけを落とす。
+def is_excluded_sub(head, audience):
+    """その小節（`### …`）を、この読み手の抜粋から外すか。"""
+    if audience == "child":
+        return any(k in head for k in PARENT_ONLY_SUB)
+    # 親向け：**親の工程の小節は、CHILD_ONLY_SUB に一致しても外さない。**
+    # 「ステップ0：前回分の棚卸し」が「ステップ」に一致して消えるのを防ぐ。
+    if any(k in head for k in PARENT_ONLY_SUB):
+        return False
+    return any(k in head for k in CHILD_ONLY_SUB)
+
+
+def strip_subsections(body, audience):
+    """節の中から、その読み手に要らない小節（`### …`）だけを落とす。
 
     落とした小節名も返す。何が消えたかを `--sections` で見えるようにするため
     ——見えない削除は、この道具でいちばん危ない壊れ方である。
@@ -208,7 +255,7 @@ def strip_parent_subsections(body):
         m = SUB_RE.match(line)
         if m:
             head = m.group(1)
-            skipping = any(k in head for k in PARENT_ONLY_SUB)
+            skipping = is_excluded_sub(head, audience)
             if skipping:
                 dropped.append(head)
                 continue
@@ -217,7 +264,7 @@ def strip_parent_subsections(body):
     return "\n".join(out), dropped
 
 
-def build(ds):
+def build(ds, audience="child"):
     with open(skill_path(ds), encoding="utf-8") as f:
         text = f.read()
     # frontmatter（--- で挟まれた先頭）は落とす。スキルの起動用メタで、内容ではない
@@ -227,45 +274,61 @@ def build(ds):
             text = text[end + 4:]
     kept, dropped = [], []
     for head, body in split_sections(text):
-        if is_parent_only(head):
+        if is_excluded(head, audience):
             dropped.append(head)
             continue
-        body, sub_dropped = strip_parent_subsections(body)
+        body, sub_dropped = strip_subsections(body, audience)
         dropped.extend(sub_dropped)
         kept.append((head, squeeze_table_padding(body)))
     return kept, dropped, len(text)
 
 
 def main():
-    p = argparse.ArgumentParser(description="SKILL.md から子に要る部分だけを抜く")
+    p = argparse.ArgumentParser(description="SKILL.md から、その読み手に要る部分だけを抜く")
     p.add_argument("dataset", help="events / lives / movies")
+    p.add_argument("--for", dest="audience", choices=("child", "parent"), default="child",
+                   help="読み手。child=調査担当のサブエージェント（既定）／parent=ルーチン本体")
     p.add_argument("--sections", action="store_true", help="残した節・外した節を一覧する")
     p.add_argument("--out", metavar="PATH",
                    help="抜粋をファイルに書き、標準出力にはパスだけを出す"
                         "（子に Read させる。親の文脈に抜粋を載せないための既定の使い方）")
     args = p.parse_args()
 
-    kept, dropped, full = build(args.dataset)
+    kept, dropped, full = build(args.dataset, args.audience)
 
     if args.sections:
-        print("# 残す（子に要る）")
+        who = "子に要る" if args.audience == "child" else "親に要る"
+        why = "親の仕事" if args.audience == "child" else "行の書き方（子の材料）"
+        print(f"# 残す（{who}）")
         for head, _ in kept:
             print(f"  {head or '（前書き）'}")
-        print("# 外す（親の仕事）")
+        print(f"# 外す（{why}）")
         for head in dropped:
             print(f"  {head}")
         return 0
 
     rel = os.path.relpath(skill_path(args.dataset), ROOT)
     body = "\n".join(b for _h, b in kept).strip()
-    text = "\n".join([
-        f"# これは `{rel}` の抜粋です（調査担当のサブエージェント向け）。",
-        f"# 外してあるのは親の工程だけです（{'・'.join(d or '' for d in dropped)}）。",
-        "# **ここに書かれていない判断が要る場合だけ**、上のファイルを読んでください。",
-        SUBAGENT_PREAMBLE,
-        "",
-        body,
-    ])
+    if args.audience == "child":
+        header = [
+            f"# これは `{rel}` の抜粋です（調査担当のサブエージェント向け）。",
+            f"# 外してあるのは親の工程だけです（{'・'.join(d or '' for d in dropped)}）。",
+            "# **ここに書かれていない判断が要る場合だけ**、上のファイルを読んでください。",
+            # **親向けの抜粋には絶対に付けない。** この前置きは「data/ に書かない・
+            # --init を実行しない」——親がやらなければならないことの逆である。
+            SUBAGENT_PREAMBLE,
+        ]
+    else:
+        header = [
+            f"# これは `{rel}` の抜粋です（ルーチン本体＝親向け）。",
+            "# 外してあるのは**行の書き方**（列の表・キーの一覧・深掘りの手順）だけです。"
+            "親は行を書かず、棚卸し・分割・起動・追記・検証を行います。",
+            f"# 外した節: {'・'.join(d or '' for d in dropped)}",
+            "# **列の規則やステップの詳細が要るときは、上のファイルの該当節だけを"
+            "`Read` の offset 指定で読んでください**（全文を読み直さない）。"
+            "子に渡す抜粋は `--for child` で別に作ります。",
+        ]
+    text = "\n".join(header + ["", body])
 
     if args.out:
         path = args.out if os.path.isabs(args.out) else os.path.join(ROOT, args.out)
@@ -276,9 +339,10 @@ def main():
         # 意味が無くなる（親の文脈に全文が載る）。出すのは、指示にそのまま
         # 書き写せる1行だけにする。
         print(os.path.relpath(path, ROOT))
-        print(f"# 抜粋 {len(body):,}文字 / 全文 {full:,}文字。"
-              f"サブエージェントへの指示には、このパスを Read させる1文だけを書くこと",
-              file=sys.stderr)
+        tail = ("サブエージェントへの指示には、このパスを Read させる1文だけを書くこと"
+                if args.audience == "child"
+                else "このファイルを Read すること（SKILL.md 全文は読まない）")
+        print(f"# 抜粋 {len(body):,}文字 / 全文 {full:,}文字。{tail}", file=sys.stderr)
         return 0
 
     print(text)
