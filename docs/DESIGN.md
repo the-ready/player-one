@@ -1180,13 +1180,8 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 | 名簿が腐る                                                              | `roster.py` が名簿を育てる（追加・昇格・閉館・整理）。**目標件数・品質基準・禁止事項は書き換えない**（小さなバグ修正のみ自分で直せる。後述「自己更新の境界線」） |
 
 **「前回CSVを読む」行の文字数はここに固定しない**——`data/events.csv` は週次収集で
-行数が増減し続けるため、書いた瞬間から古くなる。今の値は次のコマンドで確認する
-（`wc -m` は `LANG` 未設定だとバイト数を返すことがあるため使わない）：
-
-```bash
-python3 -c "print(len(open('data/events.csv',encoding='utf-8').read()))"
-python3 -c "import subprocess as s;print(len(s.run(['python3','tools/prev_rows.py','events','--worklist'],capture_output=True,text=True).stdout))"
-```
+行数が増減し続けるため、書いた瞬間から古くなる。根拠の数値と実測コマンドは
+`tools/prev_rows.py` の冒頭コメント（「なぜ必要か」）に置き、ここでは繰り返さない。
 
 手順の詳細と、なぜそう決めたかは `docs/COLLECTION-PROTOCOL.md` にまとめてある。
 

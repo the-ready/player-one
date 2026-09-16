@@ -79,8 +79,10 @@ git の書き込みは行わない（`.claude/routines/invariants.md` の規則�
 **`temp/brief-parent-<events|lives|movies>.md` を Read する**（`claude-routine.sh` が起動前に作っている）。
 これは `.claude/skills/<スキル名>/SKILL.md` から**行の書き方（列の表・キーの一覧・深掘りの手順）だけを外した抜粋**で、
 親の工程（終了工程・撤退の手順・初期化・波の分け方・品質チェック・実行手順まとめ）は丸ごと入っている。
-全文は lives で85,418字あり、その全部が**親の毎ターン再送される固定費**になる。親は行を書かないので、
-子の材料まで運ぶ必要が無い（抜粋で4〜5割減る）。
+全文はまるごと**親の毎ターン再送される固定費**になる（サイズは
+`python3 tools/skill_brief.py <ds> --for parent --out /dev/null` 実行時にstderrへ出る。
+本文の版で動くのでここには固定しない）。親は行を書かないので、子の材料まで運ぶ
+必要が無い（抜粋で概ね4〜5割減る）。
 
 - 抜粋に無い規則（列の書き方・キーの一覧など）が要るときは、**全文の該当節だけ**を `Read` の `offset` 指定で読む。全文を読み直さない
 - 抜粋が無い（対話的な実行など）ときだけ、`python3 tools/skill_brief.py <ds> --for parent --out temp/brief-parent-<ds>.md` で作る。それも失敗するなら `.claude/skills/<スキル名>/SKILL.md` を Read する
