@@ -1,6 +1,6 @@
 ---
 name: source-optout
-description: "Handle an opt-out, takedown, or removal request from a site being collected — “stop crawling us”, “remove our listings”, “don’t link to us”, a robots.txt change discovered mid-run, or a rights-holder complaint. Use when such a request arrives (GitHub Issue, email, or a block detected by tools/fetch_gate.py) and the collection must stop touching that site and its data must be taken down. Registers the site in data/no-crawl.json so the fetch gate blocks it, audits every place the site appears across the CSVs, rosters, sources.json and the skill prose with tools/purge_source.py, removes the published rows, and states plainly what can and cannot be erased."
+description: "Handle an opt-out, takedown, or removal request from a site being collected — “stop crawling us”, “remove our listings”, “don’t link to us”, 「クロールをやめてほしい」「掲載停止」「調査対象外にしてほしい」「削除依頼」, a robots.txt change discovered mid-run, or a rights-holder complaint. Use when such a request arrives (GitHub Issue, email, or a block detected by tools/fetch_gate.py) and the collection must stop touching that site and its data must be taken down. Registers the site in data/no-crawl.json so the fetch gate blocks it, audits every place the site appears across the CSVs, rosters, sources.json and the skill prose with tools/purge_source.py, removes the published rows, and states plainly what can and cannot be erased."
 ---
 
 # 調査対象外・掲載停止の申請への対応
