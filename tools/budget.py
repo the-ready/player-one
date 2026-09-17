@@ -362,7 +362,7 @@ def _tally(path):
                 t["cache_write"] += cw
                 t["output"] += u.get("output_tokens") or 0
                 # 0 の記録では上書きしない。打ち切られたセッションの末尾には
-                # usage が全て 0 の応答が残ることがあり、それを「現在の文脈」に
+                # usage がすべて 0 の応答が残ることがあり、それを「現在の文脈」に
                 # 採ると、**いちばん膨らんだ瞬間に 0k と表示される**。
                 ctx = cr + cw + (u.get("input_tokens") or 0)
                 if ctx:

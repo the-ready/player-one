@@ -286,7 +286,7 @@ def run_hook():
     # 取得の回数と、ここで消化した待ち時間を実測に残す。枠表が `WebSearch` しか
     # 数えていなかったせいで、実際には取得のほうが多く時間の律速でもある事実が
     # 誰にも見えていなかった（`tools/budget.py` の冒頭）。数えるのはこの1か所で
-    # 足りる——全ての `WebFetch` がこのフックを通るためである。
+    # 足りる——すべての `WebFetch` がこのフックを通るためである。
     budget.bump("fetch" if d["ok"] else "blocked", waited=d.get("waited", 0.0))
 
     if d["ok"]:

@@ -134,7 +134,7 @@ function pickDate(dateStr) {
   focusDate = dateStr;
   if (!pendingStart) {
     // 1クリック目で単日として即絞り込む。別の日を続けて押せば、その日までの
-    // 期間に広がる（開始日だけ選んだ状態でフィルターが効かないままなのを防ぐ）。
+    // 期間に広がる（開始日だけ選んだ状態でフィルタが効かないままなのを防ぐ）。
     pendingStart = dateStr;
     st.rangeStart = dateStr;
     st.rangeEnd = dateStr;
