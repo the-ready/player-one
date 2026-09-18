@@ -36,6 +36,14 @@
 `diff_data.py` の出力を `head` / `tail` / `grep` に通さない。`[表記が変わった可能性]` は `[新規]` の一覧の直後に出るので、
 切ると見えないまま二重掲載になる。`validate_data.py` も同じ。`PreToolUse` フックが実際に拒否する。
 
+## 取得は `fetch_page.py` か `WebFetch` だけ
+
+`curl` / `wget` で外のページを取らない。あれらはフックを通らないので、robots.txt の判定も `Crawl-delay` の消化も行われない
+——**自分の取りこぼしではなく、相手のサイトへの迷惑になる。** `PreToolUse` フックが拒否する。
+
+料金・日程・一覧の構造が要るページは `python3 tools/fetch_page.py <URL> --text`（または `--schedule`）を使う。
+`WebFetch` は要約を返すので、要約に載らなかった金額は二度と手に入らない。
+
 ## 大物を全文 `Read` しない
 
 `Read` には行数の上限はあってもバイト数の上限が無い。`data/events.csv` は406行しかないので、

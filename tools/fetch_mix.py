@@ -165,7 +165,10 @@ def judge(webfetch, page, warned):
         "\n"
         "料金・日程・一覧の構造が要るページは `fetch_page.py` を使ってください。\n"
         "本文が取れないページ（JS描画・403）に限って `WebFetch` に戻して構いません。\n"
-        "**この催促は1度だけです。次からは止めません。**")
+        "**この催促は1度だけです。次からは止めません。**\n"
+        "\n"
+        "**`curl` や `wget` で代替しないこと。** あれらはフックを通らないので "
+        "robots.txt の判定も `Crawl-delay` の消化も行われません（`bash_gate.py` が拒否します）。")
 
 
 def gate(count_webfetch=False):

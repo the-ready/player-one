@@ -1014,7 +1014,7 @@ WCAG準拠のため、カテゴリ色の一部を暗く／明るく調整した�
 | `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`    | ルーチン中、モデル自身の git の書き込みを拒否する                                                                                           |
 | `PreToolUse(Agent)`        | `.claude/hooks/agent-guard.sh`  | ルーチン中、サブエージェントの**背景起動**・**前の波を書き切らない起動**・**残量が線を越えてからの起動**を拒否する（第9.3.2節）             |
 | `PreToolUse(Read)`         | `tools/read_gate.py --hook`     | ルーチン中、**安い代替のある大物の全文 `Read`** を拒否する（下記「読み取りの側にも門を置く」）                                              |
-| `PreToolUse(Bash)`         | `tools/bash_gate.py --hook`     | ルーチン中、**検証の出力を `head` / `grep` で切る呼び出し**を拒否し、`fetch_page.py` の呼び出し回数を数える                                 |
+| `PreToolUse(Bash)`         | `tools/bash_gate.py --hook`     | ルーチン中、**検証の出力を `head` / `grep` で切る呼び出し**と **`curl` / `wget` での外部取得**を拒否し、`fetch_page.py` の呼び出し回数を数える |
 | `PreToolUse(WebFetch)`     | `tools/fetch_mix.py --hook`     | `fetch_page.py` を一度も使わないまま `WebFetch` に偏った回に、**1度だけ**催促する                                                           |
 | `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh`  | 整形できる拡張子だけ prettier にかける                                                                                                      |
 | `PostToolUse(Agent)`       | `.claude/hooks/wave-report.sh`  | 波を受け取った直後に、残量と「最長の子◯ターン」を親の文脈へ差し込む（止めない）                                                             |
@@ -1099,6 +1099,14 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 `SubagentStop` はこの隙間に置ける唯一のフックで、入力に `agent_transcript_path`（子の記録）が入るので、最後の返答を読んで判定できる。**閾値は厳しくしない。** 止めると子はもう1ターン回り、その子の文脈がまるごと再送される（実測10〜20万トークン）ので、割が合うのは違反が明白なとき（JSONLらしき行が2行以上／長文でパス参照が無い）だけである。2周目は `stop_hook_active` で黙って通す。
 
 **記録は、フックが呼ばれた時点でまだ書き終わっていないことがある。** 同じ試験（子に行を貼らせる）を繰り返すと、発火時点の `agent_transcript_path` が 156,667バイト（書き終わっている）と 50,629バイト（本文がまだ無い）に割れ、素直に1回読むだけの実装は **3回に1回しか検知できなかった**。記録への書き込みはフックの発火と同期していない。そのため本文が現れるまで短く待つ（上限3秒・実測では 0.2秒で現れる）ものとしており、待ちを入れた実行は4回とも検知している。待ち切っても本文が無ければ通す——判定できないことを理由に子を回し直さない、という倒し方はここでも変えない。
+
+#### 片方を塞ぐと、塞いでいない抜け道へ寄る
+
+`fetch_page.py` の docstring は前から書いている——**`curl` はフックを通らないので、robots.txt の判定も `Crawl-delay` の消化も行われない。** ところがそれを止めるものは無かった。取得の作法が通るのは `WebFetch`（`fetch_gate.py` が見る）と `fetch_page.py` の2経路だけで、`curl` はどちらも迂回する。
+
+これは**放っておける穴ではなくなった**。`WebFetch` への偏りを止める門（`tools/fetch_mix.py`）を Haiku に実際に当てたところ、返ってきたのは `curl -s https://example.com/ | grep ...` という代替案だった。片方を塞げば、塞いでいない側へ寄る。しかもこちらの穴は自分の取りこぼしではなく、**相手のサイトへの迷惑**である。
+
+そこで `bash_gate.py` が `curl` / `wget` を——`http(s)://` を伴うときだけ——拒否するものとしている。`localhost` と `127.0.0.1` は通す（`smoke_test.mjs` のローカルサーバー）。あわせて `fetch_mix.py` の文面にも「`curl` や `wget` で代替しないこと」を明記した。文面を足した後の実測では、同じ Haiku が「`curl` を使う方法もあるが、フックの警告がある」と書いて `fetch_page.py` 側へ戻っている。
 
 #### 助言は `PostToolUse` で差し込む —— 拒否したときにしか数字を見せられないのでは遅い
 

@@ -104,6 +104,53 @@ def check_separate_segment_head_passes():
     return cut(cmd) is None or "別コマンドの head を検証に紐づけた"
 
 
+# --- curl / wget -----------------------------------------------------------
+#
+# **塞ぐ理由が他と違う。** これは自分の取りこぼしではなく相手のサイトへの迷惑で、
+# `curl` は robots.txt の判定も Crawl-delay の消化も通らない。
+# 実測で必要性が出た経路でもある——`fetch_mix.py` の催促を Haiku に当てたところ、
+# 代わりに `curl -s https://example.com/ | grep ...` を提案してきた。
+
+def check_curl_remote_blocks():
+    return bash_gate.raw_fetch("curl -s https://example.com/theater/schedule") == "curl" \
+        or "curl の外部取得を見逃した"
+
+
+def check_wget_remote_blocks():
+    return bash_gate.raw_fetch("wget -qO- https://example.com/x") == "wget" \
+        or "wget の外部取得を見逃した"
+
+
+def check_curl_in_pipeline_blocks():
+    return bash_gate.raw_fetch("echo start && curl -sL https://example.com/ | head -5") == "curl" \
+        or "&& の後段の curl を見逃した"
+
+
+def check_curl_localhost_passes():
+    """`smoke_test.mjs` が立てるローカルサーバーは塞がない。"""
+    if bash_gate.raw_fetch("curl -s http://localhost:8000/index.html"):
+        return "localhost への curl を止めた"
+    return (bash_gate.raw_fetch("curl -s http://127.0.0.1:8000/") is None) \
+        or "127.0.0.1 への curl を止めた"
+
+
+def check_curl_without_url_passes():
+    if bash_gate.raw_fetch("curl --version"):
+        return "URL を伴わない curl を止めた"
+    return (bash_gate.raw_fetch("which curl") is None) or "which curl を止めた"
+
+
+def check_url_in_other_command_passes():
+    """URL を含むだけの無関係なコマンドは止めない。"""
+    return (bash_gate.raw_fetch("echo https://example.com/ >> temp/memo.txt") is None) \
+        or "curl でないのに止めた"
+
+
+def check_fetch_page_with_url_passes():
+    return (bash_gate.raw_fetch("python3 tools/fetch_page.py https://example.com/ --text") is None) \
+        or "fetch_page.py を止めた"
+
+
 # --- fetch_page の見分け --------------------------------------------------
 
 def check_detects_fetch_page():
@@ -131,6 +178,13 @@ CHECKS = [
     ("無関係な head は通す", check_unrelated_head_passes),
     ("空のコマンドは通す", check_empty_passes),
     ("別コマンドの head は紐づけない", check_separate_segment_head_passes),
+    ("curl での外部取得は止める", check_curl_remote_blocks),
+    ("wget での外部取得は止める", check_wget_remote_blocks),
+    ("&& の後段の curl も止める", check_curl_in_pipeline_blocks),
+    ("localhost への curl は通す", check_curl_localhost_passes),
+    ("URL を伴わない curl は通す", check_curl_without_url_passes),
+    ("URL を含むだけの別コマンドは通す", check_url_in_other_command_passes),
+    ("fetch_page.py は通す", check_fetch_page_with_url_passes),
     ("fetch_page.py の呼び出しを見分ける", check_detects_fetch_page),
     ("無関係なコマンドは数えない", check_ignores_other_commands),
 ]

@@ -45,7 +45,7 @@ python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規�
 python3 tools/report_stats_test.py # 網羅性と「今週あらたに書いた行」の下限の判定
 python3 tools/read_gate_test.py    # 安い代替のある大物の全文 Read（抜粋・worklist は必ず通すこと）
 python3 tools/reply_gate_test.py   # 子の返答が「パスと件数だけ」か
-python3 tools/bash_gate_test.py    # 検証の出力の切り詰め（report_stats は見ないこと）
+python3 tools/bash_gate_test.py    # 検証の出力の切り詰めと curl/wget（report_stats・localhost は見ないこと）
 python3 tools/fetch_mix_test.py    # WebFetch 偏重の催促が「1度だけ」であること
 ```
 

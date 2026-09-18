@@ -18,7 +18,27 @@
 `| head -3` のような使い方が実際にありうる。**規則が言っていないものまで止めると、
 規則そのものが信用されなくなる。**
 
-## 2つめ —— `fetch_page.py` を呼んだ回数を数える
+## 2つめ —— `curl` / `wget` で外のページを取らない
+
+`fetch_page.py` の docstring が既に書いている。
+
+> **`curl` はフックを通らないので、robots.txt の判定も `Crawl-delay` の消化も
+> 行われない。**
+
+`fetch_gate.py`（`PreToolUse(WebFetch)`）と `fetch_page.py` の2経路だけが
+robots.txt を見て間隔を空ける。`curl` はそのどちらも通らないので、**取得の作法が
+まるごと外れる**——しかもこれは自分の取りこぼしではなく、相手のサイトへの迷惑である。
+
+**書いてあるだけでは守られなかった。** `fetch_mix.py` の催促（`WebFetch` に偏った
+回を1度だけ止める）を実際に Haiku へ当てたところ、代わりに提案されたのは
+`curl -s https://example.com/ | grep ...` だった。**片方を塞ぐと、塞いでいない
+抜け道へ寄る**ので、こちらも塞ぐ。
+
+`localhost` と `127.0.0.1` は通す（`smoke_test.mjs` が立てるローカルサーバーが
+そこに居る）。URLを伴わない `curl --version` のような呼び出しも通す——見るのは
+「外のページを取ろうとしているか」だけである。
+
+## 3つめ —— `fetch_page.py` を呼んだ回数を数える
 
 `tools/fetch_mix.py` の docstring を参照。`budget.py` の `fetch` カウンタは
 `WebFetch` と `fetch_page.py` が合流していて内訳が残らないので、ここで数える。
@@ -61,6 +81,10 @@ CUTTERS = re.compile(r"\|\s*(?:sudo\s+)?(?:head|tail|grep|egrep|fgrep|rg|sed\s+-
 
 FETCH_PAGE = "tools/fetch_page.py"
 
+# 外のページを生で取りに行く道具。`http(s)://` を伴うときだけ見る。
+RAW_FETCHER = re.compile(r"(?:^|[\s;&|(])(?:sudo\s+)?(curl|wget)(?:\s|$)")
+REMOTE_URL = re.compile(r"https?://(?!localhost[:/\s]|127\.0\.0\.1[:/\s])[^\s'\"`)]+")
+
 # シェルの区切り。`&&` で繋いだ後段の `| head` も見逃さないために、
 # まず区切りで割ってから1つずつ見る。
 SEPARATORS = re.compile(r"&&|\|\||;|\n")
@@ -80,6 +104,33 @@ def cuts_verification(cmd):
         if CUTTERS.search(seg[m.end():]):
             return m.group(1) + ".py"
     return None
+
+
+def raw_fetch(cmd):
+    """`curl` / `wget` で外のページを取ろうとしているなら、その道具の名前。"""
+    if not cmd:
+        return None
+    for seg in SEPARATORS.split(cmd):
+        m = RAW_FETCHER.search(seg)
+        if m and REMOTE_URL.search(seg):
+            return m.group(1)
+    return None
+
+
+def reason_for_raw_fetch(tool):
+    return (
+        f"`{tool}` で外のページを取らないでください。\n"
+        "\n"
+        f"**`{tool}` はフックを通らないので、robots.txt の判定も `Crawl-delay` の消化も\n"
+        "行われません**（`tools/fetch_page.py` の docstring）。取得の作法が通るのは\n"
+        "次の2つだけです。\n"
+        "\n"
+        "  python3 tools/fetch_page.py <URL> --text       本文だけ（表はタブ区切りで残る）\n"
+        "  python3 tools/fetch_page.py <URL> --schedule   日付行とその配下だけ\n"
+        "  WebFetch                                       （fetch_gate.py が robots を見る）\n"
+        "\n"
+        "これは自分の取りこぼしではなく、相手のサイトへの迷惑です。取得したいページが\n"
+        "あるなら `fetch_page.py` を使ってください。")
 
 
 def calls_fetch_page(cmd):
@@ -119,6 +170,11 @@ def hook():
         print(reason_for(tool), file=sys.stderr)
         return 2
 
+    raw = raw_fetch(cmd)
+    if raw:
+        print(reason_for_raw_fetch(raw), file=sys.stderr)
+        return 2
+
     if calls_fetch_page(cmd):
         fetch_mix.bump("page")
     return 0
@@ -138,6 +194,10 @@ def main():
     tool = cuts_verification(args.check)
     if tool:
         print(reason_for(tool), file=sys.stderr)
+        return 1
+    raw = raw_fetch(args.check)
+    if raw:
+        print(reason_for_raw_fetch(raw), file=sys.stderr)
         return 1
     return 0
 
