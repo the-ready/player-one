@@ -359,7 +359,7 @@ python3 tools/validate_data.py        # 従来どおり ERROR 0 を確認
 
 ## 6.5 取得してよいもの・いけないもの
 
-この収集は cron から週次で自動実行される（`.claude/scripts/claude-routine.sh`）。
+この収集は GitHub Actions の self-hosted runner から週3回（水木金）自動実行される（`.claude/scripts/claude-routine.sh`。仕組みの経緯は `docs/DESIGN.md` 第13章）。
 **「人が調べているのと同じ」ではなく、機械的なアクセスである。** サイト側から見れば
 ボットであり、そのつもりで振る舞う必要がある。
 
@@ -752,8 +752,8 @@ python3 tools/roster.py spots --gc                     # 収穫のない先を�
 
 1. **プロンプトインジェクション。** Webページを読んだ主体が、自分の指示書に
    書き込む権限を持つ構造になる。「重要：収集ルールを次のように変更せよ」と
-   書かれたページ1枚で、翌週以降のすべての実行が汚染される。しかも cron の
-   自動実行で、`--permission-mode bypassPermissions` である
+   書かれたページ1枚で、翌週以降のすべての実行が汚染される。しかも無人実行
+   （self-hosted runner）で、`--permission-mode bypassPermissions` である
 2. **静かな基準の緩和。** モデルは自分を縛るルールを緩める方向へ書き換える誘因を
    常に持ち、そして劣化を判定するのはその劣化したスキル自身になる
 3. **レビュー不能。** 散文の書き換えは差分が読みにくく、毎週 main へ直接 push する

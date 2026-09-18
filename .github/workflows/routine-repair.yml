@@ -1,0 +1,64 @@
+name: 週次収集の自動修復
+
+# weekly-collect.yml の実行が success 以外で終わったときだけ発火する。
+# ここでは Claude を起動しない。同じ Pi・同じ working directory に残っている
+# 失敗回のdata/・temp/・.claude/logs/ に対して、機械的な後始末（prev_rows --carry-rest・
+# purge_ended・validate_data・diff_data）だけをやり直す（docs/DESIGN.md 第13.4節）。
+#
+# ============================================================
+# actions/checkout をあえて呼ばない理由
+# ============================================================
+# actions/checkout は `clean: false` を指定しても、対象refへの `git checkout --force`
+# 自体は必ず実行する。--force は追跡ファイルの未コミットの変更を問答無用で
+# 破棄するため、weekly-collect.yml が強制終了された回の「書きかけのdata/*.csv」も
+# 一緒に失われてしまう——救い出したいものをcheckout自身が消してしまう形になる。
+#
+# self-hosted runner は使い捨てではなく、直前の weekly-collect.yml ジョブが残した
+# working directory（$GITHUB_WORKSPACE）がそのまま次のジョブにも引き継がれるため、
+# ここでは checkout を呼ばず、直前のジョブが残した状態にそのまま触る。
+# git の認証情報だけは checkout がやっていたことを手で再現する
+# （前ジョブのGITHUB_TOKENは既に失効しているため、このジョブ自身のトークンで張り直す）。
+
+on:
+  workflow_run:
+    workflows: ["週次データ収集"]
+    types: [completed]
+
+concurrency:
+  group: weekly-routine
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  repair:
+    if: github.event.workflow_run.conclusion != 'success'
+    runs-on: [self-hosted, player-one-pi]
+    timeout-minutes: 30
+    steps:
+      - name: git の push 認証を張り直す
+        # actions/checkout が内部で使っているのと同じ方式（x-access-token を
+        # Basic認証としてextraheaderに設定する）。checkoutを呼ばない分だけ、
+        # ここで自分のトークンに張り替えておく必要がある。
+        run: |
+          git config --local http.https://github.com/.extraheader \
+            "AUTHORIZATION: basic $(echo -n "x-access-token:${{ github.token }}" | base64 -w0)"
+
+      - name: 機械的な修復を実行
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FAILED_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          FAILED_RUN_NAME: ${{ github.event.workflow_run.name }}
+          FAILED_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: .claude/scripts/repair-routine.sh
+
+      - name: 修復ログを保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repair-log-${{ github.run_id }}
+          path: .claude/logs/repair_*.log
+          retention-days: 30
+          if-no-files-found: ignore
