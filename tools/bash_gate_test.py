@@ -63,6 +63,40 @@ def check_sed_n_blocks():
         or "sed -n を見逃した"
 
 
+# --- ファイルへのリダイレクト -----------------------------------------------
+#
+# `| head` を塞いだだけでは、書き出してから別コマンドで切り詰める抜け道が残る。
+# シミュレーションで実際に見つかった（`cuts_verification()` は1コマンド内の
+# `head` しか見ていなかったため、`> file && head file` を素通りしていた）。
+
+def check_redirect_blocks():
+    return cut("python3 tools/diff_data.py events > /tmp/out.txt") == "diff_data.py" \
+        or "> でのリダイレクトを見逃した"
+
+
+def check_append_redirect_blocks():
+    return cut("python3 tools/validate_data.py >> /tmp/out.txt") == "validate_data.py" \
+        or ">> での追記リダイレクトを見逃した"
+
+
+def check_redirect_then_head_blocks():
+    """実測で見つかった抜け道そのもの。書き出す側を止めれば、後段の head は無力化される。"""
+    cmd = "python3 tools/diff_data.py events > /tmp/out.txt && head -20 /tmp/out.txt"
+    return cut(cmd) == "diff_data.py" or "リダイレクト+headの合わせ技を見逃した"
+
+
+def check_stderr_redirect_passes():
+    """`2>&1` は標準エラーを標準出力に合流させるだけで、標準出力は変わらず表示される。"""
+    return cut("python3 tools/diff_data.py events 2>&1") is None \
+        or "2>&1 を止めた（標準出力は隠れていない）"
+
+
+def check_stderr_only_redirect_passes():
+    """`2> file` は標準エラーだけをファイルへ逃がす。標準出力は隠れない。"""
+    return cut("python3 tools/validate_data.py 2> /tmp/errors.txt") is None \
+        or "2> file を止めた（標準出力は隠れていない）"
+
+
 # --- 通すべきもの ---------------------------------------------------------
 
 def check_plain_diff_passes():
@@ -188,6 +222,11 @@ CHECKS = [
     ("&& の後段も見る", check_second_segment_blocks),
     ("; の後段も見る", check_semicolon_segment_blocks),
     ("sed -n も切り詰めとみなす", check_sed_n_blocks),
+    ("> でのリダイレクトも止める（実測で見つけた抜け道）", check_redirect_blocks),
+    (">> での追記リダイレクトも止める", check_append_redirect_blocks),
+    ("リダイレクト+headの合わせ技を止める", check_redirect_then_head_blocks),
+    ("2>&1 は通す（標準出力は隠れない）", check_stderr_redirect_passes),
+    ("2> file は通す（標準出力は隠れない）", check_stderr_only_redirect_passes),
     ("素の実行は通す", check_plain_diff_passes),
     ("report_stats.py は見ない", check_report_stats_passes),
     ("prev_rows.py | head は通す", check_prev_rows_passes),

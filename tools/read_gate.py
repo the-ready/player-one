@@ -36,6 +36,12 @@ Bash の出力上限を越えて `tool-results/` のファイルに落ち、**�
 
 `offset` か `limit` が付いていれば通す。節だけを読むのは、まさに勧めている読み方である。
 
+**シンボリックリンク経由でも同じ判定にする。** `temp/link.csv` が `data/events.csv`
+を指していても、パス文字列だけを見ていると `data/*.csv` のパターンに一致せず
+素通りする——実際にシミュレーションで踏んだ抜け道である。`rel_path()` が
+`os.path.realpath()` でリンクを解決してから比較するので、どちらの経路で
+読もうとしても同じ理由で止まる。
+
 ## 終了コード
 
   0 : 読んでよい
@@ -69,18 +75,33 @@ ROSTERS = ("spots", "venues", "theaters", "festivals")
 
 
 def repo_root(start=None):
-    """リポジトリのルート。`CLAUDE_PROJECT_DIR` が無ければ自分の位置から求める。"""
+    """リポジトリのルート。`CLAUDE_PROJECT_DIR` が無ければ自分の位置から求める。
+
+    **シンボリックリンクを解決してから返す。** `rel_path()` が解決した相対パスと
+    突き合わせる側なので、こちらだけ未解決だと `os.path.join(root, rel)` が
+    実体からずれる（root がリンクなら、その配下の判定が全部ずれる）。
+    """
     env = (os.environ.get("CLAUDE_PROJECT_DIR") or "").strip()
     if env and os.path.isdir(env):
-        return os.path.abspath(env)
+        return os.path.realpath(env)
     here = os.path.dirname(os.path.abspath(start or __file__))
-    return os.path.abspath(os.path.join(here, ".."))
+    return os.path.realpath(os.path.join(here, ".."))
 
 
 def rel_path(path, root):
-    """リポジトリからの相対パス（区切りは `/`）。外のファイルなら None。"""
+    """リポジトリからの相対パス（区切りは `/`）。外のファイルなら None。
+
+    **シンボリックリンクを解決してから比較する。** 実測で見つかった抜け道——
+    `temp/link.csv -> ../data/events.csv` のようなリンク経由で `Read` すると、
+    パス文字列は `data/*.csv` のパターンに一致しないため素通りしていた。
+    `os.path.realpath()` はリンクを辿った先の実体パスを返すので、これで
+    どちらの経路で辿り着いても同じ判定になる（存在しないパスやリンクの
+    循環でも例外にはならない——Pythonの実装がそう作られている）。
+    """
     try:
-        rel = os.path.relpath(os.path.abspath(path), root)
+        real_path = os.path.realpath(os.path.abspath(path))
+        real_root = os.path.realpath(os.path.abspath(root))
+        rel = os.path.relpath(real_path, real_root)
     except (ValueError, OSError):
         return None
     if rel.startswith(".."):

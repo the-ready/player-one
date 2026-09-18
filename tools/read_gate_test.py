@@ -127,6 +127,45 @@ def check_unknown_size_passes():
     return rc == 0 or f"サイズ不明のCSVを止めた: exit={rc}"
 
 
+def check_symlink_resolves_to_real_target():
+    """実測で見つかった抜け道。シンボリックリンクは実体のパスで判定すること。"""
+    data_dir = os.path.join(ROOT, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    real_csv = os.path.join(data_dir, "events.csv")
+    with open(real_csv, "w", encoding="utf-8") as f:
+        f.write("a" * read_gate.FLOOR_CHARS)
+    link = os.path.join(ROOT, "temp_link_events.csv")
+    if os.path.islink(link) or os.path.exists(link):
+        os.remove(link)
+    os.symlink(real_csv, link)
+    try:
+        rel = read_gate.rel_path(link, ROOT)
+        if rel != "data/events.csv":
+            return f"シンボリックリンクが実体へ解決されていない: {rel!r}"
+        rc, why = read_gate.judge(rel, ROOT)
+        if rc != 1:
+            return f"シンボリックリンク越しの大物CSVを通してしまった: exit={rc}"
+        return ("prev_rows.py events" in why) or f"代替が書かれていない: {why!r}"
+    finally:
+        os.remove(link)
+        os.remove(real_csv)
+
+
+def check_broken_symlink_does_not_crash():
+    """リンク先が無くても `rel_path()` が例外を投げないこと（判定は止めない側に倒す）。"""
+    link = os.path.join(ROOT, "broken_link.csv")
+    if os.path.islink(link) or os.path.exists(link):
+        os.remove(link)
+    os.symlink(os.path.join(ROOT, "does_not_exist_at_all.csv"), link)
+    try:
+        read_gate.rel_path(link, ROOT)          # 例外を投げなければ合格
+        return True
+    except Exception as e:                       # noqa: BLE001
+        return f"壊れたシンボリックリンクで例外: {type(e).__name__}: {e}"
+    finally:
+        os.remove(link)
+
+
 def check_missing_tool_passes():
     """**逃げ道。** `skill_brief.py` が無い回に全文を塞ぐと、親が手順書に到達できない。"""
     path = os.path.join(ROOT, "tools", "skill_brief.py")
@@ -177,6 +216,8 @@ CHECKS = [
     ("普通のソースは通す", check_ordinary_file_passes),
     ("設計文書は大きくても通す", check_docs_pass),
     ("大きさを測れないときは通す", check_unknown_size_passes),
+    ("シンボリックリンクは実体で判定する（実測で見つけた抜け道）", check_symlink_resolves_to_real_target),
+    ("壊れたシンボリックリンクで落ちない", check_broken_symlink_does_not_crash),
     ("代替の道具が無ければ通す（逃げ道）", check_missing_tool_passes),
     ("リポジトリ外は判定しない", check_outside_repo_is_undecidable),
     ("絶対パスを相対に落とせる", check_hook_reads_absolute_path),

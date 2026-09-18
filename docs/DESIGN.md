@@ -1007,19 +1007,19 @@ WCAG準拠のため、カテゴリ色の一部を暗く／明るく調整した�
 
 無人実行の規則を `weekly-routine` や収集スキルの SKILL.md の散文で伝えるだけでは足りない。散文は**安い経路の前で負ける**（画像の件＝第7.1節、`robots.txt` の件＝`COLLECTION-PROTOCOL.md` 第6.5.4節で実証済み）。決定論的に守らせたいものは `.claude/settings.json` のフックに置くものとしている。
 
-| フック                     | スクリプト                      | 何を保証するか                                                                                                                              |
-| -------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PreToolUse(WebFetch)`     | `tools/fetch_gate.py --hook`    | 取得の直前にURL単位で `robots.txt` を判定し、間隔を空ける（`COLLECTION-PROTOCOL.md` 第6.5.4節）。あわせて取得回数と待機時間を実測に計上する |
-| `PreToolUse(WebSearch)`    | `tools/budget.py --bump search` | 検索の回数を実測に計上する（第9.3.1節）                                                                                                     |
-| `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`    | ルーチン中、モデル自身の git の書き込みを拒否する                                                                                           |
-| `PreToolUse(Agent)`        | `.claude/hooks/agent-guard.sh`  | ルーチン中、サブエージェントの**背景起動**・**前の波を書き切らない起動**・**残量が線を越えてからの起動**を拒否する（第9.3.2節）             |
-| `PreToolUse(Read)`         | `tools/read_gate.py --hook`     | ルーチン中、**安い代替のある大物の全文 `Read`** を拒否する（下記「読み取りの側にも門を置く」）                                              |
+| フック                     | スクリプト                      | 何を保証するか                                                                                                                                 |
+| -------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PreToolUse(WebFetch)`     | `tools/fetch_gate.py --hook`    | 取得の直前にURL単位で `robots.txt` を判定し、間隔を空ける（`COLLECTION-PROTOCOL.md` 第6.5.4節）。あわせて取得回数と待機時間を実測に計上する    |
+| `PreToolUse(WebSearch)`    | `tools/budget.py --bump search` | 検索の回数を実測に計上する（第9.3.1節）                                                                                                        |
+| `PreToolUse(Bash)`         | `.claude/hooks/block-git.sh`    | ルーチン中、モデル自身の git の書き込みを拒否する                                                                                              |
+| `PreToolUse(Agent)`        | `.claude/hooks/agent-guard.sh`  | ルーチン中、サブエージェントの**背景起動**・**前の波を書き切らない起動**・**残量が線を越えてからの起動**を拒否する（第9.3.2節）                |
+| `PreToolUse(Read)`         | `tools/read_gate.py --hook`     | ルーチン中、**安い代替のある大物の全文 `Read`** を拒否する（下記「読み取りの側にも門を置く」）                                                 |
 | `PreToolUse(Bash)`         | `tools/bash_gate.py --hook`     | ルーチン中、**検証の出力を `head` / `grep` で切る呼び出し**と **`curl` / `wget` での外部取得**を拒否し、`fetch_page.py` の呼び出し回数を数える |
-| `PreToolUse(WebFetch)`     | `tools/fetch_mix.py --hook`     | `fetch_page.py` を一度も使わないまま `WebFetch` に偏った回に、**1度だけ**催促する                                                           |
-| `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh`  | 整形できる拡張子だけ prettier にかける                                                                                                      |
-| `PostToolUse(Agent)`       | `.claude/hooks/wave-report.sh`  | 波を受け取った直後に、残量と「最長の子◯ターン」を親の文脈へ差し込む（止めない）                                                             |
-| `SubagentStop`             | `tools/reply_gate.py --hook`    | 子が**行そのものを返答に載せて**終えることを拒否し、ファイル経由に直させる                                                                  |
-| `Stop`                     | `.claude/hooks/verify-data.sh`  | 終了日を過ぎた行を機械的に片付け（`tools/purge_ended.py`）、検証が通らないうちはターンを終わらせない                                        |
+| `PreToolUse(WebFetch)`     | `tools/fetch_mix.py --hook`     | `fetch_page.py` を一度も使わないまま `WebFetch` に偏った回に、**1度だけ**催促する                                                              |
+| `PostToolUse(Edit\|Write)` | `.claude/hooks/format-file.sh`  | 整形できる拡張子だけ prettier にかける                                                                                                         |
+| `PostToolUse(Agent)`       | `.claude/hooks/wave-report.sh`  | 波を受け取った直後に、残量と「最長の子◯ターン」を親の文脈へ差し込む（止めない）                                                                |
+| `SubagentStop`             | `tools/reply_gate.py --hook`    | 子が**行そのものを返答に載せて**終えることを拒否し、ファイル経由に直させる                                                                     |
+| `Stop`                     | `.claude/hooks/verify-data.sh`  | 終了日を過ぎた行を機械的に片付け（`tools/purge_ended.py`）、検証が通らないうちはターンを終わらせない                                           |
 
 #### 規則・手順・記録を、消える場所と消えない場所に分ける
 
@@ -1107,6 +1107,22 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 これは**放っておける穴ではなくなった**。`WebFetch` への偏りを止める門（`tools/fetch_mix.py`）を Haiku に実際に当てたところ、返ってきたのは `curl -s https://example.com/ | grep ...` という代替案だった。片方を塞げば、塞いでいない側へ寄る。しかもこちらの穴は自分の取りこぼしではなく、**相手のサイトへの迷惑**である。
 
 そこで `bash_gate.py` が `curl` / `wget` を——`http(s)://` を伴うときだけ——拒否するものとしている。`localhost` と `127.0.0.1` は通す（`smoke_test.mjs` のローカルサーバー）。あわせて `fetch_mix.py` の文面にも「`curl` や `wget` で代替しないこと」を明記した。文面を足した後の実測では、同じ Haiku が「`curl` を使う方法もあるが、フックの警告がある」と書いて `fetch_page.py` 側へ戻っている。
+
+#### フック自体への敵対的入力も試す —— 大文字化・フルパス指定・シンボリックリンク・リダイレクト
+
+上の `curl` / `wget` ガードを実装したあと、フックそのものに壊れた入力・境界値・迂回を意図的に当てる検証を行った。3つ見つかっている。
+
+- `CURL -s https://...`（大文字）——語形一致が大文字小文字を見ていなかった
+- `/usr/bin/curl -s https://...`（フルパス）——`curl` の直前が `/` になり、境界文字クラスに含まれず素通りした
+- `temp/link.csv -> ../data/events.csv`（シンボリックリンク）——`read_gate.py` がパス文字列だけを見ており、`data/*.csv` のパターンに一致しないリンク越しの読み取りを見逃していた
+
+前の2つは `RAW_FETCHER` に `re.IGNORECASE` を付け、境界文字クラスに `/` を足して塞いだ。3つめは `read_gate.py` の `rel_path()` が `os.path.realpath()` でリンクを解決してから比較するようにして塞いだ——`repo_root()` 側も一貫してリンクを解決しておかないと、比較の基準がずれる。
+
+もう1つ、この検証とは別に気づいたものがある。`bash_gate.py` の `| head` 検知は**1コマンドの中の後続パイプ**しか見ておらず、
+
+    python3 tools/diff_data.py events > /tmp/out.txt && head -20 /tmp/out.txt
+
+のように**書き出してから別コマンドで切り詰める**形を素通りしていた。ファイルへの追跡を後段に持たせるのではなく、**書き出す側（`>` `>>`）を検証ツールの直後で止める**ことにした——書けなければ、後段がどんな読み方をしても切り詰められたファイルは存在しない。`2>&1` のような fd 間のリダイレクトは標準出力を隠さないので対象外にしてある（`1> file.txt` は実質同じ効果を持つが、モデルが自然に書く経路ではないため捕まえない——現実的な脅威を優先した意図的な範囲外である）。
 
 #### 助言は `PostToolUse` で差し込む —— 拒否したときにしか数字を見せられないのでは遅い
 
