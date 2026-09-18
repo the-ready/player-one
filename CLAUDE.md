@@ -43,6 +43,10 @@ python3 tools/run_gate_test.py     # 調べていない回（検索0・取得0�
 python3 tools/append_lineup_test.py # 日割りと公演行の合成書き込み（片方だけ書けた状態を作らない）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか
 python3 tools/report_stats_test.py # 網羅性と「今週あらたに書いた行」の下限の判定
+python3 tools/read_gate_test.py    # 安い代替のある大物の全文 Read（抜粋・worklist は必ず通すこと）
+python3 tools/reply_gate_test.py   # 子の返答が「パスと件数だけ」か
+python3 tools/bash_gate_test.py    # 検証の出力の切り詰め（report_stats は見ないこと）
+python3 tools/fetch_mix_test.py    # WebFetch 偏重の催促が「1度だけ」であること
 ```
 
 Prettier は保存時にフックで自動実行される（`.claude/hooks/format-file.sh`）。手で整形しない。
@@ -50,6 +54,10 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 
 `data/` に手を入れた回は、**ターンを終える前に `Stop` フックが `purge_ended.py`・`validate_data.py`・`diff_data.py` を自動で回す**（`.claude/hooks/verify-data.sh`）。
 落ちていると終われないので、コマンドを打ち忘れて終わることは無い。理由は `docs/DESIGN.md` 第9.1.5節。
+
+**読み取り・返答・取得手段の門（`read_gate.py` / `reply_gate.py` / `bash_gate.py` / `fetch_mix.py`）は、週次ルーチンの中でしか発火しない**
+（`CLAUDE_ROUTINE=1` のときだけ。`claude-routine.sh` が export する）。対話セッションでは今までどおり何でも読める。
+これらが何を見ているかは `docs/DESIGN.md` 第9.1.5節。
 
 ### CSVの列を足す・変える・消す
 
