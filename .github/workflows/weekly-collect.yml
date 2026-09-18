@@ -78,7 +78,13 @@ jobs:
           # 余裕を持って短く（5時間）——超過後も検証・push・ログ整理の時間を残す。
           ROUTINE_TIMEOUT_SEC: "18000"
           ROUTINE_PUSH: ${{ (github.event.inputs.push == 'false') && '0' || '1' }}
-          ROUTINE_SKILL: ${{ (github.event.inputs.routine_skill == '(自動選択)' || github.event.inputs.routine_skill == '') && '' || github.event.inputs.routine_skill }}
+          # 「(自動選択)」を空文字列に読み替えたい場合、`cond && '' || x` という書き方は
+          # 使えない——空文字列はfalsyなので && が真になっても直後の || がそれを
+          # 飛び越して x 側を返してしまう（実際にこの書き方で「(自動選択)」という
+          # 文字列がそのままROUTINE_SKILLに渡り、対応表に無い値としてdieする不具合を
+          # シミュレーションで検出した）。真の枝が常に非空文字列になるよう、
+          # 「3つの実在スキルのどれかに含まれるか」で判定する形にしている。
+          ROUTINE_SKILL: ${{ contains(fromJSON('["kanto-event-collector","kanto-live-collector","kanto-movie-collector"]'), github.event.inputs.routine_skill) && github.event.inputs.routine_skill || '' }}
         run: .claude/scripts/claude-routine.sh
 
       - name: 実行ログを保存

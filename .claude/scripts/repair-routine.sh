@@ -102,13 +102,21 @@ run_check "python3 tools/diff_data.py" python3 tools/diff_data.py || VERIFY_OK=0
 # 入っている保証が無いため、Pi 側の追加インストールを前提にしない。
 open_issue() {
   local title="$1" body="$2"
+  # 戻り値は標準出力から $() で拾う（呼び出し側）ので、ここでのログ出力は
+  # 必ず標準エラーに逃がすこと。標準出力に混ざると、失敗時の警告文が
+  # そのまま「Issueを起票しました: <警告文>」という偽の成功ログになる
+  # （実際にこの取り違えでテストが失敗を検出した）。
   if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
-    log "WARNING: GITHUB_TOKEN/GITHUB_REPOSITORY が無いためIssueを起票できません"
+    # log() ではなく直接 echo にする。log() は自分でもログファイルに書くため、
+    # 呼び出し側が2>>でこの標準エラーを拾うと同じ行が二重に残ってしまう。
+    echo "WARNING: GITHUB_TOKEN/GITHUB_REPOSITORY が無いためIssueを起票できません" >&2
     return 1
   fi
   GH_TITLE="$title" GH_BODY="$body" python3 <<'PY'
 import json
 import os
+import sys
+import urllib.error
 import urllib.request
 
 repo = os.environ["GITHUB_REPOSITORY"]
@@ -127,12 +135,19 @@ req = urllib.request.Request(
     headers={
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
         "User-Agent": "player-one-routine-repair",
     },
     method="POST",
 )
-with urllib.request.urlopen(req, timeout=20) as resp:
-    out = json.load(resp)
+try:
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        out = json.load(resp)
+except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+    # トレースバックを標準出力に漏らさない（$() の戻り値を汚すため）。
+    # 理由は標準エラーへ、失敗はゼロ以外の終了コードで伝える。
+    print(f"Issue APIの呼び出しに失敗しました: {type(e).__name__}: {e}", file=sys.stderr)
+    raise SystemExit(1)
 print(out.get("html_url", "(URL不明)"))
 PY
 }
@@ -238,8 +253,12 @@ ${tail_log}
 このワークフロー実行: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}
 EOF
 )"
-issue_url="$(open_issue "週次収集の機械的修復に失敗しました（$(date '+%Y-%m-%d')）" "$issue_body")"
-[ -n "$issue_url" ] && log "Issueを起票しました: $issue_url"
-
-log "===== 修復スクリプト終了（修復失敗・Issue起票） ====="
+issue_url="$(open_issue "週次収集の機械的修復に失敗しました（$(date '+%Y-%m-%d')）" "$issue_body" 2>>"$LOG_FILE")"
+if [ -n "$issue_url" ]; then
+  log "Issueを起票しました: $issue_url"
+  log "===== 修復スクリプト終了（修復失敗・Issue起票） ====="
+else
+  log "WARNING: Issueの起票に失敗しました（直前の警告を参照）。退避・HEADへの復元は完了しています"
+  log "===== 修復スクリプト終了（修復失敗・Issue起票は失敗） ====="
+fi
 exit 1
