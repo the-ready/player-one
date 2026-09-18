@@ -77,7 +77,7 @@ docs/
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/
   pages.yml                     push / 週次収集の完了(workflow_run) で Pages へデプロイ
-  weekly-collect.yml            毎日02:30 JSTに発火し、self-hosted runner(ラズパイ)上で収集を実行
+  weekly-collect.yml            水木金02:30 JSTに発火し、self-hosted runner(ラズパイ)上で収集を実行
   routine-repair.yml            収集失敗時、同じrunner上で機械的な後始末だけを行う
   watchdog.yml                  hosted runner上で毎日、直近の成功実行の有無を見張る
 ```

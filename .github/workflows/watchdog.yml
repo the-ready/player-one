@@ -26,10 +26,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // 収集は毎日発火する設計なので、成功実行の間隔が2日を超えたら異常とみなす
-            // （1日の遅延・スケジュールの間引きまでは正常運転の揺れとして許容し、
-            //   2日連続で何も成功していない状態だけを拾う）。
-            const STALE_DAYS = 2;
+            // 収集は水木金の週3回。金曜の成功から次の水曜まで最大5日空くため、
+            // しきい値はそれより余裕を持たせた6日にする
+            // （5日空くのは正常運転であり、異常ではない）。
+            const STALE_DAYS = 6;
             const WATCHDOG_LABEL = "routine-watchdog";
 
             const { data: runs } = await github.rest.actions.listWorkflowRuns({

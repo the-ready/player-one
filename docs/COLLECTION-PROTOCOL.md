@@ -359,7 +359,7 @@ python3 tools/validate_data.py        # 従来どおり ERROR 0 を確認
 
 ## 6.5 取得してよいもの・いけないもの
 
-この収集は GitHub Actions の self-hosted runner から日次で自動実行される（`.claude/scripts/claude-routine.sh`。仕組みの経緯は `docs/DESIGN.md` 第13章）。
+この収集は GitHub Actions の self-hosted runner から週3回（水木金）自動実行される（`.claude/scripts/claude-routine.sh`。仕組みの経緯は `docs/DESIGN.md` 第13章）。
 **「人が調べているのと同じ」ではなく、機械的なアクセスである。** サイト側から見れば
 ボットであり、そのつもりで振る舞う必要がある。
 

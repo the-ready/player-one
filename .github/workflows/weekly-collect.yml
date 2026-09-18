@@ -11,14 +11,15 @@ name: 週次データ収集
 
 on:
   schedule:
-    # 毎日 02:30 JST = 前日 UTC 17:30。
-    # 曜日ごとの実行有無はこのcron式では絞らない——`.claude/skills/weekly-routine/SKILL.md`
-    # の```scheduleブロックが「水木金は専用スキル、それ以外(otherも含め)はkanto-event-collector」
-    # という形で全曜日を埋めており、実際には日次で動く設計になっている
-    #（「週次」は仕組みの名前であって頻度ではない）。
+    # 水木金 02:30 JST = 前日火水木 17:30 UTC。
+    # `.claude/skills/weekly-routine/SKILL.md` の```scheduleブロックは水木金の3行
+    # （event/movie/live）だけがこの自動実行の対象で、`other`行（それ以外の曜日を
+    # kanto-event-collectorに落とす）は自動実行の一部ではない——ユーザーが
+    # workflow_dispatchで任意の曜日に手動実行（シミュレーション）したときの既定値
+    # として存在する。そのためscheduleは水木金の3日だけに絞る。
     # GitHub Actions の schedule は毎時00分台が混みやすく遅延・欠落しやすいため、
     # あえて :30 に置いている（docs/DESIGN.md 第13.3節）。
-    - cron: "30 17 * * *"
+    - cron: "30 17 * * 2,3,4"
   workflow_dispatch:
     inputs:
       routine_skill:

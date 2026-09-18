@@ -1871,7 +1871,7 @@ docs/
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/
   pages.yml                   push / 週次収集の完了(workflow_run) で Pages へデプロイ
-  weekly-collect.yml          毎日02:30 JSTに発火し、self-hosted runner上でclaude-routine.shを起動（第13章）
+  weekly-collect.yml          水木金02:30 JSTに発火し、self-hosted runner上でclaude-routine.shを起動（第13章）
   routine-repair.yml          weekly-collect.yml失敗時、同じrunner上で機械的な後始末だけを行う（第13.4節）
   watchdog.yml                hosted runner上で毎日、直近の成功実行の有無を見張る（第13.5節）
 ```
@@ -2247,11 +2247,13 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 
 そのため `pages.yml` には `workflow_run`（`weekly-collect.yml` / `routine-repair.yml` の完了）を追加し、`conclusion == 'success'` の回だけデプロイする形にしている。`workflow_run` はトリガー元のワークフローファイルがデフォルトブランチに存在して初めて有効になるため、この仕組み自体の初回反映には main へのマージが要る。
 
-### 13.3 schedule はなぜ「毎日 :30」か
+### 13.3 schedule はなぜ「水木金 :30」か
 
-収集は日次で動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金に専用スキルを割り当て、それ以外の曜日は `other` 行で `kanto-event-collector` に落ちる——全曜日が埋まっており、休む日は無い。「週次」はこの仕組み・ブランチ・スキル名としての呼び名であって、実行頻度そのものを指してはいない。
+収集は週3回、水木金に動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金の3行（イベント／映画／ライブ）だけを自動実行の対象にしており、`weekly-collect.yml` の `schedule` トリガーもこの3日（UTC火水木 17:30 = JST水木金 02:30）に絞ってある。
 
-発火時刻は毎日 02:30 JST（UTC 17:30）に置いている。GitHub Actions の schedule は毎時00分台に負荷が集中し遅延・間引きが起きやすいため、あえて :30 に置くことでこのリスクを避けている。
+`other` 行（それ以外の曜日を `kanto-event-collector` に落とす）はこの自動実行の一部ではない。**ユーザーが `workflow_dispatch` で任意の曜日に手動実行（シミュレーション・動作確認）したときの既定値**として存在する——`routine_skill` を指定せずに手動起動すると、その曜日が水木金以外なら `other` 行の既定（イベント収集）が使われる。
+
+発火時刻は 02:30 JST（UTC 17:30）に置いている。GitHub Actions の schedule は毎時00分台に負荷が集中し遅延・間引きが起きやすいため、あえて :30 に置くことでこのリスクを避けている。
 
 **schedule に保証された実行時刻・保証された実行そのものは無い。** 高負荷時はジョブが「ログも通知も残さず」間引かれることがある——この経路を拾うのが第13.5節の見張りである。
 
@@ -2269,7 +2271,7 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 `weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**scheduleの発火自体が欠落する・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
 
-`watchdog.yml` は毎日、`weekly-collect.yml` の直近の成功実行を GitHub Actions API で確認し、しきい値（2日）を超えて成功実行が無ければ Issue を起票する。self-hosted（Pi）ではなく hosted runner で動かしているのは、**Pi 自体が原因の障害を、Pi 上の何かで検知するのは原理的に無理**なためである——見張りが検知したい最悪のケース（Pi が完全に沈黙している）そのものが、Pi 上の見張りを同時に無力化してしまう。
+`watchdog.yml` は毎日、`weekly-collect.yml` の直近の成功実行を GitHub Actions API で確認し、しきい値（6日）を超えて成功実行が無ければ Issue を起票する。金曜の成功から次の水曜まで最大5日空くのは正常運転であり、それより余裕を持たせてある。self-hosted（Pi）ではなく hosted runner で動かしているのは、**Pi 自体が原因の障害を、Pi 上の何かで検知するのは原理的に無理**なためである——見張りが検知したい最悪のケース（Pi が完全に沈黙している）そのものが、Pi 上の見張りを同時に無力化してしまう。
 
 重複起票を避けるため、見張り用ラベル（`routine-watchdog`）の付いた Issue が既に開いていれば新規には起票せず、回復を確認できたときは開いたままの見張り Issue へコメントして自動で close する。
 
