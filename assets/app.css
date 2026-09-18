@@ -257,6 +257,13 @@ h1.pop-title {
   background: #fff;
   color: var(--ink);
 }
+/* [hidden] とクラスの詳細度が同じ(0,1,0)だと、後にカスケードされる上の
+   display:inline-flex が必ず勝ち、hidden 属性を付けても消えない
+   （検索語が空でも空の丸だけが出続ける不具合になっていた）。
+   属性セレクタを重ねて詳細度(0,2,0)を上げ、確実に勝たせる。 */
+.tab-count[hidden] {
+  display: none;
+}
 .offline-note {
   margin: 0.7rem 0 0;
   padding: 0.5rem 0.8rem;
