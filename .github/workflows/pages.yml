@@ -2,9 +2,17 @@ name: Deploy to GitHub Pages
 
 # github-pages 環境の保護ルールが main からのデプロイのみを許可しているため、
 # トリガーも main に合わせる（他ブランチから起動しても環境側で拒否される）。
+#
+# workflow_run を追加しているのは、週次収集（weekly-collect.yml / routine-repair.yml）
+# の push が GITHUB_TOKEN によるものだからである。GITHUB_TOKEN でのpushは無限ループ
+# 防止のため他のワークフローの push イベントを発火しない仕様なので、push トリガーだけ
+# では週次収集の結果がデプロイされない（docs/DESIGN.md 第13.2節）。
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["週次データ収集", "週次収集の自動修復"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +27,10 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_run 経由のときは、push まで通った回（=conclusion success）だけを
+    # デプロイする。失敗・修復不能でquarantineされた回はdata/が変わっていないので、
+    # デプロイしても無意味なだけだが、明示的に弾いておく。
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -26,6 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # workflow_run イベントの既定ref/shaは「デフォルトブランチの最新」を指し、
+          # 必ずしも起動元の実行が実際に触ったコミットと一致する保証が無いため、
+          # 起動元の head_sha を明示する（push / workflow_dispatch では未指定のまま
+          # 既定の挙動に任せる）。
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           # データCSVごとの「最後に更新されたコミット」を引くために全履歴が要る。
           # 既定の浅いクローン(fetch-depth:1)だと git log がその1コミットしか見ず、
           # ファイル単位の更新日が取れない。

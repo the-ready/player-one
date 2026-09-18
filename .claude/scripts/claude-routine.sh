@@ -1,6 +1,13 @@
 #!/bin/bash
 #
-# 週次データ収集ルーチンの起動スクリプト（cron から呼ばれる想定）
+# 週次データ収集ルーチンの起動スクリプト
+#
+# 起動元は GitHub Actions の self-hosted runner（`.github/workflows/weekly-collect.yml`
+# が systemd 常駐の runner サービス経由で呼ぶ）。以前はラズパイの crontab が直接この
+# スクリプトを呼んでいたが、「いつ動くか」の決定権を GitHub 側に移した後も、
+# このスクリプト自身の責任（ロック・同期・実行・検証・push の可否判定）は変えていない
+# ——起動元がcronでもsystemdでも、非対話・低い既定PATHという環境の性質は同じため
+#（経緯は docs/DESIGN.md 第13章）。手動でも同じコマンドで実行できる。
 #
 #   .claude/scripts/claude-routine.sh [--no-push] [--check-env] [--help]
 #

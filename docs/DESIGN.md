@@ -1152,13 +1152,13 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 
 ### 9.1.6 起動前の確認は「在るか」ではなく「動くか」で行う
 
-無人実行の入口は cron で、そこから見える環境は対話シェルとは別物である。`claude-routine.sh` は起動前に実行環境を確かめるが、**確認の粒度が浅いと、確認を通過してから落ちる。**
+無人実行の入口は GitHub Actions の self-hosted runner（systemd 常駐、第13章）で、そこから見える環境は対話シェルとは別物である。`claude-routine.sh` は起動前に実行環境を確かめるが、**確認の粒度が浅いと、確認を通過してから落ちる。**
 
 実際に2通りの壊れ方が起きている。
 
 | 症状                          | 起きたこと                                                                                                                                                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude` が見つからない       | cron の既定 PATH に `/usr/local/bin` が無く、`git` / `jq` / `python3` は見つかるのに `claude` だけ解決できなかった                                                                                                        |
+| `claude` が見つからない       | 非対話起動（cron・systemd経由のrunner）の既定 PATH に `/usr/local/bin` が無く、`git` / `jq` / `python3` は見つかるのに `claude` だけ解決できなかった                                                                      |
 | `claude` は在るが起動できない | npm 版の `bin/claude.exe` は postinstall（`install.cjs`）がネイティブ実体で上書きするまで「native binary not installed」と出して exit 1 するだけのスタブで、アップグレード時に postinstall が走らずスタブのまま残っていた |
 
 後者は `command -v` を素通りする。存在確認しか行わないと、**fetch・rebase・push の事前確認まで進んでから、起動の瞬間に落ちる**——リポジトリの状態を動かした後で、何も生産せずに終わる。
@@ -1166,10 +1166,10 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 そのため確認は次の形にしている。
 
 - **実際に `--version` を実行して起動できることを確かめる。** ネットワークに出ない軽い操作で、スタブと健全な実体を区別できる唯一の方法である
-- **確認は git に触る前に済ませる。** ここで落ちれば副作用がゼロで終わり、翌日の cron がそのまま再試行できる
+- **確認は git に触る前に済ませる。** ここで落ちれば副作用がゼロで終わり、次の実行がそのまま再試行できる
 - **スタブだった場合は `install.cjs` を代行して復旧を試みる。** 原因が「postinstall が走らなかった」ことに限定できるので、機械的に直せる
 - **復旧できなければ他のインストール先を順に試す。** nvm の bin は PATH の先頭に来るため、そこが壊れていると `/usr/local/bin` にある健全な実体が使われない、という順序依存がある
-- **`--check-env` で確認だけを単独で実行できる。** cron の実行日を待たずに、副作用ゼロで環境の健全性を確かめるための入口である
+- **`--check-env` で確認だけを単独で実行できる。** scheduleの発火を待たずに、副作用ゼロで環境の健全性を確かめるための入口である
 
 **同じ考え方を `.claude/hooks/` の2本にも適用する。** どちらも入力の解析に `jq` を使うが、解析できなかったときに素通りさせると**ガードが黙って消える**——`block-git.sh` は git の書き込みを許してしまい、`verify-data.sh` は検証が落ちているのにターンを終わらせてしまう。どちらも「壊れていることに気づけない」形なので、次のように倒している。
 
@@ -1262,7 +1262,7 @@ git の pull / commit / push は `claude-routine.sh` の責任で、「検証を
 
 名簿（データ）は収集タスクが自動更新してよい。**目標件数・品質基準・禁止事項（散文のルール）は
 書き換えさせない**——Webページを読んだ主体が自分の指示書に書き込める構造は、
-`--permission-mode bypassPermissions` の cron 実行では特に危険であり、
+`--permission-mode bypassPermissions` の無人実行（self-hosted runner）では特に危険であり、
 また「自分を縛るルールを緩める」方向の変更を、劣化した当人が判定することになるためである。
 これに触れる変更・手順やコードの大幅な改良は、提案として `docs/skill-feedback.md` に積み、
 適用は人間が判断する。
@@ -1645,7 +1645,7 @@ flowchart TD
 この変数を `unset` するものとしている（`GIT_ASKPASS` 等を外しているのと同じ位置・
 同じ理由——**無人実行は起動元のセッションに依存すべきではない**）。
 
-cron から起動する限りこの変数は無いので、ふだんは効かない。効かないものを外して
+self-hosted runner（systemd）から起動する限りこの変数は無いので、ふだんは効かない。効かないものを外して
 おくのは、効いたときに起きることが「計測が全部嘘になる」だからである。
 
 ### 9.3.11 「調べていない回」を成功として記録に残さない
@@ -1833,7 +1833,8 @@ data/                         週次で差し替えるデータ（行数は vali
     source-optout/            掲載停止・調査対象外の申請への対応手順
     weekly-routine/           週次ルーチンの手順 ← **曜日→スキルの対応表の正本**
   routines/invariants.md      週次ルーチンの不変規則（--append-system-prompt-file で渡す。圧縮で消えない）
-  scripts/claude-routine.sh   cron の入口。pull → 実行 → 検証 → 通った回だけ commit/push
+  scripts/claude-routine.sh   self-hosted runner からの入口（第13章）。pull → 実行 → 検証 → 通った回だけ commit/push
+  scripts/repair-routine.sh   失敗回の機械的な後始末だけを行う（Claudeは起動しない。第13.4節）
   hooks/                      規則を決定論的に守らせるフック（第9.1.5節）
     agent-guard.sh            ルーチン中の背景起動・未追記のまま／線を越えてからの起動を拒否（PreToolUse:Agent）
     block-git.sh              ルーチン中の git の書き込みを拒否（PreToolUse:Bash）
@@ -1868,7 +1869,11 @@ docs/
   COLLECTION-PROTOCOL.md      3つの収集スキルが共有する手順とその理由（差分・持ち越し・予算）
   skill-feedback.md           収集ルールの変更提案の置き場（適用は人間が判断する）
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
-.github/workflows/pages.yml   main への push で Pages へデプロイ
+.github/workflows/
+  pages.yml                   push / 週次収集の完了(workflow_run) で Pages へデプロイ
+  weekly-collect.yml          毎日02:30 JSTに発火し、self-hosted runner上でclaude-routine.shを起動（第13章）
+  routine-repair.yml          weekly-collect.yml失敗時、同じrunner上で機械的な後始末だけを行う（第13.4節）
+  watchdog.yml                hosted runner上で毎日、直近の成功実行の有無を見張る（第13.5節）
 ```
 
 **書き換え頻度でフォルダを分けている。** 週次で差し替わるのは `data/` だけ、ほぼ変わらないのが `assets/` という対応にすることで、**更新作業がどこを触るのかを構成から読める**ようにした。
@@ -2219,5 +2224,57 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 - **`stage` は空欄でよい。** ラインナップは発表されているがステージ割りは未発表、という時期が実際にある（ROCK IN JAPAN 2026 がこの状態だった）。空欄なら日の直下にそのまま並ぶ
 - **`date` も空欄でよい。** 日割り発表前のフェスは、全組を「日割り未発表」のまとまりに入れる。**発表されていないものを推測で日に割り振らない**
 - **機械可読でないフェスは、行を作らない。** ULTRA JAPAN のようにラインナップを画像とJSでしか出していない公式サイトがある。読めないものを他所の要約から埋めると、出演しないアーティストを載せる事故に直結する（第7.2.3節と同じ判断）。その場合は `lineup_id` ごと空欄にし、カードは従来どおり出演者行だけを出す
+
+---
+
+## 13. 無人実行の基盤（GitHub Actions self-hosted runner）
+
+### 13.1 なぜラズパイの crontab から GitHub Actions へ移したか
+
+収集そのもの（曜日→スキルの対応・波の分け方・検証・push可否の判定）は変えていない。変えたのは「いつ動くか」の決定権と、「失敗をどう拾うか」の2点である。
+
+| 何                             | 移す前                                          | 移した後                                                                                                                                                         |
+| ------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 起動の決定権                   | Pi の crontab が直接 `claude-routine.sh` を呼ぶ | GitHub Actions の `schedule`（`.github/workflows/weekly-collect.yml`）が決め、Pi は systemd 常駐の self-hosted runner としてジョブを受け取って実行するだけになる |
+| 失敗の後始末                   | 手つかず。次の実行まで気づかない                | `routine-repair.yml` が同じ Pi・同じ作業ツリー上で機械的な後始末だけをやり直す（第13.4節）                                                                       |
+| 「そもそも動いていない」の検知 | 手つかず                                        | `watchdog.yml` が hosted runner 上で独立に見張る（第13.5節）                                                                                                     |
+
+実行環境（Raspberry Pi 4、収集先サイトから見えるIP）は変えていない。ホスト型ランナーの共有IPは収集先サイトのbot対策に弾かれやすいという既知のリスクを避けるため、self-hosted runner として同じ回線・同じ機体を使い続ける判断にしている。
+
+### 13.2 GITHUB_TOKEN での push は workflow_run を発火しない
+
+`claude-routine.sh` と `repair-routine.sh` はどちらもジョブ内で `git push` するが、その認証はジョブ固有のトークン（GITHUB_TOKEN 相当）である。**GITHUB_TOKEN で行われた push は、無限ループ防止のため他のワークフローの `push` イベントを発火しない**仕様のため、`pages.yml` を `push:` トリガーだけにしていると、週次収集の結果が一切デプロイされなくなる。
+
+そのため `pages.yml` には `workflow_run`（`weekly-collect.yml` / `routine-repair.yml` の完了）を追加し、`conclusion == 'success'` の回だけデプロイする形にしている。`workflow_run` はトリガー元のワークフローファイルがデフォルトブランチに存在して初めて有効になるため、この仕組み自体の初回反映には main へのマージが要る。
+
+### 13.3 schedule はなぜ「毎日 :30」か
+
+収集は日次で動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金に専用スキルを割り当て、それ以外の曜日は `other` 行で `kanto-event-collector` に落ちる——全曜日が埋まっており、休む日は無い。「週次」はこの仕組み・ブランチ・スキル名としての呼び名であって、実行頻度そのものを指してはいない。
+
+発火時刻は毎日 02:30 JST（UTC 17:30）に置いている。GitHub Actions の schedule は毎時00分台に負荷が集中し遅延・間引きが起きやすいため、あえて :30 に置くことでこのリスクを避けている。
+
+**schedule に保証された実行時刻・保証された実行そのものは無い。** 高負荷時はジョブが「ログも通知も残さず」間引かれることがある——この経路を拾うのが第13.5節の見張りである。
+
+### 13.4 routine-repair.yml が actions/checkout を呼ばない理由
+
+`actions/checkout` は `clean: false` を指定しても、対象 ref への `git checkout --force` 自体は必ず実行する。`--force` は追跡ファイルの未コミットの変更を無条件に破棄するため、weekly-collect.yml が強制終了された回の「書きかけの `data/*.csv`」（波を1つ書き切った直後など、部分的に進んでいた成果）も一緒に失われる——救い出したいものを checkout 自身が消してしまう形になる。
+
+self-hosted runner は使い捨てではなく、直前のジョブが残した working directory（`$GITHUB_WORKSPACE`）が次のジョブにもそのまま引き継がれる。そこで `routine-repair.yml` は checkout を呼ばず、直前の `weekly-collect.yml` ジョブが残した状態にそのまま触る。git の push 認証だけは、checkout が内部で行っているのと同じ方式（`x-access-token` を Basic 認証として extraheader に設定）でこのジョブ自身のトークンに張り直す——前のジョブのトークンは、次のジョブが始まる頃には既に有効期限を過ぎている。
+
+`repair-routine.sh` は Claude を起動しない。判断を要る処理（説明のない消滅の処分・表記ゆれの `renamed` 判定など）はここでは行わず、`prev_rows.py --carry-rest`・`purge_ended.py`・`run_gate.py`・`validate_data.py`・`diff_data.py` という機械的な工程だけを再実行する。通れば `claude-routine.sh` と同じ形で commit・push し、通らなければ生成物を `.claude/logs/failed/` へ退避して HEAD へ戻し、GitHub Issue を起票して人に返す。
+
+`data/` `docs/` に未コミットの変更が最初から無い回（典型は認証切れで一度もツールを呼べなかった回）は、直すものが無いためここでは何もしない。この種の異常は第13.5節の見張りに委ねている——ここで毎回 Issue を立てると、見張りの通知と二重になる。
+
+### 13.5 見張り（watchdog.yml）が hosted runner で動く理由
+
+`weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**scheduleの発火自体が欠落する・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
+
+`watchdog.yml` は毎日、`weekly-collect.yml` の直近の成功実行を GitHub Actions API で確認し、しきい値（2日）を超えて成功実行が無ければ Issue を起票する。self-hosted（Pi）ではなく hosted runner で動かしているのは、**Pi 自体が原因の障害を、Pi 上の何かで検知するのは原理的に無理**なためである——見張りが検知したい最悪のケース（Pi が完全に沈黙している）そのものが、Pi 上の見張りを同時に無力化してしまう。
+
+重複起票を避けるため、見張り用ラベル（`routine-watchdog`）の付いた Issue が既に開いていれば新規には起票せず、回復を確認できたときは開いたままの見張り Issue へコメントして自動で close する。
+
+### 13.6 self-hosted runner の適用範囲
+
+self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本はどちらも schedule／workflow_run／workflow_dispatch でしか起動しないため、外部からの入力（fork PR の中身）が起点になることは無い。
 
 ---
