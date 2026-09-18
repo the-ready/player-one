@@ -116,6 +116,24 @@ def check_curl_remote_blocks():
         or "curl の外部取得を見逃した"
 
 
+def check_curl_uppercase_blocks():
+    """シミュレーションで見つかった抜け道その1。`CURL` は大文字小文字を見ない元の実装では素通りした。"""
+    return bash_gate.raw_fetch("CURL -s https://example.com/") is not None \
+        or "大文字の CURL を見逃した"
+
+
+def check_curl_full_path_blocks():
+    """シミュレーションで見つかった抜け道その2。`/usr/bin/curl` は語形一致だけの元の実装では素通りした。"""
+    return bash_gate.raw_fetch("/usr/bin/curl -s https://example.com/") is not None \
+        or "フルパスの /usr/bin/curl を見逃した"
+
+
+def check_curl_full_path_no_url_passes():
+    """フルパスでも URL が無ければ止めない（`cp /usr/bin/curl /tmp/backup` のような無関係な操作）。"""
+    return bash_gate.raw_fetch("cp /usr/bin/curl /tmp/curl-backup") is None \
+        or "URL の無い /usr/bin/curl への言及まで止めた"
+
+
 def check_wget_remote_blocks():
     return bash_gate.raw_fetch("wget -qO- https://example.com/x") == "wget" \
         or "wget の外部取得を見逃した"
@@ -179,6 +197,9 @@ CHECKS = [
     ("空のコマンドは通す", check_empty_passes),
     ("別コマンドの head は紐づけない", check_separate_segment_head_passes),
     ("curl での外部取得は止める", check_curl_remote_blocks),
+    ("大文字の CURL も止める（実測で見つけた抜け道）", check_curl_uppercase_blocks),
+    ("フルパスの /usr/bin/curl も止める（実測で見つけた抜け道）", check_curl_full_path_blocks),
+    ("URL の無いフルパス言及は止めない", check_curl_full_path_no_url_passes),
     ("wget での外部取得は止める", check_wget_remote_blocks),
     ("&& の後段の curl も止める", check_curl_in_pipeline_blocks),
     ("localhost への curl は通す", check_curl_localhost_passes),

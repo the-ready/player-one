@@ -82,7 +82,12 @@ CUTTERS = re.compile(r"\|\s*(?:sudo\s+)?(?:head|tail|grep|egrep|fgrep|rg|sed\s+-
 FETCH_PAGE = "tools/fetch_page.py"
 
 # 外のページを生で取りに行く道具。`http(s)://` を伴うときだけ見る。
-RAW_FETCHER = re.compile(r"(?:^|[\s;&|(])(?:sudo\s+)?(curl|wget)(?:\s|$)")
+#
+# `curl` という語の前は、シェルの区切り・`sudo `・**フルパスの区切り（`/`）** の
+# いずれかであることを求める。素の語形一致だけだと `/usr/bin/curl` が
+# 素通りする——シミュレーションで実際に確認した抜け道で、対話的に試した
+# だけでも1回で見つかっている。大文字小文字も見ない（`CURL` も同じ抜け道）。
+RAW_FETCHER = re.compile(r"(?:^|[\s;&|(/])(?:sudo\s+)?(curl|wget)(?:\s|$)", re.IGNORECASE)
 REMOTE_URL = re.compile(r"https?://(?!localhost[:/\s]|127\.0\.0\.1[:/\s])[^\s'\"`)]+")
 
 # シェルの区切り。`&&` で繋いだ後段の `| head` も見逃さないために、
