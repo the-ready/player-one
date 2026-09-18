@@ -135,6 +135,63 @@ def check_broken_lines_are_skipped():
     return (reply_gate.last_assistant_text(path) == "0件です。") or "壊れた行で読み取りが止まった"
 
 
+def check_settle_waits_for_late_text():
+    """**実測で見つけた穴。** `SubagentStop` は記録が書き終わる前に発火することがある。
+
+    素直に1回読むだけの実装は、同じ試験で3回に1回しか検知できなかった
+    （フック発火時のサイズが 50,629 と 156,667 に割れた）。
+    """
+    path = os.path.join(TMP, "late.jsonl")
+    open(path, "w").close()                       # 本文がまだ無い状態
+
+    ticks = {"n": 0}
+
+    def fake_sleep(_):
+        ticks["n"] += 1
+        if ticks["n"] == 2:                       # 2回目の待ちで本文が届く
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(json.dumps({"type": "assistant",
+                                    "message": {"content": [{"type": "text",
+                                                             "text": rows(5)}]}}) + "\n")
+
+    def fake_clock():
+        return ticks["n"] * 0.2
+
+    text = reply_gate.settled_text(path, wait=3.0, poll=0.2, sleep=fake_sleep, clock=fake_clock)
+    if not text:
+        return "遅れて届いた本文を拾えていない（見逃しになる）"
+    rc, _ = reply_gate.judge(text)
+    return rc == 1 or f"拾った本文を判定できていない: exit={rc}"
+
+
+def check_settle_gives_up_quietly():
+    """待ち切っても本文が無ければ通す（記録が読めないことを理由に子を回し直さない）。"""
+    path = os.path.join(TMP, "never.jsonl")
+    open(path, "w").close()
+    ticks = {"n": 0}
+
+    def fake_sleep(_):
+        ticks["n"] += 1
+
+    def fake_clock():
+        return ticks["n"] * 0.2
+
+    text = reply_gate.settled_text(path, wait=1.0, poll=0.2, sleep=fake_sleep, clock=fake_clock)
+    if text:
+        return f"本文が無いのに何かを返した: {text!r}"
+    return ticks["n"] <= 6 or f"待ちが上限で止まっていない（{ticks['n']}回）"
+
+
+def check_settle_returns_immediately_when_ready():
+    """書き終わっている記録では1回も待たない（フックの持ち時間を無駄にしない）。"""
+    path = transcript("temp/rows-a.jsonl に 7件 書きました。")
+    slept = {"n": 0}
+    text = reply_gate.settled_text(path, sleep=lambda _: slept.__setitem__("n", slept["n"] + 1))
+    if slept["n"] != 0:
+        return f"すでに読めるのに待った（{slept['n']}回）"
+    return bool(text) or "読めるはずの本文を返していない"
+
+
 def check_no_text_returns_none():
     path = os.path.join(TMP, "notext.jsonl")
     with open(path, "w", encoding="utf-8") as f:
@@ -157,6 +214,9 @@ CHECKS = [
     ("最後の本文のある応答を採る", check_reads_last_text_message),
     ("記録が読めないときは通す", check_missing_transcript_passes),
     ("壊れた行は読み飛ばす", check_broken_lines_are_skipped),
+    ("遅れて届いた本文を待って拾う（実測の穴）", check_settle_waits_for_late_text),
+    ("待ち切っても本文が無ければ通す", check_settle_gives_up_quietly),
+    ("書き終わっていれば待たない", check_settle_returns_immediately_when_ready),
     ("本文が無ければ None", check_no_text_returns_none),
 ]
 

@@ -33,6 +33,23 @@
 `stop_hook_active` が立っている2周目は黙って通す。同じ催促を繰り返しても、
 連続ブロックの上限に当たるだけになる（`verify-data.sh` と同じ）。
 
+## 記録は、フックが呼ばれた時点でまだ書き終わっていないことがある
+
+**これは実測で見つけた。** 同じ試験（子に行を貼らせる）を繰り返したところ、
+`SubagentStop` が発火した時点の `agent_transcript_path` が
+
+    156,667バイト（書き終わっている）→ 検知する
+     50,629バイト（本文がまだ無い）  → 見逃す
+
+の2通りに割れ、素直に1回読むだけの実装では**3回に1回しか検知できなかった**。
+記録への書き込みはフックの発火と同期していない。
+
+そこで**本文が現れるまで短く待つ**（`SETTLE_WAIT_SEC`）。実測では待ちが要った
+回でも 0.2秒で現れ、この待ちを入れた4回はすべて検知している。上限を3秒にして
+あるのは、フックの持ち時間（`settings.json` の20秒）に対して十分短く、かつ
+測った値の10倍以上あるためである。**待ち切っても本文が無ければ通す**
+——記録が読めないことを理由に子を回し直さない、という下の倒し方は変わらない。
+
 ## 終了コード
 
   0 : 契約どおり（または判定できない）
@@ -51,6 +68,7 @@ import json
 import os
 import re
 import sys
+import time
 
 # 返答の長さの線。契約どおりの返答（「temp/rows-tokyo-a.jsonl に32件書きました」）は
 # 100文字前後で収まる。3,000文字は「文章で報告している」と言い切れる線である。
@@ -61,6 +79,10 @@ LONG_CHARS = 3_000
 ROW_MIN_CHARS = 80
 
 ROWS_PATH = re.compile(r"temp/rows-[\w.\-]+\.jsonl")
+
+# 本文が記録に現れるまで待つ上限と間隔（上の「記録は書き終わっていないことがある」）。
+SETTLE_WAIT_SEC = 3.0
+SETTLE_POLL_SEC = 0.2
 
 
 def last_assistant_text(path):
@@ -89,6 +111,24 @@ def last_assistant_text(path):
     except OSError:
         return None
     return last
+
+
+def settled_text(path, wait=SETTLE_WAIT_SEC, poll=SETTLE_POLL_SEC, sleep=time.sleep, clock=time.monotonic):
+    """本文が現れるまで短く待って、子の最後の返答を返す。現れなければ None。
+
+    `sleep` と `clock` を差し替えられるようにしてあるのは、テストが実際に
+    待たずに「待つ挙動」そのものを確かめられるようにするためである。
+    """
+    text = last_assistant_text(path)
+    if text:
+        return text
+    deadline = clock() + wait
+    while clock() < deadline:
+        sleep(poll)
+        text = last_assistant_text(path)
+        if text:
+            return text
+    return text
 
 
 def judge(text):
@@ -143,8 +183,8 @@ def hook():
     if not path:
         return 0
 
-    text = last_assistant_text(path)
-    if text is None:
+    text = settled_text(path)
+    if not text:
         return 0
 
     rc, reason = judge(text)
@@ -165,9 +205,9 @@ def main():
     if not args.check:
         p.error("--hook または --check を指定してください")
 
-    text = last_assistant_text(args.check)
-    if text is None:
-        print(f"記録を読めませんでした: {args.check}", file=sys.stderr)
+    text = settled_text(args.check)
+    if not text:
+        print(f"記録に本文がありません: {args.check}", file=sys.stderr)
         return 0
     rc, reason = judge(text)
     if reason:
