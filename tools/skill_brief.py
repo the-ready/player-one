@@ -198,10 +198,14 @@ SUBAGENT_PREAMBLE = """#
 #   - append_rows.py <ds> --init / append_lineup.py --init は実行しない（CSVを空にする。他の波が書いた分もろとも消える）
 #   - 結果は temp/rows-<波の名前>.jsonl に自分でJSONL（1行1件）で書く
 #   - 返答には、書いたファイルのパスと件数だけを書く。行そのものを返答に含めない
+#     （行を貼った返答は SubagentStop フックが拒否し、書き直させる）
 #   - **料金は、このタスクの中核である。** 一覧ページに料金が無いのが普通なので、
 #     会場ごとに1回だけ料金ページ（利用案内・入館料・チケット）を開いて
 #     `price` `price_official` `price_checked` を書く。手順は「価格比較とクーポン検知」章の第1段階。
-#     取得は `WebFetch` ではなく `fetch_page.py --text` を使う（料金は表で書かれており、要約では落ちる）"""
+#     取得は `WebFetch` ではなく `fetch_page.py --text` を使う（料金は表で書かれており、要約では落ちる）
+#     ——`fetch_page.py` を一度も使わないまま `WebFetch` が10回を超えると、フックが1度だけ止めて催促する
+#   - data/*.csv と SKILL.md を全文 Read しない（毎ターン再送される。フックが拒否する）。
+#     渡された temp/brief-*.md・temp/worklist-*.md は、そのまま Read してよい"""
 
 HEAD_RE = re.compile(r"^## +(.*?)\s*$")
 

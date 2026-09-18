@@ -257,6 +257,36 @@ def _():
     return code == 0 or f"--check なしで落ちた: {out}{err}"
 
 
+@check("新規が FRESH_MIN_SAMPLE 未満の週は「下限割れ」と表示しない（表示と判定を食い違わせない）")
+def _():
+    """2026-09-18 の movies の試験実行で見つけた食い違い。
+
+    判定は新規が `FRESH_MIN_SAMPLE` 件に満たない週を見ない（1件の空欄で下限を割るため）。
+    ところが表示だけが件数を見ずに「← 下限割れ」と書いていたので、**止まらない週に
+    「下限割れ」とだけ告げる**状態になっていた。実際、新規8件・price 0% の回で
+    モデルは最終報告に「下限割れ」と書き、門は exit 0 を返している。
+    """
+    few = rs.FRESH_MIN_SAMPLE - 1
+    rows = [_erow(title=f"継続{i}", price="1000円") for i in range(20)]
+    rows += [_erow(title=f"新規{i}", price="") for i in range(few)]
+    code, out, err = _run_events(rows, PREV20, ["events", "--check-fresh"])
+    if code != 0:
+        return f"判定しないはずの週で落ちた: code={code} {out}"
+    if "← 下限割れ" in out:
+        return "止まらない週に「下限割れ」と表示している（表示と判定が食い違う）"
+    return (f"新規が{rs.FRESH_MIN_SAMPLE}件未満" in out) or f"判定しない理由が出ていない: {out}"
+
+
+@check("新規が FRESH_MIN_SAMPLE 以上なら「下限割れ」を表示して落とす")
+def _():
+    rows = [_erow(title=f"継続{i}", price="1000円") for i in range(20)]
+    rows += [_erow(title=f"新規{i}", price="") for i in range(rs.FRESH_MIN_SAMPLE)]
+    code, out, err = _run_events(rows, PREV20, ["events", "--check-fresh"])
+    if code != 1:
+        return f"薄いのに通った: code={code} {out}"
+    return ("← 下限割れ" in out) or f"表示に下限割れが出ていない: {out}"
+
+
 SHORT_ROWS = [_row(title=f"公演{i}", pref="tokyo") for i in range(3)]
 SHORT_PREFS = "kanagawa,saitama,chiba,ibaraki,tochigi,gunma,other"
 

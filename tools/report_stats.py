@@ -273,9 +273,17 @@ def print_human(res):
 
     fresh = res.get("fresh") or {}
     if fresh.get("columns"):
-        print(f"\n  今週あらたに書いた行の充足率（{fresh['count']}件・持ち越しを含まない）")
+        # **表示と判定を食い違わせない。** `--check-fresh` は新規が
+        # `FRESH_MIN_SAMPLE` 件に満たない週を判定しない（1件の空欄で下限を割るため）。
+        # 表示だけが件数を見ずに「← 下限割れ」と書いていたので、**止まらない週に
+        # 「下限割れ」とだけ告げる**状態になっていた。2026-09-18 の movies の試験
+        # 実行（新規8件・price 0%）では、モデルが最終報告に「下限割れ」と書きながら
+        # 門は exit 0 で、読む側には何が起きたのか分からない報告になった。
+        judged = fresh["count"] >= FRESH_MIN_SAMPLE
+        note = "" if judged else f"（新規が{FRESH_MIN_SAMPLE}件未満のため判定しません）"
+        print(f"\n  今週あらたに書いた行の充足率（{fresh['count']}件・持ち越しを含まない）{note}")
         for c in fresh["columns"]:
-            mark = "  " if c["pct"] >= c["floor"] else "← 下限割れ"
+            mark = "← 下限割れ" if (judged and c["pct"] < c["floor"]) else "  "
             print(f"    {c['column']:<18} {c['filled']:>4}/{fresh['count']:<4}"
                   f" {c['pct']:>3}%  （下限 {c['floor']}%）{mark}")
 

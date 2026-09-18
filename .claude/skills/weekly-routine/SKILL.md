@@ -85,6 +85,7 @@ git の書き込みは行わない（`.claude/routines/invariants.md` の規則�
 必要が無い（抜粋で概ね4〜5割減る）。
 
 - 抜粋に無い規則（列の書き方・キーの一覧など）が要るときは、**全文の該当節だけ**を `Read` の `offset` 指定で読む。全文を読み直さない
+  （`offset` / `limit` の無い全文の `Read` は `PreToolUse` フックが拒否する。節の位置は `grep -n '^#' <path>` で引ける）
 - 抜粋が無い（対話的な実行など）ときだけ、`python3 tools/skill_brief.py <ds> --for parent --out temp/brief-parent-<ds>.md` で作る。それも失敗するなら `.claude/skills/<スキル名>/SKILL.md` を Read する
 - **正本はリポジトリ内の `.claude/skills/<スキル名>/SKILL.md` 1箇所だけ**である（抜粋はそこから毎回生成される派生物）
 
@@ -132,7 +133,9 @@ git の書き込みは行わない（`.claude/routines/invariants.md` の規則�
   **抜粋のパスへの参照が無い波は `agent-guard.sh` が拒否する。**
 
 - **1体が回るターン数を60以下に収める。** 1つの文脈でN回呼ぶと入力はNの2乗で増えるので、
-  担当範囲を小さく割るだけでトークンが減る（`budget.py --report` が「最長の子◯ターン」を出す）
+  担当範囲を小さく割るだけでトークンが減る。**波を受け取ると `PostToolUse` フックが
+  `budget.py --report`（「最長の子◯ターン」を含む）をその場で差し込む**ので、
+  次の波の分け方はその数字で決める——60を超えていたら、次はさらに割る
 - worktree 隔離は使わない（書き込まないので隔離する対象が無く、名簿の更新まで破棄される）
 
 前景で起動していても、**1回の呼び出しが長時間に及ぶ設計**なら同じように全損する
@@ -141,14 +144,23 @@ git の書き込みは行わない（`.claude/routines/invariants.md` の規則�
 
 ### 4. CSVが更新されたことを確認する
 
-`data/` 配下の該当CSVを見る。**ヘッダーだけの状態（`--init` した直後の状態）で終わらせない。**
+```bash
+wc -l data/<events|lives|movies>.csv          # ヘッダー1行だけなら、まだ何も書けていない
+```
+
+**ヘッダーだけの状態（`--init` した直後の状態）で終わらせない。**
+
+**CSVを `Read` で開かないこと。** `data/events.csv` は406行しかないので `Read` の行数上限に一度も触れず、
+**18万文字が丸ごと文脈に入って以後のターン数だけ再送される**。確認に要るのは行数だけで、
+中身が要るときは `python3 tools/prev_rows.py <ds> --worklist` か `--uid <uid>` で引く。
+`PreToolUse` フックが実際に拒否する。
 
 ### 5. 検証を通す
 
 `python3 tools/diff_data.py` と `python3 tools/validate_data.py` を実行し、どちらも終了コード0であることを確認する。
 落ちた場合はその原因を解消してから終える。ここが通らないと、今回の成果は保存されない。
 
-**`diff_data.py` の出力を `head`/`tail`/`grep` で切らない。** `[表記が変わった可能性]` は `[新規]` の一覧の直後に出る。
+**`diff_data.py` の出力を `head`/`tail`/`grep` で切らない**（`PreToolUse` フックが拒否する）。`[表記が変わった可能性]` は `[新規]` の一覧の直後に出る。
 該当ペアがあれば `carry-rest` の前に、次の形で `renamed` として処理する
 （`--status` / `--to` という個別フラグは無い。JSONL を標準入力で渡す）。
 
