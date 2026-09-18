@@ -2279,4 +2279,19 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本はどちらも schedule／workflow_run／workflow_dispatch でしか起動しないため、外部からの入力（fork PR の中身）が起点になることは無い。
 
+### 13.7 Raspberry Pi への runner 登録（要点）
+
+ここまでの設計は、Pi 側に self-hosted runner が登録・常駐していることを前提にしている。登録そのものは一度きりの手作業で、GitHub 側には残せない。要点だけを記す（各コマンドの詳しい意味は GitHub 公式の self-hosted runner ドキュメントを参照）。
+
+1. **OS を確認する。** 64-bit 必須（`uname -m` が `aarch64`）。32-bit の Raspberry Pi OS では runner が動かない
+2. **リポジトリの Settings → Actions → Runners → New self-hosted runner** から Linux ARM64 用のダウンロードコマンドと、その場限りの登録トークンを取得する
+3. **ラベルを `player-one-pi` にして登録する**（`config.sh` の対話中に入力する、または `--labels player-one-pi` を渡す）。第13.6節の適用範囲の前提そのものなので、既定の `self-hosted` のままにしない
+4. **systemd サービス化する**: `sudo ./svc.sh install && sudo ./svc.sh start`
+5. **既定の systemd ユニットに `Restart=on-failure` を足す**（`systemctl edit actions.runner.<org>-<repo>.<runner名>.service` で `[Service]` に1行追記）。既定のユニットには再起動指定が無く、クラッシュしても自動復帰しない
+6. **`CLAUDE_CODE_OAUTH_TOKEN` をリポジトリの Secrets に登録する**（`claude setup-token` で発行。1年有効の長期トークンで、対話ログインの資格情報とは別物）
+7. **「Require approval for all outside collaborators」を有効化する**（Settings → Actions → General）。第13.6節の防御を、承認フローの側からも重ねる
+8. **`systemctl enable` されていることを確認する**（`svc.sh install` が通常はここまでやる）。これが無いと、Pi の再起動後に runner が自動で戻らない
+
+登録後の動作確認は `weekly-collect.yml` を `workflow_dispatch`（`push: false`）で1回手動起動し、Actions の実行ログと `.claude/logs/routine_*.log` の両方を見比べるのが早い。
+
 ---
