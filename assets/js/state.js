@@ -6,6 +6,26 @@ import { TABS, TAB_ORDER } from "./config.js";
 
 /* ---------- タブごとの状態 ---------- */
 
+/* 検索語（q）だけは3タブで共有する。検索窓はDOM上に1つしかなく、
+   「Vaundyで検索したのにタブを移ったら入力欄が空になった」という体験のほうが、
+   「絞り込みが引き継がれて0件になる」より混乱を招くため。
+   ファセット・日程・エリアは引き続きタブごとに分ける（この2つは食い違うと
+   必ず0件になる組み合わせを作れてしまうが、検索語にその心配は無い）。
+
+   実体を1つの変数にし、各タブの state オブジェクトには同じ変数を指す
+   getter/setter を生やす。呼び出し側（filters.js・render.js・ui-controls.js）は
+   これまでどおり `st.q` を読み書きするだけでよく、共有であることを意識しなくて済む。 */
+let sharedQuery = "";
+function bindSharedQuery(state) {
+  Object.defineProperty(state, "q", {
+    get: () => sharedQuery,
+    set: (v) => {
+      sharedQuery = v;
+    },
+    enumerable: true,
+  });
+}
+
 function newState(tab) {
   const sets = {};
   tab.facets.forEach((f) => {
@@ -15,8 +35,7 @@ function newState(tab) {
   tab.flags.forEach((f) => {
     flags[f.id] = false;
   });
-  return {
-    q: "",
+  const state = {
     sets,
     flags,
     pref: null,
@@ -27,6 +46,11 @@ function newState(tab) {
     sortBy: "date",
     userLoc: null,
   };
+  bindSharedQuery(state);
+  // 起動時の3タブぶんの初期化と、resetState()（「すべての絞り込みを解除」）の
+  // 両方がここを通る。検索窓もそのボタンで空にする対象なので、ここで空にする。
+  state.q = "";
+  return state;
 }
 
 export const STATES = {};

@@ -483,6 +483,38 @@ export function renderAppliedBar() {
     `<button type="button" class="applied-clear" id="appliedClear">すべて解除</button>`;
 }
 
+/* ---------- タブの件数バッジ ----------
+   検索語（q）は3タブで共有なので（state.js）、いま打った語が他のタブにも
+   当たりがあるかをタブを開き直さずに気づけるようにする。
+   matchesFilters にそのタブ自身の state を渡しているので、出る数字は
+   「いまこのタブに切り替えたら実際に見える枚数」と一致する
+   ——検索語だけを別ロジックで数えると、facet/日程で絞っている最中に
+   バッジと実際の枚数が食い違う。 */
+const TAB_COUNT_IDS = {
+  event: "tabEventCount",
+  movie: "tabMovieCount",
+  live: "tabLiveCount",
+};
+export function syncTabCounts() {
+  const show = !!curState().q; // 共有なのでどのタブの state から読んでも同じ
+  TAB_ORDER.forEach((k) => {
+    const el = document.getElementById(TAB_COUNT_IDS[k]);
+    if (!el) return;
+    // 未読み込みのタブは0件ではなく「まだ分からない」なので出さない
+    // （裏で読み込みが終わったら main.js が改めて呼ぶ）。
+    if (!show || LOAD[k].state !== "done") {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    const n = ITEMS[k].filter((it) =>
+      matchesFilters(TABS[k], STATES[k], it),
+    ).length;
+    el.hidden = false;
+    el.textContent = String(n);
+  });
+}
+
 /* ---------- ヘッダーの最終更新日 ---------- */
 const TAB_DATA_NOUNS = {
   event: "イベント",
@@ -540,6 +572,7 @@ function doRefresh(opts) {
   renderList();
   renderFilterChips();
   renderAppliedBar();
+  syncTabCounts();
   uiHooks.forEach((fn) => fn());
   if (opts.url !== false) syncUrl(!!opts.push);
 }

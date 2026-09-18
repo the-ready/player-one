@@ -160,10 +160,10 @@ export function updateSortUI() {
   el.catTitle.textContent = tab.catTitle;
 }
 
+// 検索語は3タブで共有なので、タブを切り替えても入力欄の中身とplaceholderは
+// 変えない（index.htmlに直接書いた固定文言のまま）。値の再代入だけ行うのは、
+// resetFilters() 等の外側の操作で state.q が変わったときに表示を追いつかせるため。
 export function syncSearchForTab() {
-  const tab = curTab();
-  el.q.placeholder = tab.placeholder;
-  el.qLabel.textContent = tab.placeholder;
   el.q.value = curState().q;
   closeSearch();
 }

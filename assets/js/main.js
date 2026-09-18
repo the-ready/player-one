@@ -29,6 +29,7 @@ import {
   bindList,
   onRefresh,
   toast,
+  syncTabCounts,
 } from "./render.js";
 import { initPopover, closePopover, isPopoverOpen } from "./ui-popover.js";
 import { initArea, syncAreaForTab, renderVenueList } from "./ui-area.js";
@@ -124,6 +125,10 @@ async function ensureTabData(tabKey) {
   } catch {
     // 状態は LOAD に入っている。表示は render 側が出し分ける
     if (activeTab === tabKey) refreshNow({ url: false });
+    // タブの件数バッジは全タブぶんをまとめて出すので、いま裏で読み終えた
+    // タブが表示中でなくても塗り直す（doRefresh() は activeTab のときしか
+    // 呼ばれないので、これを外すと裏タブの件数がいつまでも「不明」のまま残る）。
+    syncTabCounts();
     return false;
   }
   if (activeTab === tabKey) {
@@ -131,6 +136,7 @@ async function ensureTabData(tabKey) {
     renderVenueList();
     refreshNow({ url: false });
   }
+  syncTabCounts();
   return true;
 }
 

@@ -146,6 +146,9 @@
               aria-controls="eventPane"
             >
               イベント
+              <!-- 検索中だけ出す「このタブに何件あるか」。空欄のときは
+               render.js の syncTabCounts() が hidden を付けたままにする。 -->
+              <span class="tab-count" id="tabEventCount" hidden></span>
             </button>
             <button
               type="button"
@@ -157,6 +160,7 @@
               tabindex="-1"
             >
               映画
+              <span class="tab-count" id="tabMovieCount" hidden></span>
             </button>
             <button
               type="button"
@@ -168,6 +172,7 @@
               tabindex="-1"
             >
               ライブ・フェス
+              <span class="tab-count" id="tabLiveCount" hidden></span>
             </button>
           </div>
           <!-- 表示中のタブのデータの更新日。タブを切り替えると中身が変わるので、
@@ -191,14 +196,16 @@
         <div class="controls-flex" id="controlsFlex">
           <div class="search-row">
             <div class="search-wrap">
+              <!-- 検索語は3タブで共有する（設計書 第4.2節）。文言も固定でよく、
+               タブ切り替え時にJSで書き換える必要が無い。 -->
               <label for="q" class="sr-only" id="qLabel"
-                >イベント名・会場・エリアで検索</label
+                >イベント・映画・ライブをまとめて検索</label
               >
               <input
                 type="search"
                 id="q"
                 autocomplete="off"
-                placeholder="イベント名・会場・エリアで検索"
+                placeholder="イベント・映画・ライブをまとめて検索"
               />
             </div>
           </div>

@@ -237,6 +237,26 @@ h1.pop-title {
   background: var(--ink);
   color: #fff;
 }
+/* 検索中だけ出す件数バッジ。「押しても0件だった」の逆——他のタブにも
+   当たりがあることを、タブを開き直さずに気づけるようにする（設計書 第4.2節）。 */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3em;
+  height: 1.3em;
+  margin-left: 0.5em;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: var(--pink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tab-chip[aria-selected="true"] .tab-count {
+  background: #fff;
+  color: var(--ink);
+}
 .offline-note {
   margin: 0.7rem 0 0;
   padding: 0.5rem 0.8rem;
