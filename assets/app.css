@@ -2019,6 +2019,12 @@ mark {
   padding: 0.3rem 0;
   font-family: var(--font-mono);
 }
+.cal-dow.is-sat {
+  color: var(--sky);
+}
+.cal-dow.is-sun {
+  color: var(--coral);
+}
 .cal-cell {
   display: block;
 }
@@ -2037,6 +2043,16 @@ mark {
   align-items: center;
   justify-content: center;
   padding: 0;
+}
+/* 土日・祝日は文字色だけを変える。選択状態（edge/in-range）の背景と両立させ、
+   選ばれた日は常に edge の白文字を優先させたいので、この2つより先に書く
+   （同じ詳細度なら後に書いたほうが勝つ CSS の性質を利用している）。 */
+.cal-day.is-sat {
+  color: var(--sky);
+}
+.cal-day.is-sun,
+.cal-day.is-holiday {
+  color: var(--coral);
 }
 .cal-day.in-range {
   background: var(--sunny-tint);

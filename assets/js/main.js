@@ -6,6 +6,7 @@ import {
   loadTab,
   loadTheaters,
   loadVenues,
+  loadHolidays,
   loadSources,
   loadUpdatedManifest,
   refreshToday,
@@ -142,6 +143,8 @@ async function ensureTabData(tabKey) {
 
 async function boot() {
   loadFavorites();
+  // カレンダーを開くまでに間に合えばよいので待たない（データが無くても支障はない）
+  loadHolidays().then(() => renderCalendar());
 
   // URLに状態があればそれを最優先。無ければ前回のタブを思い出す。
   const fromUrl = queryToState(location.search);

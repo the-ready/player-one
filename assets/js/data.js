@@ -269,6 +269,9 @@ export async function loadSources() {
 
 export let THEATERS = [];
 export let VENUES = [];
+// 日付(ISO) → 祝日名。祝日は法改正時以外ほぼ動かないので、他の準静的マスターと
+// 同じくここに置く（出典・更新方法は tools/update_holidays.py のdocstring）。
+export const HOLIDAYS = new Map();
 
 export async function loadTheaters() {
   try {
@@ -306,6 +309,18 @@ export async function loadVenues() {
     resolveVenues();
   } catch {
     /* 会場種別で絞れなくなるだけ */
+  }
+}
+
+export async function loadHolidays() {
+  try {
+    const { text } = await fetchText("./data/holidays.csv");
+    for (const row of parseCsvObjects(text)) {
+      const date = txt(row.date);
+      if (date) HOLIDAYS.set(date, txt(row.name));
+    }
+  } catch {
+    /* カレンダーの祝日ハイライトが出ないだけ */
   }
 }
 

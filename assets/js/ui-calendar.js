@@ -6,7 +6,7 @@
 
 import { iso, WD, fmtDateDots } from "./util.js";
 import { PRESETS } from "./config.js";
-import { TODAY } from "./data.js";
+import { TODAY, HOLIDAYS } from "./data.js";
 import { curState } from "./state.js";
 import { refreshNow } from "./render.js";
 
@@ -232,12 +232,21 @@ export function renderCalendar(restoreFocus) {
     }
     return "";
   };
+  // 祝日データ（内閣府）は振替休日・国民の休日も含むので、土日は曜日の計算だけで判定する
+  const weekendCls = (dow, holidayName) =>
+    holidayName
+      ? " is-holiday"
+      : dow === 0
+        ? " is-sun"
+        : dow === 6
+          ? " is-sat"
+          : "";
 
   let html =
     `<div class="cal-row" role="row">` +
     WD.map(
-      (d) =>
-        `<span class="cal-dow" role="columnheader" aria-label="${d}曜日">${d}</span>`,
+      (d, i) =>
+        `<span class="cal-dow${i === 0 ? " is-sun" : i === 6 ? " is-sat" : ""}" role="columnheader" aria-label="${d}曜日">${d}</span>`,
     ).join("") +
     `</div>`;
   for (let i = 0; i < cells.length; i += 7) {
@@ -251,10 +260,12 @@ export function renderCalendar(restoreFocus) {
           const cls = dayCls(date);
           const isToday = date === TODAY();
           const selected = cls === "edge" || cls === "in-range";
+          const dow = new Date(date + "T00:00:00").getDay();
+          const holidayName = HOLIDAYS.get(date) || "";
           return `<span class="cal-cell" role="gridcell" aria-selected="${selected}">
-        <button type="button" class="cal-day ${cls}${isToday ? " is-today" : ""}" data-date="${date}"
+        <button type="button" class="cal-day ${cls}${isToday ? " is-today" : ""}${weekendCls(dow, holidayName)}" data-date="${date}"
           tabindex="${date === focusDate ? 0 : -1}"
-          aria-label="${yy}年${parseInt(mm, 10)}月${parseInt(dd, 10)}日${isToday ? "・本日" : ""}">${parseInt(dd, 10)}</button>
+          aria-label="${yy}年${parseInt(mm, 10)}月${parseInt(dd, 10)}日${holidayName ? "・" + holidayName : ""}${isToday ? "・本日" : ""}">${parseInt(dd, 10)}</button>
       </span>`;
         })
         .join("") +
