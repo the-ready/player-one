@@ -86,6 +86,7 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 
 ```bash
 node tools/lineup_test.mjs                  # データの繋ぎ・検索・シート（DOM不要）
+node tools/caladd_test.mjs                  # カレンダー追加の初期日付の分岐（DOM不要）
 python3 -m http.server 8000 &
 node tools/smoke_test.mjs                   # 画面全体（要 playwright）
 ```

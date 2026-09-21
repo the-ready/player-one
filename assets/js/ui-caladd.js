@@ -13,6 +13,7 @@
    選ぶモードは持たない。時刻が空なら終日、入っていればその時刻の予定になる。 */
 
 import { buildIcs, gcalUrl } from "./cards.js";
+import { suggestedVisitDate } from "./schedule.js";
 import { toast } from "./render.js";
 import { setBackgroundInert, trapTab, closePopover } from "./ui-popover.js";
 
@@ -100,7 +101,7 @@ export function openCalAddSheet(item, target) {
     (target === "ics"
       ? ""
       : "この内容でGoogleカレンダーの作成画面を開きます。");
-  el.date.value = item.startDate || item.endDate || "";
+  el.date.value = suggestedVisitDate(item);
   el.start.value = item.startTime || item.openTime || "";
   el.end.value = item.endTime || "";
   el.submit.textContent =

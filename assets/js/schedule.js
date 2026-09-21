@@ -20,7 +20,7 @@
    CSVには**機械が読める事実**（ISOの日付・時刻・飛び日程・注記）だけを置き、
    人が読む文字列はここで毎回組み立てる。 */
 
-import { fmtSpan, fmtTimes, DAY_MS } from "./util.js";
+import { fmtSpan, fmtTimes, iso, DAY_MS } from "./util.js";
 import {
   TABS,
   STATUS_BY_PHASE,
@@ -131,6 +131,41 @@ export function nextOpenDay(it, ref = TODAY()) {
   const days = it.dates && it.dates.length ? it.dates : null;
   if (!days) return null;
   return days.find((d) => d >= ref) || null;
+}
+
+const addDays = (ymd, n) => {
+  const d = new Date(ymd + "T00:00:00");
+  if (isNaN(d.getTime())) return ymd;
+  d.setDate(d.getDate() + n);
+  return iso(d);
+};
+
+/**
+ * カレンダーに追加するときの日付の初期値（設計書 第5.10節）。
+ *
+ * 起点を今日ではなく**明日**に置いている。この画面を開くのは「これから行く日」を
+ * 決めるためで、すでに始まっている今日を提案しても選び直しになるためである。
+ *
+ *   飛び日程（`dates`）    明日以降でいちばん近い開催日
+ *   会期が始まっている行   明日（会期末がそれより前なら末日）
+ *   これから始まる行       初日
+ *   すでに終わった行       末日（過去の行でも空欄のまま開かない）
+ */
+export function suggestedVisitDate(it, ref = TODAY()) {
+  const tomorrow = addDays(ref, 1);
+  const days = it.dates && it.dates.length ? it.dates : null;
+  if (days) return nextOpenDay(it, tomorrow) || days[days.length - 1];
+
+  const start = it.startDate || it.endDate || "";
+  if (!start) return "";
+  if (start >= tomorrow) return start;
+  /* 終了日で明日を頭打ちにする。ここで endDate を startDate で埋めないのは、
+     終了日が空の行が「初日と同じ1日だけ」ではなく「◯月◯日〜（終わり未定）」
+     を意味するためで（util.js の fmtSpan と同じ読み方）、埋めると会期中の行が
+     初日に張り付く。 */
+  const end = it.endDate || "";
+  if (!end || end >= tomorrow) return tomorrow;
+  return end;
 }
 
 /**
