@@ -399,7 +399,12 @@ function priceBlock(it, hasPrice) {
   return "";
 }
 
-/* ---------- カレンダー連携 ---------- */
+/* ---------- カレンダー連携 ----------
+   会期がある催し（美術展など、時に数ヶ月続く）をそのまま終日イベントに
+   すると、行く1日ではなく会期全体が予定表に載ってしまう。呼び出し側
+   （ui-caladd.js）が「日時を選ぶシート」で決めた1日・時刻を override で
+   渡せば、その日だけの予定として組む。override が無ければ、これまでどおり
+   行の会期全体を終日イベントとして扱う（呼び出し元を増やさないための互換）。 */
 
 const icsDate = (ymd) => String(ymd || "").replace(/-/g, "");
 function icsEscape(s) {
@@ -407,17 +412,56 @@ function icsEscape(s) {
     .replace(/[\\;,]/g, (m) => "\\" + m)
     .replace(/\r?\n/g, "\\n");
 }
-/** 終日イベントとして .ics を組む。DTEND は排他なので終了日の翌日にする。 */
-export function buildIcs(it) {
-  const start = it.startDate || it.endDate;
-  if (!start) return null;
-  const endSrc = it.endDate || it.startDate;
-  const end = new Date(endSrc + "T00:00:00");
+const pad2 = (n) => String(n).padStart(2, "0");
+const fmtIso = (d) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** 終日区間の [開始, 翌日=排他の終了] を YYYYMMDD で返す。無効な日付は null。 */
+function allDaySpan(startYmd, endYmd) {
+  const end = new Date(endYmd + "T00:00:00");
   if (isNaN(end.getTime())) return null;
   end.setDate(end.getDate() + 1);
-  const dtEnd = icsDate(
-    `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`,
-  );
+  return { allDay: true, start: icsDate(startYmd), end: icsDate(fmtIso(end)) };
+}
+
+// 日本は通年UTC+9（DSTなし）なので、TZID/VTIMEZONEを持たずに素のUTCへ変換できる。
+const icsDateTimeUtc = (ymd, hm) =>
+  new Date(`${ymd}T${hm}:00+09:00`)
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+Z$/, "Z");
+
+// 終了未入力・開始以前は「開始の2時間後」を補う（コンサート等の目安の長さ）。
+function addHours(hm, h) {
+  const [hh, mm] = hm.split(":").map(Number);
+  const total = (hh * 60 + mm + h * 60) % (24 * 60);
+  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
+}
+
+/** その行が指すイベント区間。override があればユーザーが選んだ1日・時刻を、
+ *  無ければ行の会期全体（終日）を使う。日付が無ければ null。 */
+function resolveSpan(it, override) {
+  if (override) {
+    const { date, allDay, startTime, endTime } = override;
+    if (allDay || !startTime) return allDaySpan(date, date);
+    const end =
+      endTime && endTime > startTime ? endTime : addHours(startTime, 2);
+    return {
+      allDay: false,
+      start: icsDateTimeUtc(date, startTime),
+      end: icsDateTimeUtc(date, end),
+    };
+  }
+  const start = it.startDate || it.endDate;
+  if (!start) return null;
+  return allDaySpan(start, it.endDate || it.startDate);
+}
+
+/** .ics を組む。override（{date, allDay, startTime, endTime}）を渡すと、
+ *  行の会期全体ではなくその1日・時刻だけの予定になる。 */
+export function buildIcs(it, override) {
+  const span = resolveSpan(it, override);
+  if (!span) return null;
   const where = [...venueNames(it), it.area].filter(Boolean).join(" ");
   const url = safeUrl(it.url || it.officialUrl) || "";
   const stamp = new Date()
@@ -432,8 +476,8 @@ export function buildIcs(it) {
     "BEGIN:VEVENT",
     `UID:${it.uid}@eventboard`,
     `DTSTAMP:${stamp}`,
-    `DTSTART;VALUE=DATE:${icsDate(start)}`,
-    `DTEND;VALUE=DATE:${dtEnd}`,
+    span.allDay ? `DTSTART;VALUE=DATE:${span.start}` : `DTSTART:${span.start}`,
+    span.allDay ? `DTEND;VALUE=DATE:${span.end}` : `DTEND:${span.end}`,
     `SUMMARY:${icsEscape(it.title)}`,
     where ? `LOCATION:${icsEscape(where)}` : "",
     `DESCRIPTION:${icsEscape([it.desc, url].filter(Boolean).join("\n"))}`,
@@ -445,17 +489,14 @@ export function buildIcs(it) {
     .join("\r\n");
 }
 
-export function gcalUrl(it) {
-  const start = it.startDate || it.endDate;
-  if (!start) return null;
-  const endSrc = it.endDate || it.startDate;
-  const end = new Date(endSrc + "T00:00:00");
-  if (isNaN(end.getTime())) return null;
-  end.setDate(end.getDate() + 1);
+/** Googleカレンダーの作成画面URL。override の扱いは buildIcs と同じ。 */
+export function gcalUrl(it, override) {
+  const span = resolveSpan(it, override);
+  if (!span) return null;
   const p = new URLSearchParams({
     action: "TEMPLATE",
     text: it.title,
-    dates: `${icsDate(start)}/${icsDate(`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`)}`,
+    dates: `${span.start}/${span.end}`,
     details: [it.desc, safeUrl(it.url || it.officialUrl)]
       .filter(Boolean)
       .join("\n"),

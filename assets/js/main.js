@@ -55,6 +55,12 @@ import {
   isLineupSheetOpen,
 } from "./ui-lineup.js";
 import {
+  initCalAddSheet,
+  openCalAddSheet,
+  closeCalAddSheet,
+  isCalAddSheetOpen,
+} from "./ui-caladd.js";
+import {
   initControls,
   updateSortUI,
   syncSearchForTab,
@@ -80,6 +86,7 @@ export function setActiveTab(tab, opts = {}) {
   if (isMapSheetOpen()) closeMapSheet();
   if (isPlaceSheetOpen()) closePlaceSheet();
   if (isLineupSheetOpen()) closeLineupSheet();
+  if (isCalAddSheetOpen()) closeCalAddSheet();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
   syncSearchForTab();
@@ -157,6 +164,7 @@ async function boot() {
   initMapSheet();
   initPlaceSheet();
   initLineupSheet();
+  initCalAddSheet();
   initControls();
   initTabs();
   onRefresh(updateSortUI);
@@ -167,6 +175,7 @@ async function boot() {
       bindList(listEl, {
         onOpenPlace: openPlaceSheet,
         onOpenLineup: openLineupSheet,
+        onCalAdd: openCalAddSheet,
         onReset: resetFilters,
       });
   });

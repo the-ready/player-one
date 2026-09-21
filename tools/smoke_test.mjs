@@ -205,9 +205,31 @@ if (await calBtn.count()) {
     "カレンダーの追加先を選べる",
     (await page.locator(".cal-menu [data-cal]").count()) === 2,
   );
+  // どちらを選んでも、渡す前に日時を選ぶシートを必ず経由する（設計書 第5.10節）
+  await page.locator('.cal-menu [data-cal="ics"]').click();
+  await page.waitForTimeout(300);
+  const calAddSheet = page.locator("#calAddSheet");
+  check(
+    "カレンダーに追加する前に日時を選ぶ画面が開く",
+    (await calAddSheet.getAttribute("hidden")) === null &&
+      (await page.locator("#calAddDate").inputValue()) !== "",
+  );
+  await page.locator("#calAddAllDayChip").click();
+  check(
+    "終日にすると時刻欄が消える",
+    (await page.locator("#calAddTimes").getAttribute("hidden")) !== null,
+  );
+  await page.locator("#calAddTimedChip").click();
+  check(
+    "時刻を指定すると時刻欄が出る",
+    (await page.locator("#calAddTimes").getAttribute("hidden")) === null,
+  );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
-  check("メニューが閉じる", (await page.locator(".cal-menu").count()) === 0);
+  check(
+    "日時シートが閉じる",
+    (await calAddSheet.getAttribute("hidden")) !== null,
+  );
 }
 
 check(

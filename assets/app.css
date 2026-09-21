@@ -2593,6 +2593,44 @@ mark {
   color: #fff;
 }
 
+/* ---------- カレンダー追加シート（第5.10節） ----------
+   骨格は .map-sheet を使い回し、中身だけをここで定義する。 */
+.cal-add-mode {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem 0;
+}
+.cal-add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.7rem 1rem 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.cal-add-field input {
+  min-height: 44px;
+  border: 2.5px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.4rem 0.7rem;
+  font-size: 15px;
+  font-family: var(--font-body);
+  color: var(--text);
+}
+.cal-add-times {
+  display: flex;
+  gap: 0.7rem;
+}
+.cal-add-times .cal-add-field {
+  flex: 1;
+  min-width: 0;
+}
+.cal-add-times[hidden] {
+  display: none;
+}
+
 /* ---------- directory / footer ---------- */
 section.directory {
   background: var(--card);
