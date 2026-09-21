@@ -439,11 +439,13 @@ function addHours(hm, h) {
 }
 
 /** その行が指すイベント区間。override があればユーザーが選んだ1日・時刻を、
- *  無ければ行の会期全体（終日）を使う。日付が無ければ null。 */
+ *  無ければ行の会期全体（終日）を使う。日付が無ければ null。
+ *  終日にするかどうかは別のフラグを持たず、開始時刻の有無だけで決める
+ *  （画面側も同じ規則で、モードを選ばせない。設計書 第5.10節）。 */
 function resolveSpan(it, override) {
   if (override) {
-    const { date, allDay, startTime, endTime } = override;
-    if (allDay || !startTime) return allDaySpan(date, date);
+    const { date, startTime, endTime } = override;
+    if (!startTime) return allDaySpan(date, date);
     const end =
       endTime && endTime > startTime ? endTime : addHours(startTime, 2);
     return {
@@ -457,7 +459,7 @@ function resolveSpan(it, override) {
   return allDaySpan(start, it.endDate || it.startDate);
 }
 
-/** .ics を組む。override（{date, allDay, startTime, endTime}）を渡すと、
+/** .ics を組む。override（{date, startTime, endTime}）を渡すと、
  *  行の会期全体ではなくその1日・時刻だけの予定になる。 */
 export function buildIcs(it, override) {
   const span = resolveSpan(it, override);

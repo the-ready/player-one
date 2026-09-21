@@ -7,7 +7,10 @@
 
    端末（.ics）・Googleどちらを選んだときも同じシートを通す。Google の作成
    画面自体にも編集機能はあるが、渡す時点で正しい候補になっているほうが
-   手間が少なく、「端末だけ聞かれる」非対称も避けられる。 */
+   手間が少なく、「端末だけ聞かれる」非対称も避けられる。
+
+   入力欄は日付・開始（任意）・終了（任意）の3つだけで、終日か時刻指定かを
+   選ぶモードは持たない。時刻が空なら終日、入っていればその時刻の予定になる。 */
 
 import { buildIcs, gcalUrl } from "./cards.js";
 import { toast } from "./render.js";
@@ -40,26 +43,13 @@ function openGoogle(item, override) {
   else toast("日付が未登録のためカレンダーに追加できません");
 }
 
-/* 終日／時刻指定の切り替え。preset-chip と同じ見た目のトグルにしてある
-   （設計書 第5.10節：日時が決まっていない利用者ほど多いので、終日を
-   既定にし、時刻指定はいつでも選べる第二の選択肢として並べる）。 */
-function setMode(allDay) {
-  el.allDayChip.setAttribute("aria-pressed", String(allDay));
-  el.timedChip.setAttribute("aria-pressed", String(!allDay));
-  el.times.hidden = allDay;
-}
-const isAllDay = () => el.allDayChip.getAttribute("aria-pressed") === "true";
-
 export function initCalAddSheet() {
   el.sheet = document.getElementById("calAddSheet");
   if (!el.sheet) return;
   el.title = document.getElementById("calAddSheetTitle");
   el.help = document.getElementById("calAddSheetHelp");
   el.close = document.getElementById("calAddSheetClose");
-  el.allDayChip = document.getElementById("calAddAllDayChip");
-  el.timedChip = document.getElementById("calAddTimedChip");
   el.date = document.getElementById("calAddDate");
-  el.times = document.getElementById("calAddTimes");
   el.start = document.getElementById("calAddStart");
   el.end = document.getElementById("calAddEnd");
   el.submit = document.getElementById("calAddSubmit");
@@ -76,24 +66,21 @@ export function initCalAddSheet() {
     }
     trapTab(el.sheet, e);
   });
-  el.allDayChip.addEventListener("click", () => setMode(true));
-  el.timedChip.addEventListener("click", () => setMode(false));
   el.submit.addEventListener("click", onSubmit);
 }
 
+/* 終日か時刻指定かは選ばせず、開始時刻が入っているかどうかで決める
+   （設計書 第5.10節）。終了だけ入っている状態は入力の取りこぼしなので、
+   黙って終日にせず開始を促す。 */
 function onSubmit() {
   if (!currentItem || !el.date.value) return;
-  const allDay = isAllDay();
-  if (!allDay && !el.start.value) {
-    toast("開始時刻を入力してください");
+  const startTime = el.start.value;
+  const endTime = el.end.value;
+  if (endTime && !startTime) {
+    toast("開始時刻も入力してください");
     return;
   }
-  const override = {
-    date: el.date.value,
-    allDay,
-    startTime: allDay ? "" : el.start.value,
-    endTime: allDay ? "" : el.end.value,
-  };
+  const override = { date: el.date.value, startTime, endTime };
   const item = currentItem;
   if (currentTarget === "ics") downloadIcs(item, override);
   else openGoogle(item, override);
@@ -107,16 +94,15 @@ export function openCalAddSheet(item, target) {
   currentTarget = target;
   returnFocus = document.activeElement;
 
-  const hasTime = Boolean(item.startTime);
   el.title.textContent = `${item.title} をカレンダーに追加`;
   el.help.textContent =
-    target === "ics"
-      ? "追加する日付を選べます。時刻が決まっていなければ終日のままで構いません。"
-      : "Googleカレンダーに渡す日付を選べます。時刻が決まっていなければ終日のままで構いません。";
+    "行く日を選んでください。時刻を空のままにすると終日の予定として追加します。" +
+    (target === "ics"
+      ? ""
+      : "この内容でGoogleカレンダーの作成画面を開きます。");
   el.date.value = item.startDate || item.endDate || "";
   el.start.value = item.startTime || item.openTime || "";
   el.end.value = item.endTime || "";
-  setMode(!hasTime);
   el.submit.textContent =
     target === "ics" ? "端末のカレンダーに追加" : "Googleカレンダーを開く";
 
