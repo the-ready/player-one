@@ -18,7 +18,7 @@ import {
   facetCounts,
   flagCounts,
 } from "./filters.js";
-import { cardHtml, buildIcs, gcalUrl, ICON as CAL_ICON } from "./cards.js";
+import { cardHtml, ICON as CAL_ICON } from "./cards.js";
 import {
   STATES,
   activeTab,
@@ -116,7 +116,10 @@ function itemFromEl(el) {
 
 /* ---------- カード内の操作（委譲で1度だけ束ねる） ---------- */
 
-export function bindList(listEl, { onOpenPlace, onOpenLineup, onReset }) {
+export function bindList(
+  listEl,
+  { onOpenPlace, onOpenLineup, onCalAdd, onReset },
+) {
   listEl.addEventListener("click", (e) => {
     const toggle = e.target.closest(".detail-toggle");
     if (toggle) {
@@ -156,7 +159,7 @@ export function bindList(listEl, { onOpenPlace, onOpenLineup, onReset }) {
     if (!item) return;
     if (kind === "fav") doFav(item, act);
     else if (kind === "share") doShare(item);
-    else if (kind === "cal") openCalMenu(act, item);
+    else if (kind === "cal") openCalMenu(act, item, onCalAdd);
   });
 }
 
@@ -198,7 +201,9 @@ async function doShare(item) {
 
 /* カレンダーは端末のアプリ（.ics）と Googleカレンダーで手順がまったく違う。
    どちらかに決め打ちすると、片方の利用者には毎回ムダな往復が生まれるので選ばせる。
-   カード内に置くと端で切れるため、body 直下に fixed で出してビューポートに収める。 */
+   カード内に置くと端で切れるため、body 直下に fixed で出してビューポートに収める。
+   選んだ後の実処理（日時を選ぶシートを開く）は onCalAdd（ui-caladd.js）に
+   委ねる。render.js は一覧の描画が役目で、シートの開閉までは持たない。 */
 let calMenuEl = null;
 let calMenuScrollY = 0;
 export function closeCalMenu() {
@@ -207,7 +212,7 @@ export function closeCalMenu() {
   calMenuEl.remove();
   calMenuEl = null;
 }
-function openCalMenu(btn, item) {
+function openCalMenu(btn, item, onCalAdd) {
   if (calMenuEl && calMenuEl.owner === btn) {
     closeCalMenu();
     btn.focus();
@@ -245,13 +250,10 @@ function openCalMenu(btn, item) {
     if (!choice) return;
     const kind = choice.dataset.cal;
     closeCalMenu();
+    // シート側が「開いた瞬間の activeElement」へ戻り先を控えるので、
+    // シートを開く前に一旦ボタンへ戻しておく（メニュー削除後は body に落ちるため）。
     btn.focus();
-    if (kind === "ics") doIcs(item);
-    else {
-      const url = gcalUrl(item);
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      else toast("日付が未登録のためカレンダーに追加できません");
-    }
+    onCalAdd(item, kind);
   });
   menu.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -294,22 +296,6 @@ window.addEventListener(
   { passive: true },
 );
 window.addEventListener("resize", () => closeCalMenu());
-
-function doIcs(item) {
-  const ics = buildIcs(item);
-  if (!ics) {
-    toast("日付が未登録のためカレンダーに追加できません");
-    return;
-  }
-  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${item.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60)}.ics`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
 
 /* ---------- 調査元サイトの一覧 ---------- */
 
