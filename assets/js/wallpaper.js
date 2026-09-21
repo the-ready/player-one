@@ -561,7 +561,17 @@ export function layoutClouds(seed) {
     boxH = cloudsEl.clientHeight || 420;
   const reg = regions();
   const count = 3 + Math.floor(rng() * 4); // 3〜6個。毎回最低3個は出す
-  const LINES = reg.lines; // ここに雲を置くと字が読みにくいので避ける
+  // ここに雲を置くと字が読みにくいので避ける。雲は横に最大26px（--amp の上限）
+  // ドリフトするので、配置時点で重なっていなくても揺れの端で文字にかかりうる。
+  // その分だけ左右にマージンを足した矩形で判定する。
+  const DRIFT_MAX_PX = 26;
+  const driftPct = boxW > 0 ? (DRIFT_MAX_PX / boxW) * 100 : 0;
+  const LINES = reg.lines.map((ln) => ({
+    x0: ln.x0 - driftPct,
+    x1: ln.x1 + driftPct,
+    y0: ln.y0,
+    y1: ln.y1,
+  }));
   const placed = [];
 
   /* 1つ置く。relaxStack は、通常の「重なりは2枚まで」を諦めて
@@ -983,6 +993,26 @@ toggleBtn.addEventListener("click", () => {
   setMode(next);
   rememberMode(next);
 });
+
+/* ---- 雲の再配置 ----
+   layoutClouds は呼ばれた瞬間の文字の実測位置を避けるだけなので、
+   その後に文字の位置・折り返しが変わると避けた意味が無くなる。
+   2つのタイミングでこれが起きる。
+     - Webフォント（Zen Maru Gothic 等）の読み込み完了で文字の幅が変わる
+     - ウィンドウ幅・端末の向きが変わって折り返しが変わる
+   どちらも動的壁紙のときだけ、同じ cloudSeed で引き直す
+   （形・個数の乱数は変えず、避ける位置だけ最新にする）。 */
+function relayoutCloudsIfDynamic() {
+  if (hdr.classList.contains("wp-on")) layoutClouds(cloudSeed);
+}
+
+document.fonts?.ready?.then(relayoutCloudsIfDynamic);
+
+let cloudResizeTimer = null;
+new ResizeObserver(() => {
+  clearTimeout(cloudResizeTimer);
+  cloudResizeTimer = setTimeout(relayoutCloudsIfDynamic, 200);
+}).observe(cloudsEl);
 
 /* ---- 起動 ---- */
 drawSun();
