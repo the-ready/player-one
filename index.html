@@ -800,45 +800,33 @@
             ×
           </button>
         </div>
-        <p class="map-sheet-help" id="calAddSheetHelp"></p>
-        <div class="cal-add-mode" role="group" aria-label="登録のしかた">
+        <div class="cal-add-body">
+          <p class="cal-add-help" id="calAddSheetHelp"></p>
+          <div class="cal-add-field">
+            <label for="calAddDate">日付</label>
+            <input type="date" id="calAddDate" />
+          </div>
+          <div class="cal-add-times">
+            <div class="cal-add-field">
+              <label for="calAddStart"
+                >開始<span class="cal-add-opt">任意</span></label
+              >
+              <input type="time" id="calAddStart" />
+            </div>
+            <div class="cal-add-field">
+              <label for="calAddEnd"
+                >終了<span class="cal-add-opt">任意</span></label
+              >
+              <input type="time" id="calAddEnd" />
+            </div>
+          </div>
           <button
             type="button"
-            class="preset-chip"
-            id="calAddAllDayChip"
-            aria-pressed="true"
+            class="map-btn primary cal-add-submit"
+            id="calAddSubmit"
           >
-            終日
+            追加する
           </button>
-          <button
-            type="button"
-            class="preset-chip"
-            id="calAddTimedChip"
-            aria-pressed="false"
-          >
-            時刻を指定
-          </button>
-        </div>
-        <div class="cal-add-field">
-          <label for="calAddDate">日付</label>
-          <input type="date" id="calAddDate" />
-        </div>
-        <div class="cal-add-times" id="calAddTimes" hidden>
-          <div class="cal-add-field">
-            <label for="calAddStart">開始</label>
-            <input type="time" id="calAddStart" />
-          </div>
-          <div class="cal-add-field">
-            <label for="calAddEnd">終了（空欄なら開始の2時間後）</label>
-            <input type="time" id="calAddEnd" />
-          </div>
-        </div>
-        <div class="map-sheet-foot">
-          <div class="map-actions">
-            <button type="button" class="map-btn primary" id="calAddSubmit">
-              追加する
-            </button>
-          </div>
         </div>
       </div>
     </div>

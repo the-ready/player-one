@@ -214,15 +214,12 @@ if (await calBtn.count()) {
     (await calAddSheet.getAttribute("hidden")) === null &&
       (await page.locator("#calAddDate").inputValue()) !== "",
   );
-  await page.locator("#calAddAllDayChip").click();
+  // 終日/時刻指定はモードを選ばせず、時刻欄が空かどうかで決める
   check(
-    "終日にすると時刻欄が消える",
-    (await page.locator("#calAddTimes").getAttribute("hidden")) !== null,
-  );
-  await page.locator("#calAddTimedChip").click();
-  check(
-    "時刻を指定すると時刻欄が出る",
-    (await page.locator("#calAddTimes").getAttribute("hidden")) === null,
+    "時刻は任意の入力欄として常に出ている",
+    (await page.locator("#calAddStart").count()) === 1 &&
+      (await page.locator("#calAddEnd").count()) === 1 &&
+      (await page.locator("#calAddSheet .preset-chip").count()) === 0,
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
