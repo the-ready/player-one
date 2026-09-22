@@ -11,7 +11,7 @@ name: 週次収集の見張り
 
 on:
   schedule:
-    - cron: "0 20 * * *" # 毎日 05:00 JST
+    - cron: "0 19 * * *" # 毎日 04:00 JST
   workflow_dispatch:
 
 permissions:
