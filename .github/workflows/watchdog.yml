@@ -1,0 +1,109 @@
+name: 週次収集の見張り
+
+# weekly-collect.yml・routine-repair.yml は「動いたが失敗した」ことしか検知できない。
+# scheduleの発火自体が欠落する（GitHub Actions のschedule実行に保証時刻・保証実行が
+# 無いため負荷次第で間引かれることがある）・Pi/self-hosted runnerそのものが長期間
+# 沈黙している、といった「そもそも動いていない」はここでしか拾えない
+#（docs/DESIGN.md 第13.5節）。
+#
+# self-hosted（Pi）ではなく hosted runner で動かす。Pi自体が原因の障害は、
+# Pi上の何かでは原理的に検知できないため。
+
+on:
+  schedule:
+    - cron: "0 20 * * *" # 毎日 05:00 JST
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  actions: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 直近の成功実行を確認する
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // 収集は水木金の週3回。金曜の成功から次の水曜まで最大5日空くため、
+            // しきい値はそれより余裕を持たせた6日にする
+            // （5日空くのは正常運転であり、異常ではない）。
+            const STALE_DAYS = 6;
+            const WATCHDOG_LABEL = "routine-watchdog";
+
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "weekly-collect.yml",
+              status: "success",
+              per_page: 1,
+            });
+
+            const latest = runs.workflow_runs[0];
+            const ageMs = latest ? Date.now() - new Date(latest.created_at).getTime() : Infinity;
+            const ageDays = ageMs / (1000 * 60 * 60 * 24);
+            const stale = ageDays > STALE_DAYS;
+
+            core.info(
+              latest
+                ? `直近の成功実行: ${latest.created_at}（${ageDays.toFixed(1)}日前）`
+                : "成功実行が一度もありません"
+            );
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: WATCHDOG_LABEL,
+            });
+
+            if (stale) {
+              if (openIssues.length > 0) {
+                core.info(`既に見張りIssueが開いています: ${openIssues[0].html_url}（追加の起票はしません）`);
+                return;
+              }
+              const lastRunLine = latest
+                ? `直近の成功実行: [${latest.created_at}](${latest.html_url})（${ageDays.toFixed(1)}日前）`
+                : "成功実行の記録が一度もありません。";
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `週次収集が${STALE_DAYS}日以上成功していません`,
+                labels: [WATCHDOG_LABEL],
+                body: [
+                  `\`weekly-collect.yml\` の成功実行が ${STALE_DAYS} 日以上ありません。`,
+                  "",
+                  lastRunLine,
+                  "",
+                  "考えられる原因:",
+                  "- self-hosted runner（Pi）がオフライン、または `systemd: actions-runner.service` が停止している",
+                  "- GitHub Actions の schedule 自体が発火していない（negligible ではあるが起こりうる）",
+                  "- `CLAUDE_CODE_OAUTH_TOKEN` の失効など、認証まわりの問題",
+                  "",
+                  `[Actions の実行一覧](${context.payload.repository.html_url}/actions/workflows/weekly-collect.yml) と、Pi上の \`.claude/logs/\` を確認してください。`,
+                  "",
+                  "解消したらこのIssueをcloseしてください。次にstaleと判定されない限り、このワークフローが自動で新しいIssueを作ることはありません。",
+                ].join("\n"),
+              });
+              core.info("Issueを起票しました");
+            } else if (openIssues.length > 0) {
+              // 収まった: 開いたままの見張りIssueに一言添えてcloseする
+              for (const issue of openIssues) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `直近の成功実行を確認できました（${ageDays.toFixed(1)}日前）。自動でcloseします。`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: "closed",
+                });
+              }
+              core.info("回復を確認し、見張りIssueをcloseしました");
+            } else {
+              core.info("正常です");
+            }

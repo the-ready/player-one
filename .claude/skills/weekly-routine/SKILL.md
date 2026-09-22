@@ -1,6 +1,6 @@
 ---
 name: weekly-routine
-description: 週次データ収集ルーチンの実行手順。cron から claude -p の引数として起動される。収集スキルを1つ選んで最後まで回し、終了工程を通し切る。
+description: 週次データ収集ルーチンの実行手順。GitHub Actions の self-hosted runner から claude -p の引数として起動される。収集スキルを1つ選んで最後まで回し、終了工程を通し切る。
 disable-model-invocation: true
 argument-hint: "[kanto-event-collector|kanto-movie-collector|kanto-live-collector]"
 allowed-tools:
@@ -55,7 +55,7 @@ other  kanto-event-collector sonnet 3 haiku
 「渡された名簿のURLを開いて行を書く」で範囲が狭く、抜粋という手順書も付くので、Haiku で足りる。
 
 無人実行では、この表からスクリプトが決めた値が既に `--model` と環境変数で渡されている。**自分で選び直さない。**
-特定のスキルを試したいときは、crontab 側で `ROUTINE_SKILL=kanto-live-collector` のように環境変数を渡す
+特定のスキルを試したいときは、`weekly-collect.yml` を `workflow_dispatch` で手動起動し、`routine_skill` 入力に指定する
 （表より優先する。表に無いスキル名を渡すと起動時にエラーで止まる）。
 
 対話セッションで手動実行するときは `--model` も `ROUTINE_SKILL` も渡らないので、実行するスキルは対話の指示に従い、

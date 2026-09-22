@@ -1,0 +1,97 @@
+name: 週次データ収集
+
+# 起動の決定権を、ラズパイの crontab から GitHub Actions のスケジュールへ移した。
+# 実行そのものは今までどおり同じ Raspberry Pi 4 が行う——self-hosted runner として
+# `.claude/scripts/claude-routine.sh` を起動するだけで、収集の中身（曜日→スキルの対応・
+# 波の分け方・検証・push の可否）は一切変えていない。詳しい経緯は docs/DESIGN.md 第13章。
+#
+# 曜日→スキルの対応は `.claude/skills/weekly-routine/SKILL.md` の ```schedule ブロックが
+# 正本で、このワークフローは持たない（claude-routine.sh がそこを読む）。ここでは
+# 「いつ発火するか」だけを決める。
+
+on:
+  schedule:
+    # 水木金 02:30 JST = 前日火水木 17:30 UTC。
+    # `.claude/skills/weekly-routine/SKILL.md` の```scheduleブロックは水木金の3行
+    # （event/movie/live）だけがこの自動実行の対象で、`other`行（それ以外の曜日を
+    # kanto-event-collectorに落とす）は自動実行の一部ではない——ユーザーが
+    # workflow_dispatchで任意の曜日に手動実行（シミュレーション）したときの既定値
+    # として存在する。そのためscheduleは水木金の3日だけに絞る。
+    # GitHub Actions の schedule は毎時00分台が混みやすく遅延・欠落しやすいため、
+    # あえて :30 に置いている（docs/DESIGN.md 第13.3節）。
+    - cron: "30 17 * * 2,3,4"
+  workflow_dispatch:
+    inputs:
+      routine_skill:
+        description: "実行するスキルを固定する（(自動選択)なら曜日から選ぶ）"
+        required: false
+        type: choice
+        options:
+          - "(自動選択)"
+          - kanto-event-collector
+          - kanto-live-collector
+          - kanto-movie-collector
+        default: "(自動選択)"
+      push:
+        description: "検証を通った回を実際に push する"
+        required: false
+        type: boolean
+        default: true
+
+# 同じ Pi 上で weekly-collect と routine-repair を同時に走らせない。
+# self-hosted runner は既定で直列実行だが、それとは別に「同じ作業ツリーを
+# 2つのワークフローが同時にいじらない」という意図をここに明示しておく
+# （routine-repair.yml も同じグループ名を使う）。
+concurrency:
+  group: weekly-routine
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: [self-hosted, player-one-pi]
+    # Actions 側のジョブ上限（hosted runner の6時間相当の目安を踏襲）より
+    # 少し短く切って、内側の claude-routine.sh 自身のタイムアウトが必ず先に
+    # 発火するようにする。外側で強制終了されると検証・push・ログの整理が
+    # 一切できないまま終わり、routine-repair.yml 任せになってしまうため
+    # （そちらは「機械的な後始末」しかしない設計。docs/DESIGN.md 第13.4節）。
+    timeout-minutes: 340
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # 既定の clean:true は git clean -ffdx を実行し、.gitignore 対象の
+          # .claude/logs/・data/.prev/・data/.robots/・data/.run/ も含めて
+          # 未追跡ファイルを毎回消してしまう。ログの蓄積や前回分の退避を
+          # 失いたくないので、このrunner専用の作業ツリーでは明示的に無効化する
+          # （追跡ファイルの内容は checkout が通常どおり origin の状態へ揃える。
+          # 影響するのは「未追跡ファイルを消すか」だけ）。
+          clean: false
+
+      - name: 週次ルーチンを実行
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # claude-routine.sh 自身のタイムアウト（秒）。上の timeout-minutes より
+          # 余裕を持って短く（5時間）——超過後も検証・push・ログ整理の時間を残す。
+          ROUTINE_TIMEOUT_SEC: "18000"
+          ROUTINE_PUSH: ${{ (github.event.inputs.push == 'false') && '0' || '1' }}
+          # 「(自動選択)」を空文字列に読み替えたい場合、`cond && '' || x` という書き方は
+          # 使えない——空文字列はfalsyなので && が真になっても直後の || がそれを
+          # 飛び越して x 側を返してしまう（実際にこの書き方で「(自動選択)」という
+          # 文字列がそのままROUTINE_SKILLに渡り、対応表に無い値としてdieする不具合を
+          # シミュレーションで検出した）。真の枝が常に非空文字列になるよう、
+          # 「3つの実在スキルのどれかに含まれるか」で判定する形にしている。
+          ROUTINE_SKILL: ${{ contains(fromJSON('["kanto-event-collector","kanto-live-collector","kanto-movie-collector"]'), github.event.inputs.routine_skill) && github.event.inputs.routine_skill || '' }}
+        run: .claude/scripts/claude-routine.sh
+
+      - name: 実行ログを保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routine-log-${{ github.run_id }}
+          path: .claude/logs/routine_*.log
+          retention-days: 30
+          if-no-files-found: ignore

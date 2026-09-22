@@ -17,7 +17,7 @@ description: "Collect Kanto-area movie and screening data for the next 6 months 
 
 ## 取得してよいもの・いけないもの（着手前に読むこと）
 
-このタスクは cron から週次で自動実行される。**「人が調べているのと同じ」ではなく機械的なアクセスである。**
+このタスクは GitHub Actions の self-hosted runner から週3回（水木金）自動実行される。**「人が調べているのと同じ」ではなく機械的なアクセスである。**
 
 1. **`robots.txt` が `Allow` している範囲だけを取得する。** サイト単位ではなく**URL単位**で見る
 2. **収集後に拒否の意思が示されたと分かったサイトは、由来する行を消し、`data/sources.json` からも外す**

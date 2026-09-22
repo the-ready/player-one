@@ -26,7 +26,7 @@ description: "Collect live concert and music festival data for the Kanto region 
 
 ## 取得してよいもの・いけないもの（着手前に読むこと）
 
-このタスクは cron から週次で自動実行される。**「人が調べているのと同じ」ではなく機械的なアクセスである。**
+このタスクは GitHub Actions の self-hosted runner から週3回（水木金）自動実行される。**「人が調べているのと同じ」ではなく機械的なアクセスである。**
 
 1. **`robots.txt` が `Allow` している範囲だけを取得する。** サイト単位ではなく**URL単位**で見る
 2. **収集後に拒否の意思が示されたと分かったサイトは、由来する行を消し、`data/sources.json` からも外す**
@@ -602,7 +602,7 @@ python3 tools/prev_rows.py lives --venue Kアリーナ横浜   # 前回の url /
 - **波は `subagent_type: "kanto-collector-worker"` で起動する。** 事前定義したエージェント（`.claude/agents/kanto-collector-worker.md`）で、**`maxTurns: 60` が入っている**。`general-purpose` で投げると——`subagent_type` を書かないと既定でそうなる——この上限は一切効かない。**指定の無い波は `agent-guard.sh` が拒否する**
 - **1体が回るターン数は60でハーネスが打ち切る。** 取得回数ではなくターン数で数えること——2026-08-27 の実測は取得202回に対しターン426回で、`--help` の読み直しや作業用スクリプトがその差である。担当範囲を小さく割れば下がる。`budget.py --report` が「最長の子◯ターン」を出す（第11.6節）。**打ち切られるのは応答であってファイルではない**ので、子に「1件書けるたびに `temp/rows-*.jsonl` へ追記する」と守らせておけば、そこまでの成果は必ず残る（下の項目1）。2026-09-05 の events は1体が188ターン、2026-09-17 の movies は1体が167ターン回り、どちらも文脈再送を使い切って残りの工程を一度も実行できずに撤退した——**目安として書いてあるだけでは守られなかった**ので、上限そのものを起動の形に移してある
 - **波を投げる前に `python3 tools/budget.py --report` を見る。** 投げてしまうと、動いている子に割り込む手段が無い。「新しい波を投げないでください」が出ていたら、そこで探索を終えて終了工程へ進む
-- **波の途中でも、撤退の線（40M）を越えた取得は自動で止まる。** `fetch_page.py` と `WebSearch` は呼び出しのたびにこの線を見ており、越えていれば取得せずに「ここまでの行を temp/rows-*.jsonl に書いてターンを終えること」という指示が返る（`.claude/hooks/fetch-budget-guard.sh` → `tools/budget.py --gate-fetch`）。これは子自身の取得にも掛かるので、**子が指示を読んでいなくても働く**——最初の波そのものが線を越えて打ち切られた2026-09-04の実例を受けた仕組みである
+- **波の途中でも、撤退の線（40M）を越えた取得は自動で止まる。** `fetch_page.py` と `WebSearch` は呼び出しのたびにこの線を見ており、越えていれば取得せずに「ここまでの行を temp/rows-\*.jsonl に書いてターンを終えること」という指示が返る（`.claude/hooks/fetch-budget-guard.sh` → `tools/budget.py --gate-fetch`）。これは子自身の取得にも掛かるので、**子が指示を読んでいなくても働く**——最初の波そのものが線を越えて打ち切られた2026-09-04の実例を受けた仕組みである
 - **1波の体数は自分で数えなくてよい。** `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` が上限を与える（**このスキルは3体**）。超えた起動は `Concurrent subagent limit reached` で失敗する
 
 `venues.csv` の152会場は133ホストに分散しているので、3体を都県で分けてもホストは競合しない。
