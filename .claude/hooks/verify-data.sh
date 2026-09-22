@@ -20,7 +20,8 @@ set -u
 INPUT="$(cat)"
 
 # 自分が原因で作業が続いている状態でさらにブロックすると、同じ検証を延々と
-# 繰り返して 8回の上限に当たるだけになる。2周目からは黙って通す。
+# 繰り返して 8回の上限に当たるだけになる。2周目からは「壊れていないか」の
+# 検証（下記）だけ黙って通す——price の下限は対象外（下記コメント参照）。
 # 読み出しに jq が使えなければ python3 で読む。どちらも無ければ false 扱いで
 # 進む——ここは「2周目なら黙って通す」ための最適化でしかなく、判定できない場合に
 # 検証をやめる理由にはならない（下の出力側は、判定できないなら止める側に倒す）。
@@ -32,7 +33,10 @@ elif command -v python3 >/dev/null 2>&1; then
 try: print(str(json.load(sys.stdin).get("stop_hook_active", False)).lower())
 except Exception: print("false")' 2>/dev/null)"
 fi
-[ "$stop_active" = "true" ] && exit 0
+# price の下限（report_stats --check-fresh）には控えが無い唯一の門なので、
+# 2周目も無条件で通すと催促が実質的に効かなくなる。ここでは exit せず、
+# 下の各ブロックで stop_active を見て「壊れていないか」の検証（purge_ended・
+# validate_data・diff_data・run_gate）だけを2周目からスキップする。
 
 REPO_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -n "$REPO_DIR" ] && [ -d "$REPO_DIR/data" ] || exit 0
@@ -103,6 +107,11 @@ else
   printf '%s\n' "$changed_csv" | grep -q "data/movies.csv" && DATASETS="$DATASETS movies"
 fi
 
+# price の下限（下記）は stop_active を見ずに毎回検証する。ここから下の
+# 「壊れていないか」の検証4本（purge_ended・validate_data・diff_data・
+# run_gate）だけ、2周目以降は stop_active でスキップする。
+if [ "$stop_active" != "true" ]; then
+
 # 終了日を過ぎた行を先に機械的に片付ける。終了日と今日を比べるだけの判断で、
 # モデルの確認を要らないので、検証で落として直させるのではなくここで直接適用する
 # （決定論的に守らせたい規則はフックに置く。設計書 第9.1.5節）。説明のない消滅を
@@ -145,6 +154,8 @@ if [ "$IS_ROUTINE" -eq 1 ]; then
   fi
 fi
 
+fi # stop_active による「壊れていないか」検証4本のスキップ、ここまで
+
 # 今週あらたに書いた行が、中核の列で下限を割っていないか。
 #
 # 2026-09-02 の events は、この門が無いまま ERROR 0 で通ってコミットされた。
@@ -170,7 +181,8 @@ fi
 # **コミットの門（claude-routine.sh）には足さない。** あちらで落とすと data/ が
 # 巻き戻り、価格が薄いことを理由に**その週の収集がまるごと消える**——薄い週より
 # 悪い結果になる。ここで止めれば、捨てずにその場で集め直せる。
-# Stop フックは2周目に素通しするので、これは「1回だけの強い催促」である。
+# stop_active でもスキップしない（上のコメント参照）ので、実際に埋めるか
+# `--allow-thin` で承知するまで、ターンを終えようとするたびに繰り返し止める。
 case "${ROUTINE_SKILL:-}" in
   kanto-event-collector) FRESH_DS="events" ;;
   kanto-live-collector)  FRESH_DS="lives" ;;
@@ -210,7 +222,7 @@ build_reason() {
     # このリポジトリの散文はコマンド名をバッククォートで囲む書き方で統一して
     # あるので、フックの文面でも同じ書き方が安全に通る形にしておく。
     cat <<'SOFT'
-**この門はコミットを止めません。** 検証（validate_data.py / diff_data.py）が通っていれば、今週の収集はそのまま保存されます。止めているのはこのターンだけで、催促は1回だけです。
+**この門はコミットを止めません。** 検証（validate_data.py / diff_data.py）が通っていれば、今週の収集はそのまま保存されます。ただし、ここは埋めるか `--allow-thin` で承知するまで、ターンを終えようとするたびに繰り返し止めます。
 **だからこそ、推測で埋めて通さないこと。** 確認していない料金を書くのは、このスキルが最も強く禁じている行為です（空欄のほうが正しい）。予算が残っているなら、会場の料金ページを開いて実際に集めてください——残りは `python3 tools/budget.py --report` で確認できます。
 本当に確認できないものばかりだったなら、`report_stats.py` に `--allow-thin <列名>` を付けて承知したことにし、**その理由を報告に書いてください**。
 SOFT

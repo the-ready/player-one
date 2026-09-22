@@ -37,10 +37,10 @@ arguments: skill
 
 ```schedule
 # 曜日(date +%u: 1=月 2=火 3=水 4=木 5=金 6=土 7=日) スキル 親モデル 同時実行数 子モデル
-3      kanto-event-collector sonnet 3 haiku
+3      kanto-event-collector sonnet 3 sonnet
 4      kanto-movie-collector sonnet 2 inherit
 5      kanto-live-collector  sonnet 3 inherit
-other  kanto-event-collector sonnet 3 haiku
+other  kanto-event-collector sonnet 3 sonnet
 ```
 
 **この表が唯一の正本である。** `claude-routine.sh` はこのブロックをそのまま読んで `ROUTINE_SKILL`・`--model`・
@@ -52,7 +52,13 @@ other  kanto-event-collector sonnet 3 haiku
 ここを弱いモデルにすると被害が全工程に及ぶ。2026-09-02 の events は親も子も Haiku で走り、親が
 `skill_brief.py` の抜粋を貼らずに自作の1〜2KBの指示に要約した結果、**価格の列が指示から丸ごと落ちて
 新規90件の `price_official` が0件**になった（`docs/routine-postmortems.md`）。子の仕事は
-「渡された名簿のURLを開いて行を書く」で範囲が狭く、抜粋という手順書も付くので、Haiku で足りる。
+「渡された名簿のURLを開いて行を書く」で範囲が狭く、抜粋という手順書も付くので、Haiku で足りる
+（この判断自体は変えていない）。
+
+**2026-09-22時点、events の子は一時的に Sonnet にしている。** movies・lives の子は既に Sonnet で
+毎週動いており、実コストが$1.64〜$7.93の幅で同じサブスクリプションの範囲内に収まっている実績がある
+ため、events も同程度に収まると判断したための変更である（詳細は `docs/DESIGN.md` 第9.3.8節）。
+費用面の懸念が無いと分かれば、上の表の `sonnet`（子のモデル列）を `haiku` に戻す想定でいる。
 
 無人実行では、この表からスクリプトが決めた値が既に `--model` と環境変数で渡されている。**自分で選び直さない。**
 特定のスキルを試したいときは、`weekly-collect.yml` を `workflow_dispatch` で手動起動し、`routine_skill` 入力に指定する
@@ -146,14 +152,15 @@ git の書き込みは行わない（`.claude/routines/invariants.md` の規則�
 - **1体に渡す範囲の大きさは、スキルの抜粋に具体的な上限がある。** `maxTurns` は上から止めるだけで、
   **入る大きさに割る仕事は親が先にやる**。上限はスキルごとに違う——実測の単価が1桁違うためである
 
-  | スキル | 1波の1体に渡す上限 | 実測の単価 | 推定ターン数 |
-  | --- | --- | --- | ---: |
-  | events | 20〜25施設 | 1.0〜1.5 ターン/施設 | 30〜38 |
-  | movies | 前回 tier A/B 15件 | 2.78 ターン/行 | 42 |
+  | スキル | 1波の1体に渡す上限 | 実測の単価           | 推定ターン数 |
+  | ------ | ------------------ | -------------------- | -----------: |
+  | events | 20〜25施設         | 1.0〜1.5 ターン/施設 |       30〜38 |
+  | movies | 前回 tier A/B 15件 | 2.78 ターン/行       |           42 |
 
   どちらも60ターンに対して18〜30ターンの余裕を残してある。**余裕は無駄ではない**
   ——会場の通信障害（DNS不通・SSL証明書不一致・タイムアウト）の連鎖だけで、
   2026-09-04 の lives は1体が141ターンまで膨らんでいる
+
 - worktree 隔離は使わない（書き込まないので隔離する対象が無く、名簿の更新まで破棄される）
 
 前景で起動していても、**1回の呼び出しが長時間に及ぶ設計**なら同じように全損する
