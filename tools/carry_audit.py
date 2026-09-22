@@ -48,6 +48,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import budget                                                 # noqa: E402
+from validate_data import EXPECTED_HEADERS                    # noqa: E402
 
 # この列を持たないデータセットでは何も見ない。`price_checked` は「今日その価格を
 # 確認した」という主張そのもので、持ち越しが禁じられている列（`append_rows.py` の
@@ -131,6 +132,13 @@ def audit(name, records, today=None):
     place_col = PLACE_COL.get(name)
     delta, total = _fetch_delta()
     _remember_fetch(total)
+
+    # そのデータセットが `price_checked` を**列として持っている**ことを確かめる。
+    # 行に入っているかどうかで見ると、lives のように列を持たないCSVでも、子が
+    # 間違えて付けた `price_checked` を根拠に判定してしまう（`append_rows.py` が
+    # 「ない列があります」と警告して捨てる値であり、判断の根拠にはできない）。
+    if CHECKED_COL not in EXPECTED_HEADERS.get(name, ()):
+        return None
 
     if place_col is None or not records:
         return None

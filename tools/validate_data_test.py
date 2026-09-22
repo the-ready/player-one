@@ -194,6 +194,47 @@ def _():
     return "同じ催しの可能性があります" in msg or f"挙がりませんでした: {msg}"
 
 
+@check("包含: プレフィックスが付いただけの実際の重複を拾う（編集距離では届かない）")
+def _():
+    # data/events.csv に実在した組。編集距離は 0.70 に届かないが、
+    # 短いほうが長いほうの末尾に丸ごと入っており、長さ比も 0.40 を超える。
+    msg = _dup_messages([
+        _row(title="開園120周年記念 三溪園大茶会", venue="三溪園",
+             start_date="2026-10-01", end_date="2026-10-02"),
+        _row(title="三溪園大茶会", venue="三溪園",
+             start_date="2026-10-01", end_date="2026-10-02"),
+    ])
+    return "同じ催しの可能性があります" in msg or f"挙がりませんでした: {msg}"
+
+
+@check("包含: 短い題は長さ比で落とす（ワークショップ問題の再発防止）")
+def _():
+    msg = _dup_messages([
+        _row(title="ワークショップ", venue="印刷博物館", start_date="2026-09-01", end_date="2026-09-30"),
+        _row(title="「ひらく、めくる、めぐるー印刷博物館の美しい印刷」常設ワークショップ",
+             venue="印刷博物館", start_date="2026-09-01", end_date="2026-09-30"),
+    ])
+    return msg == "" or f"短い題を拾いました: {msg}"
+
+
+@check("包含: 題の途中に含まれるだけでは拾わない（先頭か末尾のみ）")
+def _():
+    msg = _dup_messages([
+        _row(title="秋の特別展について", venue="V", start_date="2026-09-01", end_date="2026-11-30"),
+        _row(title="特別展あき", venue="V", start_date="2026-09-01", end_date="2026-11-30"),
+    ])
+    return msg == "" or f"中間一致で拾いました: {msg}"
+
+
+@check("長さ比の足切りは、編集距離の判定を変えない（2r/(1+r) が 0.70 に届かない）")
+def _():
+    # r=0.40 のときの上限は 0.571。足切りで落ちる組が DUP_TITLE_MIN を超えることは
+    # 構造的に起きない——この不等式が崩れたら、足切りは判定を変える最適化になる。
+    r = vd.DUP_LEN_RATIO_MIN
+    return (2 * r) / (1 + r) < vd.DUP_TITLE_MIN or \
+        f"足切りが判定を変えます: 上限{2*r/(1+r):.3f} >= しきい値{vd.DUP_TITLE_MIN}"
+
+
 @check("会場が空欄の行では判定しない（束ねる手がかりが無い）")
 def _():
     msg = _dup_messages([
