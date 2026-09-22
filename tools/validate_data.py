@@ -16,11 +16,14 @@
 """
 
 import csv
+import difflib
 import json
 import os
 import re
 import sys
 from datetime import date
+
+from rowkey import norm, title_key, uid
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -92,6 +95,29 @@ EXPECTED_HEADERS = {
 
 # 開始日の列名はファイルごとに違う
 START_COL = {"events.csv":"start_date", "movies.csv":"release_date", "lives.csv":"start_date"}
+
+# 同一CSV内の重複を探すときの「場所の列」。`rowkey.natural_key()` が同定に使う列と
+# 同じものを指している（あちらは uid を作り、こちらは uid が一致しなかった組を拾う）。
+PLACE_COL = {"events.csv":"venue", "movies.csv":"theater", "lives.csv":"venue"}
+
+# 単位を伴わない `price`。`2600` のような裸の数字は、券種も通貨も分からないので
+# 表示に使えない。2026-08-30 の実行では、会場トップページに載っていた何らかの数字
+# （友の会年会費・共通券など）が、会場内の複数の展覧会に `2600` として使い回された
+# ——正しい値は `一般2,300円` と `一般1,200円` だった。「価格は整形して書く」は散文に
+# あったが機械チェックが無く、書いた瞬間には誰も気づけなかった（docs/skill-feedback.md
+# 2026-09-21）。カンマ区切りだけの `2,300` も同じ理由で拾う。
+BARE_PRICE_RE = re.compile(r"^[\d,]+$")
+
+# 同一CSV内の重複候補と見なすタイトルの近さ。`rowkey.similarity()` ではなく
+# 編集距離（SequenceMatcher）だけを使う——あちらは「共通する文字がどれだけ含まれて
+# いるか」も見るので、`ワークショップ` のような短い題が、その文字を含むだけの
+# 無関係な行すべてに 1.0 で一致してしまう。週をまたぐ差分照合（消えた行 × 現れた行）
+# なら候補が絞られているので問題にならないが、同一CSV内では全対が候補になる。
+#
+# 0.70 は実データで決めた。2026-08-30 の重複を含む390行に当てると22組を挙げ、
+# その中に「大英博物館日本美術コレクション」（`一般2,300円` / `2600`）と
+# 「この場所の風景」（`一般1,200円` / `2600`）という、手作業で見つかった当の2組が入る。
+DUP_TITLE_MIN = 0.70
 SERIES_COL = {"events.csv":"series_id", "movies.csv":"series_id", "lives.csv":"tour_id"}
 
 # 名簿の「名前の列」。roster.py の ROSTERS と対応させる。
@@ -504,6 +530,16 @@ def validate_main(name, rows, enums, rep):
         if (po or pb) and not (r.get("price_checked") or "").strip():
             rep.warn(where, "価格があるのに price_checked（確認日）がありません")
 
+        # 表示にそのまま出る `price` が、単位を伴わない裸の数字になっていないか。
+        # `price_official` が整数なのは仕様（比較に使う数値の列）だが、`price` は
+        # 券種ごとの案内文であり、`おとな2,800円／小中学生1,300円` のように書く。
+        price_raw = (r.get("price") or "").strip()
+        if price_raw and BARE_PRICE_RE.fullmatch(price_raw):
+            rep.warn_many(where, "price が単位のない裸の数字（券種も通貨も分かりません）",
+                          f"price が {price_raw!r} です。"
+                          "券種と円表記を付けてください（例: 一般2,300円）。"
+                          "会場トップの数字を使い回していないかも確かめること")
+
         sid = (r.get(series_col) or "").strip()
         if sid:
             series_count[sid] = series_count.get(sid, 0) + 1
@@ -511,6 +547,68 @@ def validate_main(name, rows, enums, rep):
     for sid, n in series_count.items():
         if n < 2:
             rep.warn(f"{name}", f"{series_col}={sid!r} の行が1件しかありません（シリーズは2件以上で意味を持ちます）")
+
+    check_same_file_duplicates(name, rows, rep)
+
+
+def check_same_file_duplicates(name, rows, rep):
+    """同じCSVの中に、同じ催しが2行として入っていないかを見る。
+
+    `uid`（タイトル・会場・日付の正規化キー）が一致する重複は `append_rows.py` が
+    追記の時点で弾く。**弾けないのは、タイトルの表記が違う重複である。**
+
+    2026-08-30 の週次実行は、1回の実行の中で同じ展覧会を2つの経路から書き込んだ。
+    「既存行の再確認」が前週の整形済みの行（`一般2,300円`・展覧会個別ページのURL）を
+    書き戻し、同じ実行内の「エリア軸の探索」が同じ展覧会を新規として追記した
+    （`pref` 空欄・`price` は `2600` という裸の数字・URLは会場のトップページ）。
+    タイトルに `東京都美術館開館100周年記念` というプレフィックスが付くかどうかだけの
+    違いで uid が一致せず、**3週間以上、362行になるまで誰も気づかなかった**
+    （`docs/skill-feedback.md` 2026-09-21）。
+
+    見つけ方は「同じ会場 × 会期が完全に一致 × タイトルが近い」。会期を「重なる」ではなく
+    「完全に一致」に絞っているのは、同じ会場で同時期に走る別の企画（スタジオツアーの
+    アフタヌーンティーとハイティーなど）を毎週挙げ続けないためである。実データでの
+    当たり方は `DUP_TITLE_MIN` の注記にある。
+
+    ERROR にはしない。**同じ会場・同じ会期の別企画は実在する**ので、機械が確定できる
+    のは「見るべき組がここにある」までである。消すか残すかは中身を見ないと決まらない。
+    """
+    place_col = PLACE_COL.get(name)
+    start_col = START_COL[name]
+    if not place_col:
+        return
+
+    groups = {}
+    for i, r in enumerate(rows, start=2):
+        # 新作の行は `theater` が上映チェーンの一覧で、`rowkey.natural_key()` も
+        # 同定から外している（週によってチェーンが増減するため）。ここで場所ごとに
+        # 束ねると、同じチェーンで公開される無関係な新作が全部1つの組になる。
+        if name == "movies.csv" and (r.get("screening_type") or "").strip().startswith("new"):
+            continue
+        place = norm((r.get(place_col) or "").split("|")[0])
+        start = (r.get(start_col) or "").strip()
+        if not place or not start:
+            continue
+        end = (r.get("end_date") or "").strip() or start
+        groups.setdefault((place, start, end), []).append((i, r))
+
+    for items in groups.values():
+        for x in range(len(items)):
+            for y in range(x + 1, len(items)):
+                i, a = items[x]
+                j, b = items[y]
+                if uid(name, a) == uid(name, b):
+                    continue          # append_rows.py が弾く側。ここで二重に言わない
+                ratio = difflib.SequenceMatcher(None, title_key(a), title_key(b)).ratio()
+                if ratio < DUP_TITLE_MIN:
+                    continue
+                rep.warn_many(
+                    f"{name}:{i},{j}",
+                    "同一CSV内に重複の候補（同じ会場・同じ会期・似たタイトル）",
+                    f"{i}行目と{j}行目が同じ催しの可能性があります（類似度{ratio:.2f}）: "
+                    f"{(a.get('title') or '')[:40]!r} / {(b.get('title') or '')[:40]!r}。"
+                    "別の企画なら何もしなくてよく、同じ催しなら片方を残して "
+                    "prev_rows.py --dispose で処分を記録すること")
 
 
 def validate_master(name, rows, enums, rep):

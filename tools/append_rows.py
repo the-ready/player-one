@@ -49,6 +49,7 @@ import os
 import sys
 
 import budget
+import carry_audit
 import prev_rows as prevmod
 import roster
 from rowkey import uid as row_uid
@@ -497,6 +498,17 @@ def main():
     if not records:
         raise SystemExit("ERROR: 標準入力からJSONLを読み込めませんでした（空です）")
 
+    # 「前回CSVの言い換え」の判定は、`prepare_records()` **より前**に取る。
+    # `apply_carryover()` が `_carry` を pop してしまうので、あとからでは数えられない。
+    # 出力は追記が成功したあと（下）に回す——ここで出すと、追記が失敗した波にも
+    # 警告だけが残って、何が起きたのかが読みにくくなる。
+    try:
+        carry_warning = carry_audit.audit(name, records)
+    except Exception as e:                                    # noqa: BLE001
+        carry_warning = None
+        print(f"WARNING: 持ち越しの監査に失敗しました（追記には影響しません）: "
+              f"{type(e).__name__}: {e}", file=sys.stderr)
+
     headers, path, records, filled, misses, regressions, start_id = prepare_records(name, records)
     write_rows(path, headers, records)
 
@@ -528,6 +540,9 @@ def main():
     except Exception as e:                                    # noqa: BLE001
         print(f"WARNING: 進捗表示に失敗しました（追記自体は成功しています）: "
               f"{type(e).__name__}: {e}", file=sys.stderr)
+    if carry_warning:
+        print(f"  WARNING: {carry_warning}", file=sys.stderr)
+
     for i, title, uid_ in misses:
         print(f"  WARNING: {i}件目「{title}」は _carry を指定していますが、"
               f"前回に uid={uid_} の行がありません（新規行なら _carry は不要です）",

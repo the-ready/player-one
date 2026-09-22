@@ -54,7 +54,20 @@
 # 「抜粋を渡す」だけは機械的に確認できる（指示にパスが書いてあるか）ので、
 # ここを門にする。抜粋さえ届けば、残りの4項目は抜粋の中にある。
 #
-# ## 四つめ —— 残量が尽きているのに投げること
+# ## 四つめ —— 事前定義していないサブエージェントで投げること
+#
+# 「1体が回るターン数を60以下に収める」は3つのSKILL.mdが以前から書いている規則で、
+# **書いてあるだけでは守られなかった。** 2026-09-05 の events は1体が188ターン、
+# 2026-09-17 の movies は1体が167ターン回り、どちらも残りの工程を一度も実行できない
+# まま撤退している（docs/skill-feedback.md）。指示文の目安には子への強制力が無い。
+#
+# 強制力を持てる場所は1つしかない。`.claude/agents/*.md` の `maxTurns` である
+# （cli.js 2.1.278 で確認：クエリループが超過時に max_turns_reached で打ち切る）。
+# ただしこれはエージェント定義に属する設定なので、`subagent_type` を
+# `general-purpose` のままにすると一切効かない。**定義を置いただけでは守られない**
+# ——上の3つと同じ壊れ方をするので、ここも門にする。
+#
+# ## 五つめ —— 残量が尽きているのに投げること
 #
 # 同じ位置で「まだ投げてよい残量があるか」も見る（tools/budget.py --gate）。
 # 25M で新しい波を止め、40M で撤退させる線は、これまで --report の表示でしか
@@ -96,6 +109,56 @@ fi
 [ -n "$BG" ] || BG="__PARSE_FAILED__"
 
 if [ "$BG" = "false" ]; then
+  # 起動する「種類」を見る。事前定義した収集用のエージェントでなければ止める。
+  #
+  # 倒し方は上の run_in_background と同じで、**未指定も拒否する**。Agent ツールの
+  # 既定は general-purpose であり、書かなければ黙ってそちらになる——`maxTurns` は
+  # エージェント定義に属する設定なので、既定に落ちた瞬間に一切効かなくなる。
+  # 「既定に依存した書き方が、既定のまま黙って壊れる」のはこの種のガードで最も
+  # 起きやすい壊れ方なので、明示を求める。
+  #
+  # 一方、入力そのものを解析できなかったとき（python3 が無い等）は通す
+  # ——判定できないことを理由に収集そのものを止めるのは行き過ぎである
+  # （背景起動の判定を拒否側に倒しているのとは、守っている対象が違う）。
+  #
+  # ROUTINE_SKILL が収集スキルのときだけ見る。source-optout のように収集ではない
+  # 作業を週次ルーチンから走らせる余地を残しておくためである。
+  WORKER_AGENT="kanto-collector-worker"
+  case "${ROUTINE_SKILL:-}" in
+    kanto-event-collector|kanto-live-collector|kanto-movie-collector)
+      if command -v python3 >/dev/null 2>&1; then
+        SUB_TYPE="$(printf '%s' "$INPUT" | python3 -c 'import json,sys
+try:
+    v = json.load(sys.stdin).get("tool_input", {}).get("subagent_type", "__ABSENT__")
+except Exception:
+    print("__PARSE_FAILED__"); raise SystemExit(0)
+print("__ABSENT__" if v in (None, "__ABSENT__") else str(v))' 2>/dev/null)"
+        [ -n "$SUB_TYPE" ] || SUB_TYPE="__PARSE_FAILED__"
+        if [ "$SUB_TYPE" = "__ABSENT__" ]; then
+          SUB_TYPE="未指定（既定の general-purpose になります）"
+        fi
+        if [ "$SUB_TYPE" != "__PARSE_FAILED__" ] && [ "$SUB_TYPE" != "$WORKER_AGENT" ]; then
+          cat >&2 <<MSG
+サブエージェントの種類が ${SUB_TYPE} になっています。収集の波は ${WORKER_AGENT} で起動してください。
+
+  subagent_type: "${WORKER_AGENT}"
+
+この指定でしか効かない設定が2つあります（.claude/agents/${WORKER_AGENT}.md）。
+
+  - maxTurns: 60 —— 1体が60ターンを超えたところでハーネスが打ち切ります。
+    2026-09-05 の events は1体が188ターン、2026-09-17 の movies は1体が167ターン回り、
+    どちらも文脈再送を使い切って残りの工程を一度も実行できずに撤退しました。
+  - 「1件書けるたびに temp/rows-*.jsonl へ追記する」という固定の注意書き。
+    打ち切られるのは応答であってファイルではないので、逐次追記していれば成果は残ります。
+
+担当範囲・波の名前・抜粋のパスは、これまでどおり prompt に書いてください。
+MSG
+          exit 2
+        fi
+      fi
+      ;;
+  esac
+
   # 前の波の結果がCSVに入っているかを見る。入っていなければ止める。
   #
   # exit 1（未消化あり）でだけ拒否する。**判定できないときの exit 2 や、

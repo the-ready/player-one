@@ -47,6 +47,8 @@ python3 tools/read_gate_test.py    # 安い代替のある大物の全文 Read�
 python3 tools/reply_gate_test.py   # 子の返答が「パスと件数だけ」か
 python3 tools/bash_gate_test.py    # 検証の出力の切り詰めと curl/wget（report_stats・localhost は見ないこと）
 python3 tools/fetch_mix_test.py    # WebFetch 偏重の催促が「1度だけ」であること
+python3 tools/validate_data_test.py # 裸の数字の price と、同一CSV内の重複候補の判定
+python3 tools/carry_audit_test.py  # 波が「前回CSVの言い換え」になっていないかの判定
 ```
 
 Prettier は保存時にフックで自動実行される（`.claude/hooks/format-file.sh`）。手で整形しない。
@@ -73,7 +75,8 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 8. `tools/report_stats.py` の `CORE` / `BALANCE`（充足率と分布の計算対象）
 9. `docs/DESIGN.md` 第10章の列数と `docs/COLLECTION-PROTOCOL.md` 第4章の持ち越し表
 
-> **`~/.claude/skills/` への複製は、この機械には存在しない**（2026-08-19 時点。`ls ~/.claude/skills` が無い）。
+> **`~/.claude/skills/` に収集スキルの複製は無い**（2026-09-22 時点）。ディレクトリ自体は存在するが、
+> 中身はアカウント側から同期される別のスキル（`synced/`）と `session-start-hook` だけである。
 > 収集スキルはリポジトリ内の `.claude/skills/` からプロジェクトスキルとして直接読まれている。
 > 複製を運用に戻すなら、ここに「複製の手動同期」を10番目として足すこと
 > ——古い複製が呼ばれると、列の規則だけが先週のままになる。
