@@ -10,7 +10,7 @@ venue,kind,pref,area,capacity,lat,lng,url,status,closed_until,first_seen,last_hi
 武蔵野の森総合スポーツプラザ,arena,tokyo,東京都・調布市,10000,35.6625,139.5283,https://www.musashinonomori.tokyo/,active,,2026-08-02,,0,
 東京ガーデンシアター,arena,tokyo,東京都・江東区,8000,35.6378,139.7921,https://www.bellesalle.co.jp/ariake_event-hall/visitor/index.php,active,,2026-08-02,2026-08-29,3,
 大田区総合体育館,arena,tokyo,東京都・大田区,4000,35.5622,139.7169,https://www.ota-gym.jp/,active,,2026-08-02,,0,
-東京国際フォーラム ホールA,hall,tokyo,東京都・千代田区,5012,35.6764,139.7639,https://www.t-i-forum.co.jp/,active,,2026-08-02,2026-08-29,3,総称: 東京国際フォーラム
+東京国際フォーラム ホールA,hall,tokyo,東京都・千代田区,5012,35.6764,139.7639,https://www.t-i-forum.co.jp/,active,,2026-08-02,2026-09-23,4,総称: 東京国際フォーラム
 NHKホール,hall,tokyo,東京都・渋谷区,3601,35.6672,139.6975,https://www.nhk-sc.or.jp/nhk_hall/,active,,2026-08-02,2026-08-08,1,
 東京ドームシティホール,hall,tokyo,東京都・文京区,3000,35.7047,139.7528,https://www.tokyo-dome.co.jp/hall/,active,,2026-08-02,,0,ネーミングライツにより2025年4月1日〜2028年3月31日の契約で「Kanadevia Hall（カナデビアホール）」に改称
 東京文化会館,hall,tokyo,東京都・台東区,2303,35.7147,139.7758,https://www.t-bunka.jp/,active,,2026-08-02,,0,
@@ -34,7 +34,7 @@ LINE CUBE SHIBUYA,hall,tokyo,東京都・渋谷区,1956,35.6647,139.6975,https:/
 日経ホール,hall,tokyo,東京都・千代田区,610,35.6889,139.7624,https://www.nikkei-hall.com/,active,,2026-08-07,,0,
 Hakuju Hall,hall,tokyo,東京都・渋谷区,300,35.6674,139.6902,https://www.hakujuhall.jp/,active,,2026-08-07,2026-09-04,1,リクライニング席使用時162席・固定席使用時300席
 Zepp Haneda(TOKYO),livehouse,tokyo,東京都・大田区,3000,35.5497,139.7458,https://www.zepp.co.jp/hall/haneda/,active,,2026-08-02,2026-09-04,5,
-豊洲PIT,livehouse,tokyo,東京都・江東区,3000,35.6486,139.7986,https://toyosu.pia-pit.jp/,active,,2026-08-02,2026-09-04,2,
+豊洲PIT,livehouse,tokyo,東京都・江東区,3000,35.6486,139.7986,https://toyosu.pia-pit.jp/,active,,2026-08-02,2026-09-23,3,
 Zepp DiverCity(TOKYO),livehouse,tokyo,東京都・江東区,2473,35.6250,139.7756,https://www.zepp.co.jp/hall/divercity/,active,,2026-08-02,2026-09-04,2,
 EX THEATER ROPPONGI,livehouse,tokyo,東京都・港区,1746,35.6612,139.7272,https://www.ex-theater.com/,active,,2026-08-07,,0,収容人数はスタンディング時。着席時920席
 Zepp Shinjuku(TOKYO),livehouse,tokyo,東京都・新宿区,1500,35.6939,139.7036,https://www.zepp.co.jp/hall/shinjuku/,active,,2026-08-02,2026-09-04,2,
@@ -57,7 +57,7 @@ TOKYO ODAIBA ULTRA PARK,outdoor,tokyo,東京都・江東区,,35.6197,139.7756,ht
 横浜スタジアム,dome,kanagawa,神奈川県・横浜市中区,34000,35.4433,139.6400,https://www.yokohama-stadium.co.jp/,active,,2026-08-02,2026-08-27,2,
 Kアリーナ横浜,arena,kanagawa,神奈川県・横浜市西区,20000,35.4644,139.6285,https://k-arena.com/,active,,2026-08-02,2026-08-29,2,
 横浜アリーナ,arena,kanagawa,神奈川県・横浜市港北区,17000,35.5116,139.6178,https://www.yokohama-arena.co.jp/,active,,2026-08-02,2026-08-29,2,
-ぴあアリーナMM,arena,kanagawa,神奈川県・横浜市西区,12000,35.4589,139.6339,https://pia-arena-mm.jp/,active,,2026-08-02,2026-08-29,3,
+ぴあアリーナMM,arena,kanagawa,神奈川県・横浜市西区,12000,35.4589,139.6339,https://pia-arena-mm.jp/,active,,2026-08-02,2026-09-23,4,
 横浜武道館,arena,kanagawa,神奈川県・横浜市中区,5000,35.4444,139.6389,https://y-budokan.jp/,active,,2026-08-02,,0,
 パシフィコ横浜 国立大ホール,hall,kanagawa,神奈川県・横浜市西区,5002,35.4600,139.6367,https://www.pacifico.co.jp/,active,,2026-08-02,2026-08-08,1,
 神奈川県民ホール,hall,kanagawa,神奈川県・横浜市中区,2493,35.4462,139.6470,https://www.kanagawa-kenminhall.com/,active,,2026-08-07,,0,老朽化のため2025年3月31日から休館中。建替えによる再整備方針が示されているが再開時期は未定
