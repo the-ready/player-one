@@ -80,6 +80,7 @@ docs/
   DESIGN.md                   設計書。何をどう決めたかと、その理由
   COLLECTION-PROTOCOL.md      3つの収集スキルが共有する手順とその理由（差分・持ち越し・予算）
   skill-feedback.md           収集ルールの変更提案（適用は人間が判断する）と、小さなバグの自己修正ログの置き場
+  figures/                    設計書の図（週次収集の全体の流れ: DESIGN.md 第13.8節）
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/
   pages.yml                     push / 週次収集の完了(workflow_run) で Pages へデプロイ
