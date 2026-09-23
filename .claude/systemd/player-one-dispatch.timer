@@ -1,0 +1,19 @@
+# 水木金 02:30 JST に weekly-collect.yml を起動する（docs/DESIGN.md 第13.3節）。
+# 曜日は .claude/skills/weekly-routine/SKILL.md の ```schedule ブロック（水木金）と、
+# 時刻は .github/workflows/collect-fallback.yml の予備起動（UTC 火水木）と揃えること
+# （tools/collect_fallback_test.mjs が3か所のずれを検出する）。
+
+[Unit]
+Description=週次データ収集を水木金 02:30 JST に起動する
+
+[Timer]
+# Pi の時刻帯設定に依らないよう、時刻帯を明示する
+OnCalendar=Wed..Fri *-*-* 02:30:00 Asia/Tokyo
+AccuracySec=1s
+# 停止中に過ぎた回を起動後に取り戻さない。その回は collect-fallback.yml が既に
+# 起動を依頼しており（ジョブは Pi の復帰を待って走る）、取り戻すと収集が2回走るため。
+Persistent=false
+Unit=player-one-dispatch.service
+
+[Install]
+WantedBy=timers.target

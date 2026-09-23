@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1350" viewBox="0 0 1120 1350" role="img" aria-labelledby="t d">
+  <title id="t">週次データ収集の流れ</title>
+  <desc id="d">Raspberry Pi のタイマーが水木金 02:30 JST に weekly-collect.yml を起動し、Pi 上の self-hosted runner で claude-routine.sh・親エージェント・子エージェントが収集し、検証を通った回だけ push されて GitHub Pages に公開される流れ。予備起動・自動修復・見張りを含む。docs/DESIGN.md 第13.8節。</desc>
+  <defs>
+    <style>
+      text { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', 'IPAPGothic', sans-serif; fill: #1f2328; font-size: 12px; }
+      .h1 { font-size: 20px; font-weight: 700; }
+      .sub { font-size: 12.5px; fill: #57606a; }
+      .lane { font-size: 15px; font-weight: 700; fill: #ffffff; }
+      .ttl { font-size: 13.5px; font-weight: 700; }
+      .note { font-size: 11px; fill: #57606a; }
+      .lbl { font-size: 11px; fill: #1f2328; }
+      .lbl-blue { font-size: 11px; fill: #1f4e8c; font-weight: 700; }
+      .lbl-red { font-size: 11px; fill: #b42318; font-weight: 700; }
+      .num { font-size: 11px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
+      .chip { font-size: 10.5px; font-weight: 700; }
+      .chip-w { fill: #ffffff; }
+      .chip-b { fill: #1f4e8c; }
+      .ok { fill: #1a7f37; font-weight: 700; }
+      .ng { fill: #b42318; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #7c8a9e; stroke-width: 1.2; }
+      .claude { fill: #fdf1e9; stroke: #d97757; stroke-width: 1.6; }
+      .flow { fill: none; stroke: #1f2328; stroke-width: 1.6; }
+      .flow-blue { fill: none; stroke: #1f4e8c; stroke-width: 1.6; stroke-dasharray: 6 4; }
+      .flow-red { fill: none; stroke: #b42318; stroke-width: 1.6; stroke-dasharray: 6 4; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f2328"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e8c"/></marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker>
+  </defs>
+
+  <!-- 背景（ダークテーマの閲覧でも読めるよう、白地を明示する） -->
+  <rect x="0" y="0" width="1120" height="1350" fill="#ffffff"/>
+
+  <text x="36" y="38" class="h1">週次データ収集の流れ（水木金 02:30 JST 起動 → 収集 → 検証 → 公開）</text>
+  <text x="36" y="60" class="sub">左は自宅の Raspberry Pi で動くもの、右は GitHub のクラウドで動くもの。丸数字は docs/DESIGN.md 第13.8節の説明の番号。</text>
+
+  <!-- ===== レーン ===== -->
+  <rect x="16" y="76" width="660" height="1180" rx="10" fill="#f1f8f1" stroke="#9cc79f"/>
+  <rect x="16" y="76" width="660" height="40" rx="10" fill="#2e7d32"/>
+  <rect x="16" y="100" width="660" height="16" fill="#2e7d32"/>
+  <text x="36" y="102" class="lane">Raspberry Pi 4（自宅・self-hosted runner「player-one-pi」）</text>
+
+  <rect x="692" y="76" width="412" height="1180" rx="10" fill="#eef3fb" stroke="#9db4d9"/>
+  <rect x="692" y="76" width="412" height="40" rx="10" fill="#1f4e8c"/>
+  <rect x="692" y="100" width="412" height="16" fill="#1f4e8c"/>
+  <text x="712" y="102" class="lane">GitHub（クラウド: Actions・リポジトリ・Pages）</text>
+
+  <!-- ===== 1 タイマー ===== -->
+  <rect x="36" y="136" width="290" height="108" rx="8" class="box"/>
+  <circle cx="54" cy="154" r="11" fill="#2e7d32"/><text x="54" y="158" class="num">1</text>
+  <text x="72" y="159" class="ttl">systemd タイマー</text>
+  <rect x="258" y="144" width="56" height="20" rx="10" fill="#2e7d32"/><text x="286" y="158" class="chip chip-w" text-anchor="middle">02:30</text>
+  <text x="52" y="183">player-one-dispatch.timer</text>
+  <text x="52" y="200">水木金 02:30:00（Asia/Tokyo を明示）</text>
+  <text x="52" y="217">秒単位で正確（Pi の時計は NTP）</text>
+  <text x="52" y="234">停止中に過ぎた回は取り戻さない</text>
+
+  <!-- ===== 2 起動の依頼 ===== -->
+  <rect x="346" y="136" width="310" height="108" rx="8" class="box"/>
+  <circle cx="364" cy="154" r="11" fill="#2e7d32"/><text x="364" y="158" class="num">2</text>
+  <text x="382" y="159" class="ttl">dispatch-routine.sh</text>
+  <text x="362" y="183">weekly-collect.yml の起動を API で依頼</text>
+  <text x="362" y="200">通信断・5xx・429 だけ再試行（最悪 約12分）</text>
+  <text x="362" y="217">再送の前に「実は届いていたか」を確かめる</text>
+  <text x="362" y="234">トークン: fine-grained PAT（Actions のみ）</text>
+  <path d="M326,190 L344,190" class="flow" marker-end="url(#a)"/>
+
+  <!-- ===== 3 weekly-collect.yml ===== -->
+  <rect x="712" y="136" width="372" height="108" rx="8" class="box"/>
+  <circle cx="730" cy="154" r="11" fill="#1f4e8c"/><text x="730" y="158" class="num">3</text>
+  <text x="748" y="159" class="ttl">weekly-collect.yml（実行の受付）</text>
+  <text x="728" y="183">schedule は持たない。起動は workflow_dispatch だけ</text>
+  <text x="728" y="200">concurrency: weekly-routine（修復と直列）</text>
+  <text x="728" y="217">runs-on: [self-hosted, player-one-pi]</text>
+  <text x="728" y="234">→ 実際の処理は Pi に割り当てられる</text>
+  <path d="M656,176 L710,176" class="flow" marker-end="url(#a)"/>
+  <text x="684" y="169" class="lbl" text-anchor="middle">API</text>
+
+  <!-- 3 → 5 ジョブの割り当て -->
+  <path d="M712,228 L684,228 L684,303 L658,303" class="flow" marker-end="url(#a)"/>
+
+  <!-- ===== 4 予備起動 ===== -->
+  <rect x="712" y="272" width="372" height="150" rx="8" fill="#ffffff" stroke="#1f4e8c" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <circle cx="730" cy="290" r="11" fill="#1f4e8c"/><text x="730" y="294" class="num">4</text>
+  <text x="748" y="295" class="ttl">予備: collect-fallback.yml</text>
+  <rect x="728" y="306" width="96" height="19" rx="9.5" fill="#dbe7fb"/><text x="776" y="319.5" class="chip chip-b" text-anchor="middle">hosted runner</text>
+  <rect x="830" y="306" width="118" height="19" rx="9.5" fill="#1f4e8c"/><text x="889" y="319.5" class="chip chip-w" text-anchor="middle">02:50・04:50 JST</text>
+  <text x="728" y="345">枠の10分前以降に実行が無ければ、代わりに起動</text>
+  <text x="728" y="362">→ routine-timer の Issue で知らせる</text>
+  <text x="728" y="379">起動済みなら何もしない（タイマー回復で close）</text>
+  <text x="728" y="396">枠から20時間を過ぎたら起動しない</text>
+  <text x="728" y="413" class="note">（JST の日付をまたぐと別の曜日のスキルが走るため）</text>
+  <path d="M1000,272 L1000,247" class="flow-blue" marker-end="url(#ab)"/>
+  <text x="994" y="263" class="lbl-blue" text-anchor="end">未起動の枠だけ</text>
+
+  <!-- ===== 14 見張り ===== -->
+  <rect x="712" y="446" width="372" height="104" rx="8" class="box"/>
+  <circle cx="730" cy="464" r="11" fill="#1f4e8c"/><text x="730" y="468" class="num">14</text>
+  <text x="748" y="469" class="ttl">見張り: watchdog.yml（独立に毎日）</text>
+  <rect x="728" y="480" width="96" height="19" rx="9.5" fill="#dbe7fb"/><text x="776" y="493.5" class="chip chip-b" text-anchor="middle">hosted runner</text>
+  <rect x="830" y="480" width="104" height="19" rx="9.5" fill="#1f4e8c"/><text x="882" y="493.5" class="chip chip-w" text-anchor="middle">毎日 04:00 JST</text>
+  <text x="728" y="519">weekly-collect の成功が6日以上無ければ</text>
+  <text x="728" y="536">→ routine-watchdog の Issue（回復で自動 close）</text>
+
+  <!-- ===== 15 Issue ===== -->
+  <rect x="712" y="574" width="372" height="118" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="1.2"/>
+  <circle cx="730" cy="592" r="11" fill="#9a6700"/><text x="730" y="596" class="num">15</text>
+  <text x="748" y="597" class="ttl">人への通知（GitHub Issue）</text>
+  <text x="728" y="621">・routine-timer: タイマーが起動しなかった枠（4）</text>
+  <text x="728" y="640">・routine-watchdog: 6日以上成功が無い（14）</text>
+  <text x="728" y="659">・修復できなかった回（13 が起票）</text>
+  <text x="728" y="681" class="note">人が直すもの: Pi の停止・トークンや認証の期限切れ</text>
+
+  <!-- ===== 5 runner ===== -->
+  <rect x="36" y="272" width="620" height="62" rx="8" class="box"/>
+  <circle cx="54" cy="290" r="11" fill="#2e7d32"/><text x="54" y="294" class="num">5</text>
+  <text x="72" y="295" class="ttl">actions-runner（systemd 常駐のサービス）がジョブを受け取る</text>
+  <text x="52" y="321">checkout（clean: false で前回の logs・data/.prev を残す）→ claude-routine.sh を起動（上限5時間）</text>
+  <path d="M346,334 L346,352" class="flow" marker-end="url(#a)"/>
+
+  <!-- ===== claude-routine.sh の枠 ===== -->
+  <rect x="36" y="354" width="620" height="680" rx="10" fill="#fafdfa" stroke="#6aa56d" stroke-width="1.4"/>
+  <text x="52" y="378" class="ttl">claude-routine.sh（シェル。git と検証は Claude ではなく、ここが受け持つ）</text>
+
+  <!-- 6 前処理 -->
+  <rect x="56" y="392" width="580" height="84" rx="8" class="box"/>
+  <circle cx="74" cy="410" r="11" fill="#2e7d32"/><text x="74" y="414" class="num">6</text>
+  <text x="92" y="415" class="ttl">前処理</text>
+  <text x="72" y="436">ロック → git fetch + fast-forward → push 権限の事前確認 → 認証期限の確認</text>
+  <text x="72" y="453">曜日→スキル表（weekly-routine の schedule ブロック）でスキル・モデル・体数を決める</text>
+  <text x="72" y="468" class="note">水 events（子3体）／ 木 movies（子2体）／ 金 lives（子3体）。親向けの抜粋を作り、予算を数え直す</text>
+  <path d="M346,476 L346,492" class="flow" marker-end="url(#a)"/>
+  <text x="354" y="489" class="lbl">claude -p を起動（不変規則をシステムプロンプトに載せる）</text>
+
+  <!-- 7 親エージェント -->
+  <rect x="56" y="494" width="580" height="206" rx="8" class="claude"/>
+  <circle cx="74" cy="512" r="11" fill="#d97757"/><text x="74" y="516" class="num">7</text>
+  <text x="92" y="517" class="ttl">親エージェント  claude -p "/weekly-routine"（Sonnet）</text>
+  <text x="72" y="541" font-weight="700">役割: 棚卸し・分割・起動・追記・検証（ページの取得は子に任せる）</text>
+  <text x="72" y="563">1. 親向けの抜粋 temp/brief-parent-*.md を読む</text>
+  <text x="72" y="580">2. append_rows --init（前回の CSV を data/.prev/ へ退避）</text>
+  <text x="72" y="597">3. prev_rows --worklist で前回行を棚卸しし、担当範囲に割る</text>
+  <text x="72" y="614">4. 子への手順書 temp/brief-*.md を作り、波を投げる</text>
+  <text x="72" y="631">5. 波が返ったら temp/rows-*.jsonl を append_rows で data/*.csv へ</text>
+  <text x="72" y="648">6. 終了工程: purge_ended → dispose → carry-rest → diff・validate → report</text>
+  <text x="72" y="672" class="note">縛り: invariants.md（常にシステムプロンプト）と各種フック（git 禁止・予算の線・取得の門・全文 Read 禁止）</text>
+  <text x="72" y="689" class="note">波を投げてよいかは時間ではなく、文脈再送の線（25M で新しい波を止め、40M で撤退）で決める</text>
+
+  <!-- 7 ⇄ 8 -->
+  <path d="M200,700 L200,726" class="flow" marker-end="url(#a)"/>
+  <text x="208" y="717" class="lbl">波を起動（前景）</text>
+  <path d="M470,726 L470,702" class="flow" marker-end="url(#a)"/>
+  <text x="478" y="717" class="lbl">パスと件数だけ返す</text>
+
+  <!-- 8 子エージェント（重ねたカードで複数体を表す） -->
+  <rect x="80" y="752" width="556" height="156" rx="8" class="claude" opacity="0.55"/>
+  <rect x="68" y="740" width="556" height="156" rx="8" class="claude" opacity="0.8"/>
+  <rect x="56" y="728" width="556" height="156" rx="8" class="claude"/>
+  <circle cx="74" cy="746" r="11" fill="#d97757"/><text x="74" y="750" class="num">8</text>
+  <text x="92" y="751" class="ttl">子エージェント  kanto-collector-worker × 同時2〜3体</text>
+  <text x="72" y="775" font-weight="700">役割: 渡された範囲（名簿の一部・前回行）の調査だけ</text>
+  <text x="72" y="797">・temp/brief-*.md と worklist を読んでから始める</text>
+  <text x="72" y="814">・名簿の URL を fetch_page.py で直接開く（robots.txt と間隔はフックが強制）</text>
+  <text x="72" y="831">・1件書けるたびに temp/rows-&lt;波&gt;.jsonl へ追記。data/ には書かない</text>
+  <text x="72" y="848">・60ターンで打ち切り（それまでの追記は残る）。孫エージェントは起動できない</text>
+  <text x="72" y="872" class="note">モデルは表の5列目（現在は Sonnet）。取得先は各会場・予約サイト（外部）</text>
+
+  <!-- 7 → 9（親が終わったらシェルの検証へ） -->
+  <path d="M56,690 L45,690 L45,966 L54,966" class="flow" marker-end="url(#a)"/>
+
+  <!-- 9 検証 -->
+  <rect x="56" y="926" width="580" height="94" rx="8" class="box"/>
+  <circle cx="74" cy="944" r="11" fill="#2e7d32"/><text x="74" y="948" class="num">9</text>
+  <text x="92" y="949" class="ttl">検証（コミットの門番。Claude の終了後にシェルが回す）</text>
+  <text x="72" y="972">carry-rest --apply → purge_ended → run_gate → validate_data → diff_data</text>
+  <text x="72" y="993" class="ok">すべて通過 → commit して push</text>
+  <text x="72" y="1010" class="ng">1つでも失敗 → 生成物を logs/failed/ に退避し data/ を戻す（実行は failure）</text>
+
+  <!-- ===== 10 push ===== -->
+  <path d="M636,978 L710,978" class="flow" marker-end="url(#a)"/>
+  <text x="674" y="971" class="lbl" text-anchor="middle">push</text>
+  <rect x="712" y="946" width="372" height="64" rx="8" class="box"/>
+  <circle cx="730" cy="964" r="11" fill="#1f4e8c"/><text x="730" y="968" class="num">10</text>
+  <text x="748" y="969" class="ttl">main へ「週次データ更新」を push</text>
+  <text x="728" y="997" class="note">GITHUB_TOKEN の push は他のワークフローの push を発火しない</text>
+
+  <!-- ===== 11 pages ===== -->
+  <path d="M898,1010 L898,1032" class="flow" marker-end="url(#a)"/>
+  <rect x="712" y="1034" width="372" height="94" rx="8" class="box"/>
+  <circle cx="730" cy="1052" r="11" fill="#1f4e8c"/><text x="730" y="1056" class="num">11</text>
+  <text x="748" y="1057" class="ttl">pages.yml（公開）</text>
+  <rect x="728" y="1066" width="96" height="19" rx="9.5" fill="#dbe7fb"/><text x="776" y="1079.5" class="chip chip-b" text-anchor="middle">hosted runner</text>
+  <text x="728" y="1103">workflow_run・成功した回だけ → GitHub Pages へ</text>
+  <text x="728" y="1120" class="note">（routine-repair が修復して push した回も同じ）</text>
+
+  <!-- ===== 12 routine-repair.yml ===== -->
+  <path d="M636,1012 L690,1012 L690,1172 L710,1172" class="flow-red" marker-end="url(#ar)"/>
+  <text x="696" y="1026" class="lbl-red">失敗時</text>
+  <rect x="712" y="1152" width="372" height="80" rx="8" fill="#ffffff" stroke="#b42318" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <circle cx="730" cy="1170" r="11" fill="#b42318"/><text x="730" y="1174" class="num">12</text>
+  <text x="748" y="1175" class="ttl">routine-repair.yml（自動修復）</text>
+  <text x="728" y="1199">workflow_run・success 以外で終わった回</text>
+  <text x="728" y="1216">→ ジョブを同じ Pi に割り当てる</text>
+
+  <!-- ===== 13 repair-routine.sh ===== -->
+  <path d="M712,1212 L658,1212" class="flow-red" marker-end="url(#ar)"/>
+  <rect x="36" y="1152" width="620" height="80" rx="8" fill="#ffffff" stroke="#b42318" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <circle cx="54" cy="1170" r="11" fill="#b42318"/><text x="54" y="1174" class="num">13</text>
+  <text x="72" y="1175" class="ttl">repair-routine.sh（Claude は起動しない）</text>
+  <text x="52" y="1199">失敗した回の作業ツリーのまま、carry-rest・purge_ended・検証を機械的にやり直す</text>
+  <text x="52" y="1216">通れば commit して push（→ 11 で公開）／通らなければ退避して Issue を起票（→ 15）</text>
+
+  <!-- ===== 凡例 ===== -->
+  <path d="M36,1286 L84,1286" class="flow" marker-end="url(#a)"/><text x="92" y="1290">通常の流れ</text>
+  <path d="M176,1286 L224,1286" class="flow-blue" marker-end="url(#ab)"/><text x="232" y="1290">予備の起動</text>
+  <path d="M316,1286 L364,1286" class="flow-red" marker-end="url(#ar)"/><text x="372" y="1290">失敗したとき</text>
+  <rect x="468" y="1277" width="30" height="18" rx="4" class="claude"/><text x="506" y="1290">Claude のエージェント</text>
+  <rect x="652" y="1277" width="30" height="18" rx="4" class="box"/><text x="690" y="1290">シェル・ワークフロー（Claude なし）</text>
+  <rect x="36" y="1306" width="96" height="19" rx="9.5" fill="#dbe7fb"/><text x="84" y="1319.5" class="chip chip-b" text-anchor="middle">hosted runner</text>
+  <text x="140" y="1320">GitHub のクラウド上のマシンで動く（Pi が止まっていても動く）。印の無い GitHub 側の箱は受付・記録だけで、処理は Pi が行う</text>
+</svg>

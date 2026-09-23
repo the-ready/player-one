@@ -51,6 +51,15 @@ python3 tools/validate_data_test.py # 裸の数字の price と、同一CSV内�
 python3 tools/carry_audit_test.py  # 波が「前回CSVの言い換え」になっていないかの判定
 ```
 
+収集の起動の仕組み（`.claude/scripts/dispatch-routine.sh`・`install-dispatch-timer.sh`・`.claude/systemd/`・
+`.github/workflows/collect-fallback.yml`・`.github/scripts/`・`weekly-collect.yml` の `on:`）を変えた回はこちらも回す。
+起動時刻は3か所（タイマー・予備の cron・予備の判定の定数）が別々に持っており、後者のテストがずれを検出する（`docs/DESIGN.md` 第13.3節）。
+
+```bash
+python3 tools/dispatch_routine_test.py # Pi 側の起動（再試行・二重起動の防止・トークンを漏らさない）と導入スクリプト
+node tools/collect_fallback_test.mjs   # 予備起動の判定と、起動時刻を持つ3か所の整合
+```
+
 Prettier は保存時にフックで自動実行される（`.claude/hooks/format-file.sh`）。手で整形しない。
 CSV・Python・シェルは対象外（prettier に parser が無い）。
 

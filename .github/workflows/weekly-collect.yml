@@ -1,25 +1,20 @@
 name: 週次データ収集
 
-# 起動の決定権を、ラズパイの crontab から GitHub Actions のスケジュールへ移した。
-# 実行そのものは今までどおり同じ Raspberry Pi 4 が行う——self-hosted runner として
+# 実行は Raspberry Pi 4 が self-hosted runner として行う。このワークフローは
 # `.claude/scripts/claude-routine.sh` を起動するだけで、収集の中身（曜日→スキルの対応・
-# 波の分け方・検証・push の可否）は一切変えていない。詳しい経緯は docs/DESIGN.md 第13章。
+# 波の分け方・検証・push の可否）はスクリプトの側が持つ。詳しくは docs/DESIGN.md 第13章。
 #
 # 曜日→スキルの対応は `.claude/skills/weekly-routine/SKILL.md` の ```schedule ブロックが
-# 正本で、このワークフローは持たない（claude-routine.sh がそこを読む）。ここでは
-# 「いつ発火するか」だけを決める。
+# 正本で、このワークフローは持たない（claude-routine.sh がそこを読む）。
 
 on:
-  schedule:
-    # 水木金 02:30 JST = 前日火水木 17:30 UTC。
-    # `.claude/skills/weekly-routine/SKILL.md` の```scheduleブロックは水木金の3行
-    # （event/movie/live）だけがこの自動実行の対象で、`other`行（それ以外の曜日を
-    # kanto-event-collectorに落とす）は自動実行の一部ではない——ユーザーが
-    # workflow_dispatchで任意の曜日に手動実行（シミュレーション）したときの既定値
-    # として存在する。そのためscheduleは水木金の3日だけに絞る。
-    # GitHub Actions の schedule は毎時00分台が混みやすく遅延・欠落しやすいため、
-    # あえて :30 に置いている（docs/DESIGN.md 第13.3節）。
-    - cron: "30 17 * * 2,3,4"
+  # schedule は持たない。GitHub Actions の schedule は数時間遅れることがあるため
+  # （2026-09-22 は2時間46分）、起動はすべて workflow_dispatch で受ける（docs/DESIGN.md 第13.3節）:
+  #   - 水木金 02:30 JST: Raspberry Pi の systemd タイマー（.claude/systemd/player-one-dispatch.timer）
+  #   - タイマーが起動しなかった枠: 予備の collect-fallback.yml（hosted runner）が遅れて代わりに起動
+  #   - 任意の曜日の手動実行（シミュレーション）
+  # 自動実行は水木金だけで、`.claude/skills/weekly-routine/SKILL.md` の```schedule ブロックの
+  # `other` 行は手動実行したときの既定値として存在する。
   workflow_dispatch:
     inputs:
       routine_skill:
