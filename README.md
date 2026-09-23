@@ -38,6 +38,9 @@ data/                         週次で差し替えるデータ。ここだけ�
 .claude/scripts/              GitHub Actions self-hosted runner からの入口
   claude-routine.sh             pull → 実行 → 検証 → 通った回だけ commit/push
   repair-routine.sh             失敗回の機械的な後始末だけを行う（Claudeは起動しない）
+  dispatch-routine.sh           ラズパイのタイマーから呼ばれ、weekly-collect.yml を起動する
+  install-dispatch-timer.sh     上のタイマーをラズパイに入れる（トークンの差し替えも）
+.claude/systemd/              起動のタイマー（水木金02:30 JST）とサービスのユニット
 tools/                        収集タスク用のスクリプト
   validate_data.py            CSVの検証
   append_rows.py              バッチ追記・退避つき初期化・列単位の持ち越し
@@ -80,9 +83,12 @@ docs/
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/
   pages.yml                     push / 週次収集の完了(workflow_run) で Pages へデプロイ
-  weekly-collect.yml            水木金02:30 JSTに発火し、self-hosted runner(ラズパイ)上で収集を実行
+  weekly-collect.yml            ラズパイのタイマーから水木金02:30 JSTに起動され、self-hosted runner(ラズパイ)上で収集を実行
+  collect-fallback.yml          タイマーが起動しなかった枠だけ、hosted runnerから代わりに起動する予備
   routine-repair.yml            収集失敗時、同じrunner上で機械的な後始末だけを行う
   watchdog.yml                  hosted runner上で毎日、直近の成功実行の有無を見張る
+.github/scripts/
+  collect-fallback.cjs          予備起動の判定
 ```
 
 `index.html` をルートに置いているのは、Pages がリポジトリのルートをそのまま配信する設定（`upload-pages-artifact` の `path: .`）のため。**ビルド工程・パッケージ依存はない**（`<script type="module">` で読むだけ）。

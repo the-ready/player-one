@@ -1,0 +1,19 @@
+# player-one-dispatch.timer から呼ばれ、weekly-collect.yml を workflow_dispatch で起動する。
+# 収集そのものはここでは走らない（起動の依頼を出すだけ。実行は self-hosted runner が担う）。
+
+[Unit]
+Description=weekly-collect.yml を workflow_dispatch で起動する
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/player-one/dispatch-routine.sh
+# トークンは root だけが読めるファイルに置き、この実行の間だけ使い捨てのユーザーに見せる
+LoadCredential=dispatch-token:/etc/player-one/dispatch-token
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+# 再試行の合計（最悪 約12分）より長く、予備起動（02:50 JST）より短く
+TimeoutStartSec=15min

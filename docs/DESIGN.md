@@ -2061,6 +2061,9 @@ data/                         週次で差し替えるデータ（行数は vali
   routines/invariants.md      週次ルーチンの不変規則（--append-system-prompt-file で渡す。圧縮で消えない）
   scripts/claude-routine.sh   self-hosted runner からの入口（第13章）。pull → 実行 → 検証 → 通った回だけ commit/push
   scripts/repair-routine.sh   失敗回の機械的な後始末だけを行う（Claudeは起動しない。第13.4節）
+  scripts/dispatch-routine.sh Piのタイマーから呼ばれ、weekly-collect.yml を workflow_dispatch で起動（第13.3節）
+  scripts/install-dispatch-timer.sh  上のタイマーをPiに入れる・トークンを差し替える（第13.7節）
+  systemd/                    起動のタイマー（水木金02:30 JST）とサービスのユニット（第13.3節）
   hooks/                      規則を決定論的に守らせるフック（第9.1.5節）
     agent-guard.sh            ルーチン中の背景起動・事前定義していない種類・未追記のまま／線を越えてからの起動を拒否（PreToolUse:Agent）
     block-git.sh              ルーチン中の git の書き込みを拒否（PreToolUse:Bash）
@@ -2098,9 +2101,12 @@ docs/
 .nojekyll                     GitHub Pages の Jekyll 処理を無効化
 .github/workflows/
   pages.yml                   push / 週次収集の完了(workflow_run) で Pages へデプロイ
-  weekly-collect.yml          水木金02:30 JSTに発火し、self-hosted runner上でclaude-routine.shを起動（第13章）
+  weekly-collect.yml          Piのタイマーから水木金02:30 JSTに起動され、self-hosted runner上でclaude-routine.shを実行（第13章）
+  collect-fallback.yml        タイマーが起動しなかった枠だけ、hosted runnerから代わりに起動する予備（第13.3節）
   routine-repair.yml          weekly-collect.yml失敗時、同じrunner上で機械的な後始末だけを行う（第13.4節）
   watchdog.yml                hosted runner上で毎日、直近の成功実行の有無を見張る（第13.5節）
+.github/scripts/
+  collect-fallback.cjs        予備起動の判定（純粋関数。tools/collect_fallback_test.mjs が検証。第13.3節）
 ```
 
 **書き換え頻度でフォルダを分けている。** 週次で差し替わるのは `data/` だけ、ほぼ変わらないのが `assets/` という対応にすることで、**更新作業がどこを触るのかを構成から読める**ようにした。
@@ -2460,11 +2466,11 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 
 収集そのもの（曜日→スキルの対応・波の分け方・検証・push可否の判定）は変えていない。変えたのは「いつ動くか」の決定権と、「失敗をどう拾うか」の2点である。
 
-| 何                             | 移す前                                          | 移した後                                                                                                                                                         |
-| ------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 起動の決定権                   | Pi の crontab が直接 `claude-routine.sh` を呼ぶ | GitHub Actions の `schedule`（`.github/workflows/weekly-collect.yml`）が決め、Pi は systemd 常駐の self-hosted runner としてジョブを受け取って実行するだけになる |
-| 失敗の後始末                   | 手つかず。次の実行まで気づかない                | `routine-repair.yml` が同じ Pi・同じ作業ツリー上で機械的な後始末だけをやり直す（第13.4節）                                                                       |
-| 「そもそも動いていない」の検知 | 手つかず                                        | `watchdog.yml` が hosted runner 上で独立に見張る（第13.5節）                                                                                                     |
+| 何                             | 移す前                                          | 移した後                                                                                                                                                            |
+| ------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 起動の決定権                   | Pi の crontab が直接 `claude-routine.sh` を呼ぶ | Pi の systemd タイマーが `weekly-collect.yml` を `workflow_dispatch` で起動し（第13.3節）、Pi は systemd 常駐の self-hosted runner としてジョブを受け取って実行する |
+| 失敗の後始末                   | 手つかず。次の実行まで気づかない                | `routine-repair.yml` が同じ Pi・同じ作業ツリー上で機械的な後始末だけをやり直す（第13.4節）                                                                          |
+| 「そもそも動いていない」の検知 | 手つかず                                        | `watchdog.yml` が hosted runner 上で独立に見張る（第13.5節）                                                                                                        |
 
 実行環境（Raspberry Pi 4、収集先サイトから見えるIP）は変えていない。ホスト型ランナーの共有IPは収集先サイトのbot対策に弾かれやすいという既知のリスクを避けるため、self-hosted runner として同じ回線・同じ機体を使い続ける判断にしている。
 
@@ -2474,15 +2480,29 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 
 そのため `pages.yml` には `workflow_run`（`weekly-collect.yml` / `routine-repair.yml` の完了）を追加し、`conclusion == 'success'` の回だけデプロイする形にしている。`workflow_run` はトリガー元のワークフローファイルがデフォルトブランチに存在して初めて有効になるため、この仕組み自体の初回反映には main へのマージが要る。
 
-### 13.3 schedule はなぜ「水木金 :30」か
+### 13.3 起動はなぜ Pi のタイマーからの `workflow_dispatch` か
 
-収集は週3回、水木金に動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金の3行（イベント／映画／ライブ）だけを自動実行の対象にしており、`weekly-collect.yml` の `schedule` トリガーもこの3日（UTC火水木 17:30 = JST水木金 02:30）に絞ってある。
+収集は週3回、水木金の 02:30 JST に動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金の3行（イベント／映画／ライブ）だけを自動実行の対象にしている。`other` 行（それ以外の曜日を `kanto-event-collector` に落とす）はこの自動実行の一部ではなく、**ユーザーが `workflow_dispatch` で任意の曜日に手動実行（シミュレーション・動作確認）したときの既定値**として存在する。
 
-`other` 行（それ以外の曜日を `kanto-event-collector` に落とす）はこの自動実行の一部ではない。**ユーザーが `workflow_dispatch` で任意の曜日に手動実行（シミュレーション・動作確認）したときの既定値**として存在する——`routine_skill` を指定せずに手動起動すると、その曜日が水木金以外なら `other` 行の既定（イベント収集）が使われる。
+**GitHub Actions の `schedule` には、保証された実行時刻も保証された実行そのものも無い。** 実測で、2026-09-22（火）17:30 UTC の枠は 20:16 UTC に発火した（2時間46分の遅れ）。収集を時刻どおりに始めるため、`weekly-collect.yml` は `schedule` を持たず、起動はすべて `workflow_dispatch` で受ける。起動役は次の2段である。
 
-発火時刻は 02:30 JST（UTC 17:30）に置いている。GitHub Actions の schedule は毎時00分台に負荷が集中し遅延・間引きが起きやすいため、あえて :30 に置くことでこのリスクを避けている。
+| 段   | 何が                                                                                                          | いつ                                 | 受け持つこと                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------- |
+| 主   | Pi の systemd タイマー（`.claude/systemd/player-one-dispatch.timer` → `.claude/scripts/dispatch-routine.sh`） | 水木金 02:30 JST（秒単位で正確）     | 時刻どおりに起動する                         |
+| 予備 | `.github/workflows/collect-fallback.yml`（hosted runner）                                                     | 02:50 JST と 04:50 JST の `schedule` | 主が起動しなかった枠だけ、遅れてでも起動する |
 
-**schedule に保証された実行時刻・保証された実行そのものは無い。** 高負荷時はジョブが「ログも通知も残さず」間引かれることがある——この経路を拾うのが第13.5節の見張りである。
+- **起動役を Pi に置いても、信頼性は下がらない。** ジョブはもともと Pi の上で動くため、Pi が止まれば収集はどのみち動けない。Pi の時計（NTP）は GitHub の `schedule` より正確である
+- **予備は `weekly-collect.yml` 自身の `schedule` にせず、別のワークフローから起動を依頼する形にしている。** 「既に起動済みなので何もしない」回を `weekly-collect.yml` の中で作ると、その回は success で終わり、`pages.yml` のデプロイと第13.5節の見張りがそれを収集の成功と取り違えるためである（`routine-repair.yml` は success 以外で発火するので、失敗扱いにもできない）。別のワークフローから起動すれば、`weekly-collect.yml` の実行はすべて本物の収集になる。`GITHUB_TOKEN` による `workflow_dispatch` は、例外的に新しい実行を作れる
+- **予備の判定は「枠（UTC 火水木 17:30）の10分前以降に `weekly-collect.yml` の実行が作られているか」である。** 手動実行でも数える。判定は `.github/scripts/collect-fallback.cjs` の純粋関数にあり、`tools/collect_fallback_test.mjs` が固定している
+- **予備が起動したときは `routine-timer` ラベルの Issue で知らせ、次にタイマーが時刻どおり起動した枠で自動で close する。** 予備が黙って拾い続けると、トークンの失効などでタイマーが壊れたまま「数時間遅れの運用」に戻っても気づけないためである。予備自身（`github-actions[bot]`）が起動した回はタイマーの回復に数えない
+- **予備の `schedule` を2本にしている。** 予備の `schedule` 自体も間引かれることがあるためである。2本目は1本目が起動済みなら何もしない。2本が重なっても、`concurrency` で直列にしたうえで、1本目は起動した実行が一覧に現れるまで待ってから終える（まだ一覧に無い実行を2本目が見落とさないように）
+- **予備の1本目は 02:50 JST（枠の20分後）に置いている。** タイマーの再試行（最悪約12分。`TimeoutStartSec=15min` で打ち切る）が終わる前に予備が起動を依頼すると、収集が2回走るためである。毎時00分台は `schedule` が混みやすいため、どちらも :50 に置く
+- **枠から20時間を過ぎたら、予備は起動しない（Issue だけ起票する）。** `claude-routine.sh` は起動した時点の曜日（`date +%u`）でスキルを選ぶため、JST の日付をまたいで起動すると別の曜日のスキルが走るためである。枠から 24:00 JST までは21.5時間あり、余裕を見て20時間で切る
+- **タイマーは `Persistent=false` にしている。** Pi が停止中に過ぎた枠は予備が既に起動を依頼しており（ジョブは Pi の復帰を待って走る）、復帰後にタイマーが取り戻すと収集が2回走るためである
+- **`dispatch-routine.sh` は、再送の前に「実は届いていたか」を確かめる。** 起動の依頼が GitHub に届いたのに応答だけが失われた（タイムアウト・5xx）ときに再送すると、収集が2回走るためである。401/403/404/422 は設定の問題（トークンの失効・権限不足・ワークフローの無効化）で待っても直らないため、再試行せずに落として予備に委ねる
+- **トークンは fine-grained PAT（このリポジトリの Actions: Read and write だけ）を使い、Pi の `/etc/player-one/dispatch-token`（root のみ読める）に置く。** サービスは `DynamicUser` の使い捨てユーザーで動き、トークンは `LoadCredential` でその実行の間だけ渡す。curl にはトークンを引数ではなく標準入力の設定として渡す——引数は `/proc/<pid>/cmdline` から同じ機体の他ユーザーにも読めるためである
+
+起動時刻は3か所（タイマーの `OnCalendar`・予備の `cron`・予備の判定の定数）が別々に持っている。1か所だけ直すと「タイマーが起動したのに予備も起動する」ずれが生まれるため、`tools/collect_fallback_test.mjs` がこの3か所と `weekly-routine` の対応表の曜日の一致を検証する。
 
 ### 13.4 routine-repair.yml が actions/checkout を呼ばない理由
 
@@ -2496,7 +2516,7 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 ### 13.5 見張り（watchdog.yml）が hosted runner で動く理由
 
-`weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**scheduleの発火自体が欠落する・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
+`weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**起動そのものが欠落する（Pi のタイマーも予備の `collect-fallback.yml` も起動しない）・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
 
 `watchdog.yml` は毎日、`weekly-collect.yml` の直近の成功実行を GitHub Actions API で確認し、しきい値（6日）を超えて成功実行が無ければ Issue を起票する。金曜の成功から次の水曜まで最大5日空くのは正常運転であり、それより余裕を持たせてある。self-hosted（Pi）ではなく hosted runner で動かしているのは、**Pi 自体が原因の障害を、Pi 上の何かで検知するのは原理的に無理**なためである——見張りが検知したい最悪のケース（Pi が完全に沈黙している）そのものが、Pi 上の見張りを同時に無力化してしまう。
 
@@ -2504,7 +2524,7 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 ### 13.6 self-hosted runner の適用範囲
 
-self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本はどちらも schedule／workflow_run／workflow_dispatch でしか起動しないため、外部からの入力（fork PR の中身）が起点になることは無い。
+self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本はどちらも workflow_run／workflow_dispatch でしか起動しないため、外部からの入力（fork PR の中身）が起点になることは無い。
 
 ### 13.7 Raspberry Pi への runner 登録（要点）
 
@@ -2520,5 +2540,14 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 8. **`systemctl enable` されていることを確認する**（`svc.sh install` が通常はここまでやる）。これが無いと、Pi の再起動後に runner が自動で戻らない
 
 登録後の動作確認は `weekly-collect.yml` を `workflow_dispatch`（`push: false`）で1回手動起動し、Actions の実行ログと `.claude/logs/routine_*.log` の両方を見比べるのが早い。
+
+**起動のタイマー（第13.3節）を入れる。** runner とは別の、一度きりの手作業である。
+
+1. **fine-grained PAT を発行する**（GitHub の Settings → Developer settings → Fine-grained tokens）。Resource owner は `the-ready`、Repository access はこのリポジトリだけ、Permissions は **Actions: Read and write** だけにする（Metadata: Read は自動で付く）。組織が PAT に承認を求める設定なら、組織の管理者の承認が要る
+2. **Pi 上で、リポジトリの中から `sudo .claude/scripts/install-dispatch-timer.sh` を実行し、トークンを貼り付ける。** スクリプトの配置（`/usr/local/lib/player-one/`）・ユニットの配置と有効化・トークンの保存（`/etc/player-one/dispatch-token`、root のみ）を行い、最後に `dispatch-routine.sh --check` でトークンでワークフローを読めるかを確かめる（起動はしない）
+3. **`systemctl list-timers player-one-dispatch.timer` で、次の起動が水木金 02:30 JST になっていることを確かめる**
+4. **PAT の期限が切れる前に、`sudo .claude/scripts/install-dispatch-timer.sh --rotate-token` で差し替える。** 切れると予備の起動（数時間遅れ）に落ち、`routine-timer` ラベルの Issue が立つ
+
+`dispatch-routine.sh` やユニットを直したときも、同じスクリプトを実行し直せば反映される（トークンは保たれる）。予備の判定だけを確かめたいときは、`collect-fallback.yml` を `workflow_dispatch`（`dry_run: true`。既定）で起動すると、判定を表示するだけで起動も Issue の起票もしない。
 
 ---

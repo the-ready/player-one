@@ -1,8 +1,8 @@
 name: 週次収集の見張り
 
 # weekly-collect.yml・routine-repair.yml は「動いたが失敗した」ことしか検知できない。
-# scheduleの発火自体が欠落する（GitHub Actions のschedule実行に保証時刻・保証実行が
-# 無いため負荷次第で間引かれることがある）・Pi/self-hosted runnerそのものが長期間
+# 起動そのものが欠落する（Piのタイマーと予備起動の collect-fallback.yml がどちらも
+# 起動しない）・Pi/self-hosted runnerそのものが長期間
 # 沈黙している、といった「そもそも動いていない」はここでしか拾えない
 #（docs/DESIGN.md 第13.5節）。
 #
@@ -78,10 +78,10 @@ jobs:
                   "",
                   "考えられる原因:",
                   "- self-hosted runner（Pi）がオフライン、または `systemd: actions-runner.service` が停止している",
-                  "- GitHub Actions の schedule 自体が発火していない（negligible ではあるが起こりうる）",
+                  "- Pi のタイマーも予備の `collect-fallback.yml` も起動していない（`routine-timer` ラベルの Issue も確認）",
                   "- `CLAUDE_CODE_OAUTH_TOKEN` の失効など、認証まわりの問題",
                   "",
-                  `[Actions の実行一覧](${context.payload.repository.html_url}/actions/workflows/weekly-collect.yml) と、Pi上の \`.claude/logs/\` を確認してください。`,
+                  `[Actions の実行一覧](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/weekly-collect.yml) と、Pi上の \`.claude/logs/\` を確認してください。`,
                   "",
                   "解消したらこのIssueをcloseしてください。次にstaleと判定されない限り、このワークフローが自動で新しいIssueを作ることはありません。",
                 ].join("\n"),

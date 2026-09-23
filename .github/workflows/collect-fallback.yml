@@ -1,0 +1,56 @@
+name: 週次収集の予備起動
+
+# 週次収集の起動役は Raspberry Pi の systemd タイマー（水木金 02:30 JST に weekly-collect.yml を
+# workflow_dispatch で起動する）で、これはその回が起動されなかったときだけ代わりに起動する予備
+# である。GitHub Actions の schedule は数時間遅れることがあるため（2026-09-22 は2時間46分）、
+# 時刻どおりの起動はタイマーに任せ、ここは「遅れてでも必ず起動する」ことだけを受け持つ
+# （docs/DESIGN.md 第13.3節）。
+#
+# 予備を weekly-collect.yml 自身の schedule にしないのは、「既に起動済みなので何もしない」回が
+# success で終わると、pages.yml のデプロイと watchdog.yml の成功判定がそれを収集の成功と
+# 取り違えるため。ここから起動を依頼すれば、weekly-collect.yml の実行はすべて本物の収集になる。
+#
+# hosted runner で動かす。Pi が止まっていても起動の依頼（ジョブは Pi の復帰を待つ）と
+# Issue での通知ができるように。
+
+on:
+  schedule:
+    # UTC 火水木 = JST 水木金。タイマー（02:30 JST）の再試行が終わるのを待ってから見る。
+    # 同じ枠を2回見るのは、この schedule 自体が間引かれることがあるため。2回目は
+    # 1回目が起動済みなら何もしない。毎時00分台の混雑を避けて :50 に置く。
+    - cron: "50 17 * * 2,3,4" # 02:50 JST
+    - cron: "50 19 * * 2,3,4" # 04:50 JST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "判定を表示するだけで、起動も Issue の起票もしない"
+        required: false
+        type: boolean
+        default: true
+
+# 2本の cron が重なって走っても、1本目が起動した実行を2本目が必ず見てから判定するように
+concurrency:
+  group: collect-fallback
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  issues: write
+  contents: read
+
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: この枠が起動済みかを確かめ、未起動なら起動する
+        uses: actions/github-script@v7
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        with:
+          script: |
+            const { run } = require("./.github/scripts/collect-fallback.cjs");
+            await run({ github, context, core, dryRun: process.env.DRY_RUN === "true" });
