@@ -231,6 +231,31 @@
       "role": "ROCK IN JAPAN・JAPAN JAM等を主催。フェス情報に強い"
     },
     {
+      "name": "CREATIVEMAN PRODUCTIONS",
+      "url": "https://www.creativeman.co.jp/",
+      "role": "SUMMER SONIC等を主催する招聘元。海外アーティストの来日公演を発表順に一覧できる"
+    },
+    {
+      "name": "ウドー音楽事務所",
+      "url": "https://www.udo.jp/shows/western-music",
+      "role": "老舗の招聘元。洋楽の来日公演を年月・エリア・受付状況で絞り込める"
+    },
+    {
+      "name": "LIVE NATION H.I.P.",
+      "url": "https://www.livenationhip.co.jp/",
+      "role": "ドーム・アリーナ級の来日公演の招聘元。会場名簿では拾えない規模の公演が載る"
+    },
+    {
+      "name": "キョードー東京",
+      "url": "https://kyodotokyo.com/",
+      "role": "招聘元と販売を兼ねる。先行受付の告知が公演一覧と同じ画面に出る"
+    },
+    {
+      "name": "indienative",
+      "url": "https://www.indienative.com/",
+      "role": "海外インディー・オルタナ系の来日公演を日次で追える音楽メディア"
+    },
+    {
       "name": "ぴあアリーナMM",
       "url": "https://pia-arena-mm.jp/",
       "role": "会場公式サイトの公演カレンダー（会場ベース調査の一次情報源の例）"

@@ -320,6 +320,91 @@ def _():
     return code == 0 or f"繰り返し指定で落ちた: {out}{err}"
 
 
+# ---- lives の `desc` は「非空」ではなく「字数」で数える（FRESH_MIN_LEN） ----
+#
+# 非空かどうかだけを見ていた頃、`desc` は実測で中央値50字前後・その大半が
+# 「ツアーの5日目」のようなタイトルの言い換えだったが、下限60%を常に満たして
+# いた。**この門が見ているのが字数であることを、ここで固定する。**
+
+LIVE_PREFS = ["tokyo", "kanagawa", "saitama"]
+# 60字ちょうどの境界を挟んで2つ作る。短いほうは実データにあった長さに合わせた。
+DESC_LONG = "デビュー20周年を締めくくる全国ツアーの東京ファイナル。初期のシングルを中心にした選曲で、この日限りのゲスト出演も告知されている。全席指定。"
+DESC_SHORT = "ツアー「透明」武道館公演の5日目。10月の2デイズの初日にあたる公演。"
+
+
+@contextlib.contextmanager
+def _isolated_lives(rows, prev_rows_):
+    tmp = tempfile.mkdtemp(prefix="report_stats_lives_test_")
+    prev_dir = os.path.join(tmp, ".prev")
+    os.makedirs(prev_dir, exist_ok=True)
+    orig = (rs.DATA, pr.DATA, pr.PREV)
+    rs.DATA, pr.DATA, pr.PREV = tmp, tmp, prev_dir
+    try:
+        _write_csv(os.path.join(tmp, "lives.csv"), HEADERS, rows)
+        _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, prev_rows_)
+        yield tmp
+    finally:
+        rs.DATA, pr.DATA, pr.PREV = orig
+
+
+LIVE_PREV20 = [_row(title=f"継続{i}", pref=LIVE_PREFS[i % 3],
+                    onsale_label="一般発売", desc=DESC_LONG)
+               for i in range(20)]
+
+
+def _lives_week(desc):
+    """継続20件＋今週の新規20件（`desc` は全件この文字列）"""
+    return list(LIVE_PREV20) + [
+        _row(title=f"新規{i}", pref=LIVE_PREFS[i % 3],
+             onsale_label="一般発売", desc=desc)
+        for i in range(20)]
+
+
+def _analyse_lives(rows, prev_rows_):
+    with _isolated_lives(rows, prev_rows_):
+        return rs.analyse("lives.csv")
+
+
+@check("lives: 新規行の desc が短いと、非空でも下限割れになる")
+def _():
+    res = _analyse_lives(_lives_week(DESC_SHORT), LIVE_PREV20)
+    col = next(c for c in res["fresh"]["columns"] if c["column"] == "desc")
+    if col["filled"] != 0:
+        return f"短い desc を数えている: {col}（{len(DESC_SHORT)}字）"
+    return "desc" in {i["column"] for i in res["thin_issues"]} or \
+        f"検知していない: {res['thin_issues']}"
+
+
+@check("lives: 新規行の desc が十分な長さなら下限割れにならない")
+def _():
+    res = _analyse_lives(_lives_week(DESC_LONG), LIVE_PREV20)
+    return "desc" not in {i["column"] for i in res["thin_issues"]} or \
+        f"誤検知: {res['thin_issues']}（{len(DESC_LONG)}字）"
+
+
+@check("lives: 下限割れの文面に、数えた字数の条件が出る")
+def _():
+    code, out, err = _run_main_lives(_lives_week(DESC_SHORT), LIVE_PREV20,
+                                     ["lives", "--check-fresh"])
+    if code != 1:
+        return f"薄いのに通った: code={code} {out}"
+    want = f"{rs.FRESH_MIN_LEN['lives.csv']['desc']}字以上"
+    return want in out or f"何を数えたのかが出ていない: {out}"
+
+
+def _run_main_lives(rows, prev_rows_, argv):
+    with _isolated_lives(rows, prev_rows_):
+        orig_argv = sys.argv
+        sys.argv = ["report_stats.py"] + argv
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = rs.main()
+        finally:
+            sys.argv = orig_argv
+        return code, out.getvalue(), err.getvalue()
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

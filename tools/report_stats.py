@@ -71,7 +71,7 @@ CORE = {
         ("limited_sale", "限定・追加販売"),
         ("is_additional", "追加公演"),
         ("apple_music_url", "Apple Music"),
-        ("desc", "公演の位置づけ"),
+        ("desc", "公演の見どころ"),
     ],
     "movies.csv": [
         ("onsale_label", "前売り券の券種"),
@@ -130,8 +130,28 @@ BALANCE = {
 # 逆に高く置きすぎると `--allow-thin` が常用され、門が雑音になる。
 FRESH_FLOOR = {
     "events.csv": {"price": 85},
-    "lives.csv": {"onsale_label": 20, "desc": 60},
+    "lives.csv": {"onsale_label": 20, "desc": 50},
     "movies.csv": {"price": 70, "desc": 60},
+}
+
+# 「書けた」と数えるのに必要な最低の字数。ここに載せた列は、短すぎる値を
+# 空欄と同じに扱う。**非空かどうかだけを見る下限は、一行の言い換えを止められない。**
+#
+# lives の `desc` は「くわしく」を開いた利用者が最初に読む文で、SKILL.md は
+# 100〜150字を求めている。だが実測はどの世代も中央値50字前後で、その大半が
+# 「ツアーの5日目」「第26回」のようにタイトルと日程表の言い換えだった。
+# FRESH_FLOOR の `desc: 60`（非空の割合）はこれを1件も落とせていない。
+#
+#   直近3世代の lives.csv で `desc` が60字以上あった割合 … 14% / 42% / 15%
+#   同じく100字以上（散文の目標）                       …  1% /  3% /  1%
+#
+# **散文の目標が達成された回が一度も無いので、他の下限と違って「良い回の実測」から
+# 値を採れない。** そこで2つを別々に決めている。字数は、目標(100〜150字)の手前で
+# 「言い換えではない」と言える線として60字。割合は、これまでの最良の回(42%)を
+# わずかに上回る50%（FRESH_FLOOR 側で持つ）。新しい書き方に従えば余裕で通り、
+# 今までどおりの一行説明なら必ず落ちる位置である。
+FRESH_MIN_LEN = {
+    "lives.csv": {"desc": 60},
 }
 
 # 新規が数件しかない週まで判定すると、1件の空欄で下限を割る。数えるに足りる分だけ見る。
@@ -152,8 +172,8 @@ def read_current(name):
         return list(csv.DictReader(f))
 
 
-def filled(rows, col):
-    return sum(1 for r in rows if (r.get(col) or "").strip())
+def filled(rows, col, min_len=0):
+    return sum(1 for r in rows if len((r.get(col) or "").strip()) > max(min_len - 1, 0))
 
 
 def pct(n, total):
@@ -199,16 +219,21 @@ def analyse(name):
     for col, floor in FRESH_FLOOR.get(name, {}).items():
         if cur and col not in cur[0]:
             continue
-        n = filled(fresh, col)
+        min_len = FRESH_MIN_LEN.get(name, {}).get(col, 0)
+        n = filled(fresh, col, min_len)
         p = pct(n, len(fresh))
         res["fresh"]["columns"].append(
-            {"column": col, "filled": n, "pct": p, "floor": floor})
+            {"column": col, "filled": n, "pct": p, "floor": floor, "min_len": min_len})
         if len(fresh) >= FRESH_MIN_SAMPLE and p < floor:
+            # 字数の条件があるなら、何を数えたのかが分かる文面にする。
+            # 「desc があるのは3件」だけだと、空欄が多いのか短いのかが読めない。
+            what = f"{col} が{min_len}字以上あるのは" if min_len else f"{col} があるのは"
             res["warnings"].append(
-                f"今週の新規{len(fresh)}件のうち {col} があるのは{n}件（{p}%）。"
+                f"今週の新規{len(fresh)}件のうち {what}{n}件（{p}%）。"
                 f"下限{floor}%に届いていません")
             res["thin_issues"].append(
-                {"column": col, "pct": p, "floor": floor, "count": len(fresh), "filled": n})
+                {"column": col, "pct": p, "floor": floor, "count": len(fresh),
+                 "filled": n, "min_len": min_len})
 
     for col, label in CORE.get(name, []):
         if cur and col not in cur[0]:
@@ -284,8 +309,10 @@ def print_human(res):
         print(f"\n  今週あらたに書いた行の充足率（{fresh['count']}件・持ち越しを含まない）{note}")
         for c in fresh["columns"]:
             mark = "← 下限割れ" if (judged and c["pct"] < c["floor"]) else "  "
+            # 字数の条件がある列は、それも出す。出さないと「非空なのに0件」に見える。
+            cond = f"・{c['min_len']}字以上" if c.get("min_len") else ""
             print(f"    {c['column']:<18} {c['filled']:>4}/{fresh['count']:<4}"
-                  f" {c['pct']:>3}%  （下限 {c['floor']}%）{mark}")
+                  f" {c['pct']:>3}%  （下限 {c['floor']}%{cond}）{mark}")
 
     for col, c in res["balance"].items():
         if not c:

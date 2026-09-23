@@ -254,7 +254,7 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 ### 二次流通・転売サイトへはリンクしない
 
-`url` に入るのは公式サイトと正規プレイガイド（チケットぴあ／イープラス／ローソンチケット／楽天チケット／ticket board／LivePocket／ZAIKO／teket 等）のみ。完売公演も掲載するが、`onsale_label` を `SOLD OUT` にして取れるように見せない（公式リセールや当日券の可能性があり、「何をやっているか」自体が情報のため）。
+`url` に入るのは公式サイト、招聘元（CREATIVEMAN PRODUCTIONS／ウドー音楽事務所／LIVE NATION H.I.P.／キョードー東京 等）の公演ページ、正規プレイガイド（チケットぴあ／イープラス／ローソンチケット／楽天チケット／ticket board／LivePocket／ZAIKO／teket 等）のみ。完売公演も掲載するが、`onsale_label` を `SOLD OUT` にして取れるように見せない（公式リセールや当日券の可能性があり、「何をやっているか」自体が情報のため）。
 
 ### `data/lives.csv` の列（42列固定）
 
