@@ -2538,6 +2538,8 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 `data/` `docs/` に未コミットの変更が最初から無い回（典型は認証切れで一度もツールを呼べなかった回）は、直すものが無いためここでは何もしない。この種の異常は第13.5節の見張りに委ねている——ここで毎回 Issue を立てると、見張りの通知と二重になる。
 
+**`routine-repair.yml` は `workflow_run` に加えて、毎日1回の `schedule` でも起動する。** `weekly-collect.yml` が `collect-fallback.yml` から GITHUB_TOKEN で代理起動され、かつ失敗して終わった回は、`workflow_run` 自体が発火しない（第13.2節）ため、後始末が永遠に走らない穴になる。この穴は「動いたが失敗した」を検知する仕組みが無いのではなく、**検知できたはずの通知が届かない**という別の壊れ方なので、第13.5節の見張り（起動そのものの欠落を見る）とは別に、`routine-repair.yml` 自身が毎日 `data/` `docs/` の未コミットの変更の有無を直接確かめにいく形にしている。直すものが無ければ `repair-routine.sh` は何もせず終わるので、通常日はほぼコストの無い保険である（`docs/routine-postmortems.md` 2026-09-24）。
+
 ### 13.5 見張り（watchdog.yml）が hosted runner で動く理由
 
 `weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**起動そのものが欠落する（Pi のタイマーも予備の `collect-fallback.yml` も起動しない）・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
@@ -2548,7 +2550,7 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 ### 13.6 self-hosted runner の適用範囲
 
-self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本はどちらも workflow_run／workflow_dispatch でしか起動しないため、外部からの入力（fork PR の中身）が起点になることは無い。
+self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `routine-repair.yml` の2本だけに割り当て、`pull_request` 系のイベントには一切紐付けない。self-hosted runner を public リポジトリで使うと、フォークからの Pull Request が起点になるワークフローで第三者が runner 上で任意コードを実行できてしまう、という既知のリスクがあるためである。この2本は `workflow_run`／`workflow_dispatch`／`schedule` でしか起動しない。`schedule` は default branch 上のワークフローファイルだけを定期実行するもので、実行内容も起動時刻も fork の Pull Request からは一切操作できないため、この2本のどれも外部からの入力（fork PR の中身）が起点になることは無い。
 
 ### 13.7 Raspberry Pi への runner 登録（要点）
 

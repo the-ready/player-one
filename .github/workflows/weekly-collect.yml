@@ -69,6 +69,10 @@ jobs:
           # 影響するのは「未追跡ファイルを消すか」だけ）。
           clean: false
 
+      - name: 実行前のHEADを記録する
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: 週次ルーチンを実行
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -97,7 +101,12 @@ jobs:
         if: success() && github.event.inputs.push != 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
         run: |
+          if [ "$(git rev-parse HEAD)" = "$BEFORE_SHA" ]; then
+            echo "新しいコミットが無いため、デプロイの起動をスキップします"
+            exit 0
+          fi
           code="$(curl -sS -o /tmp/pages-dispatch-response.txt -w '%{http_code}' -X POST \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
