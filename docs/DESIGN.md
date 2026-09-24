@@ -2492,11 +2492,17 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 
 実行環境（Raspberry Pi 4、収集先サイトから見えるIP）は変えていない。ホスト型ランナーの共有IPは収集先サイトのbot対策に弾かれやすいという既知のリスクを避けるため、self-hosted runner として同じ回線・同じ機体を使い続ける判断にしている。
 
-### 13.2 GITHUB_TOKEN での push は workflow_run を発火しない
+### 13.2 GITHUB_TOKEN 起点のイベントは、後続のワークフローを発火しない
 
 `claude-routine.sh` と `repair-routine.sh` はどちらもジョブ内で `git push` するが、その認証はジョブ固有のトークン（GITHUB_TOKEN 相当）である。**GITHUB_TOKEN で行われた push は、無限ループ防止のため他のワークフローの `push` イベントを発火しない**仕様のため、`pages.yml` を `push:` トリガーだけにしていると、週次収集の結果が一切デプロイされなくなる。
 
 そのため `pages.yml` には `workflow_run`（`weekly-collect.yml` / `routine-repair.yml` の完了）を追加し、`conclusion == 'success'` の回だけデプロイする形にしている。`workflow_run` はトリガー元のワークフローファイルがデフォルトブランチに存在して初めて有効になるため、この仕組み自体の初回反映には main へのマージが要る。
+
+**この「無限ループ防止」は、`workflow_dispatch` による代理起動そのものにも及ぶ。** `collect-fallback.yml` は `weekly-collect.yml` を GITHUB_TOKEN で `workflow_dispatch` する（第13.3節）。`workflow_dispatch` は無限ループ防止の対象から**例外的に外れている**ため、この代理起動は `weekly-collect.yml` の新しい実行を確かに作る——ここまでは正しい。しかし、**その実行が完了した通知（`workflow_run`）は、実行そのものの起点が GITHUB_TOKEN であるために発火しない。** 例外はあくまで「新しい実行を作れる」ことに対してで、「作られた実行の完了がさらに連鎖する」ことまでは救っていない。
+
+2026-09-24、Pi のタイマー未導入（第13.7節の導入手順が未実施だった）により `collect-fallback.yml` が代理起動し、収集自体は成功して push まで終わったにもかかわらず、`pages.yml` の `workflow_run` が発火せず**サイトだけが更新されない**事故として実際に発生した（`docs/routine-postmortems.md` 2026-09-24）。`weekly-collect.yml` の実行を GitHub API で列挙して actor を比較すると、人（PAT）による起動は毎回 `workflow_run` を発火させ、`collect-fallback.yml`（`github-actions[bot]`）による代理起動だけが発火させていないことが確認できる。
+
+**塞ぎ方は、`workflow_run` という間接的な連鎖に頼らないことである。** `weekly-collect.yml`・`routine-repair.yml` はそれぞれ、自分のジョブが成功した直後に `pages.yml` を自分自身で `workflow_dispatch` する（`actions: write` 権限を追加）。この呼び出し自体も GITHUB_TOKEN で行うが、**呼び出す先が `workflow_dispatch` である限り、上の例外がそのまま働いて確実に新しい実行を作れる**。連鎖の発火に賭けるのではなく、成功したジョブ自身が次を明示的に起動する形にすることで、起動元が人であろうと `github-actions[bot]` であろうと同じように公開される。
 
 ### 13.3 起動はなぜ Pi のタイマーからの `workflow_dispatch` か
 

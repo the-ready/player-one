@@ -320,3 +320,37 @@ hosted runner の `collect-fallback.yml` が遅れて代わりに起動し、`ro
 撤退を促す表示を根拠なく出すのは、「残りを知らせないまま撤退を促せば、早く撤退する」の裏返しでしかない。
 
 **塞ぎ方**: `claude-routine.sh` が起動の直前に `budget.py --reset` を回す。
+
+---
+
+## 2026-09-24 movies —— 収集は成功したのに、サイトだけ前日のまま止まっていた
+
+Piの systemd タイマー（第13.3節・第13.7節）が、この週の変更（`96747ae`）以降このPi実機に一度も
+導入されていなかった（`.claude/systemd/` にユニットのファイルはあるが `/etc/systemd/system/` には無く、
+`/etc/player-one/dispatch-token` も存在しない）。そのため02:30 JSTには何も起動せず、04:50 JSTの
+`collect-fallback.yml` が代わりに `weekly-collect.yml` を起動した。収集そのものは正常に完走し、
+`events.csv`・`lives.csv`・`movies.csv`・`theaters.csv` を検証・コミット・pushまで終えている
+（`.claude/logs/routine_2026-09-24.log`）。
+
+にもかかわらず、GitHub Pagesは前日のデータのまま更新されていなかった。原因は
+`pages.yml` の `workflow_run` トリガーが発火しなかったことで、その理由は
+`collect-fallback.yml` が `weekly-collect.yml` を GITHUB_TOKEN で `workflow_dispatch` して
+いたためである（`docs/DESIGN.md` 第13.2節に詳細）。人（PAT）が起動した回はすべて
+`workflow_run` を発火させていたのに対し、この代理起動（`github-actions[bot]`）による回だけが
+発火させていないことを、GitHub APIで実行一覧のactorを比較して確認した。**「GITHUB_TOKENに
+よるworkflow_dispatchは例外的に新しい実行を作れる」だけを根拠に、その先の`workflow_run`まで
+連鎖すると思い込んでいた**——第13.3節を書いた時点ではここまで検証していなかった。
+
+**塞ぎ方**: 2つ行った。
+
+1. `weekly-collect.yml`・`routine-repair.yml` は、自分のジョブが成功した直後に `pages.yml` を
+   自分自身で `workflow_dispatch` する（`actions: write` を追加）。`workflow_run` という
+   間接的な連鎖に賭けず、成功したジョブ自身が次を明示的に起動する
+2. Piにタイマーを導入し直した（`sudo .claude/scripts/install-dispatch-timer.sh`）。ただし
+   これは対症療法でしかない——予備が代理起動する経路そのものは残っており、1の修正が
+   無ければ次にタイマーが止まったときにまた同じ事故が起きる
+
+**残っている懸念**: `routine-repair.yml` は `weekly-collect.yml` の `workflow_run`（`completed`）
+でしか起動しない。もし今後、代理起動された回が**失敗**で終わると、その完了通知自体が同じ理由で
+発火せず、`routine-repair.yml`（後始末）も**起動されない**可能性がある。今回は収集が成功したため
+表面化しなかった。この経路は未検証のまま残っている。
