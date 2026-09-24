@@ -1,77 +1,107 @@
-"lineup_id","date","stage","artist","is_headliner","apple_music_url","note"
-"kishidan-banpaku-2026","2026-11-07","","秋山竜次（ロバート）","","https://music.apple.com/jp/artist/%E7%A7%8B%E5%B1%B1%E7%AB%9C%E6%AC%A1/470254917","OPENING CEREMONY ACT"
-"kishidan-banpaku-2026","2026-11-07","","打首獄門同好会","","https://music.apple.com/jp/artist/%E6%89%93%E9%A6%96%E7%8D%84%E9%96%80%E5%90%8C%E5%A5%BD%E4%BC%9A/201607388",""
-"kishidan-banpaku-2026","2026-11-07","","氣志團","","https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981","主催"
-"kishidan-banpaku-2026","2026-11-07","","go!go!vanillas","","https://music.apple.com/jp/artist/go-go-vanillas/671623880",""
-"kishidan-banpaku-2026","2026-11-07","","ゴールデンボンバー","","https://music.apple.com/jp/artist/%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%87%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%90%E3%83%BC/325594527",""
-"kishidan-banpaku-2026","2026-11-07","","Saucy Dog","","https://music.apple.com/jp/artist/saucy-dog/1229933633",""
-"kishidan-banpaku-2026","2026-11-07","","スチャダラパー","","https://music.apple.com/jp/artist/%E3%82%B9%E3%83%81%E3%83%A3%E3%83%80%E3%83%A9%E3%83%91%E3%83%BC/74588142",""
-"kishidan-banpaku-2026","2026-11-07","","DJ OZMA","","https://music.apple.com/jp/artist/dj-ozma/131607673",""
-"kishidan-banpaku-2026","2026-11-07","","怒髪天","","https://music.apple.com/jp/artist/%E6%80%92%E9%AB%AA%E5%A4%A9/291534566",""
-"kishidan-banpaku-2026","2026-11-07","","NEWS","","https://music.apple.com/jp/artist/news/1765474507",""
-"kishidan-banpaku-2026","2026-11-07","","バックドロップシンデレラ","","https://music.apple.com/jp/artist/%E3%83%90%E3%83%83%E3%82%AF%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%B3%E3%83%87%E3%83%AC%E3%83%A9/276041144",""
-"kishidan-banpaku-2026","2026-11-07","","PUFFY","","https://music.apple.com/jp/artist/puffy/416758827",""
-"kishidan-banpaku-2026","2026-11-07","","美少女戦士セーラームーン -Shining Theater Shinagawa Tokyo- Team Silver Moon","","","WELCOME ACT（eplus表記）"
-"kishidan-banpaku-2026","2026-11-07","","日向坂46","","https://music.apple.com/jp/artist/%E6%97%A5%E5%90%91%E5%9D%8246/1456116642",""
-"kishidan-banpaku-2026","2026-11-07","","モナキ","","https://music.apple.com/jp/artist/%E3%83%A2%E3%83%8A%E3%82%AD/1878550824",""
-"kishidan-banpaku-2026","2026-11-08","","アイナ・ジ・エンド","","https://music.apple.com/jp/artist/%E3%82%A2%E3%82%A4%E3%83%8A-%E3%82%B8-%E3%82%A8%E3%83%B3%E3%83%89/991663287",""
-"kishidan-banpaku-2026","2026-11-08","","海援隊","","https://music.apple.com/jp/artist/%E6%B5%B7%E6%8F%B4%E9%9A%8A/74457017","OPENING CEREMONY ACT"
-"kishidan-banpaku-2026","2026-11-08","","氣志團","","https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981","主催"
-"kishidan-banpaku-2026","2026-11-08","","奇妙礼太郎BAND","","",""
-"kishidan-banpaku-2026","2026-11-08","","キュウソネコカミ","","https://music.apple.com/jp/artist/%E3%82%AD%E3%83%A5%E3%82%A6%E3%82%BD%E3%83%8D%E3%82%B3%E3%82%AB%E3%83%9F/530074314",""
-"kishidan-banpaku-2026","2026-11-08","","くるり","","https://music.apple.com/jp/artist/%E3%81%8F%E3%82%8B%E3%82%8A/105025123",""
-"kishidan-banpaku-2026","2026-11-08","","四星球","","https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561",""
-"kishidan-banpaku-2026","2026-11-08","","超ときめき♡宣伝部","","https://music.apple.com/jp/artist/%E8%B6%85%E3%81%A8%E3%81%8D%E3%82%81%E3%81%8D-%E5%AE%A3%E4%BC%9D%E9%83%A8/1512380754",""
-"kishidan-banpaku-2026","2026-11-08","","DJダイノジ","","","WELCOME ACT"
-"kishidan-banpaku-2026","2026-11-08","","10-FEET","","https://music.apple.com/jp/artist/10-feet/76125500",""
-"kishidan-banpaku-2026","2026-11-08","","BARBEE BOYS 4 PEACE","","",""
-"kishidan-banpaku-2026","2026-11-08","","ももいろクローバーZ","","https://music.apple.com/jp/artist/%E3%82%82%E3%82%82%E3%81%84%E3%82%8D%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%90%E3%83%BCz/448294481",""
-"kishidan-banpaku-2026","2026-11-08","","Lienel","","",""
-"kishidan-banpaku-2026","2026-11-08","","ROTTENGRAFFTY","","https://music.apple.com/jp/artist/rottengraffty/415227338",""
-"kishidan-banpaku-2026","2026-11-08","","WANIMA","","https://music.apple.com/jp/artist/wanima/936535085",""
-"tokyoisland-2026","2026-10-10","","金井政人(BIGMAMA)×斎藤宏介(UNISON SQUARE GARDEN／TenTwenty)","","","コラボセット"
-"tokyoisland-2026","2026-10-10","","氣志團","","https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981",""
-"tokyoisland-2026","2026-10-10","","Kroi","","https://music.apple.com/jp/artist/kroi/1439157589",""
-"tokyoisland-2026","2026-10-10","","スガシカオ","","",""
-"tokyoisland-2026","2026-10-10","","にしな","","https://music.apple.com/jp/artist/%E3%81%AB%E3%81%97%E3%81%AA/1531898758",""
-"tokyoisland-2026","2026-10-10","","BIGMAMA","","https://music.apple.com/jp/artist/bigmama/160844958",""
-"tokyoisland-2026","2026-10-10","","First Love is Never Returned","","https://music.apple.com/jp/artist/first-love-is-never-returned/1392834099",""
-"tokyoisland-2026","2026-10-10","","Lucky Kilimanjaro","","https://music.apple.com/jp/artist/lucky-kilimanjaro/1016378760",""
-"tokyoisland-2026","2026-10-11","","ぁみ(怪談家)","","","怪談師の出演枠、音楽アクトではない"
-"tokyoisland-2026","2026-10-11","","androp","","",""
-"tokyoisland-2026","2026-10-11","","キュウソネコカミ","","https://music.apple.com/jp/artist/%E3%82%AD%E3%83%A5%E3%82%A6%E3%82%BD%E3%83%8D%E3%82%B3%E3%82%AB%E3%83%9F/530074314",""
-"tokyoisland-2026","2026-10-11","","CLAN QUEEN","","https://music.apple.com/jp/artist/clan-queen/1650715887",""
-"tokyoisland-2026","2026-10-11","","四星球","","https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561",""
-"tokyoisland-2026","2026-10-11","","超能力戦士ドリアン","","https://music.apple.com/jp/artist/%E8%B6%85%E8%83%BD%E5%8A%9B%E6%88%A6%E5%A3%AB%E3%83%89%E3%83%AA%E3%82%A2%E3%83%B3/1266652978",""
-"tokyoisland-2026","2026-10-11","","花冷え。","","https://music.apple.com/jp/artist/%E8%8A%B1%E5%86%B7%E3%81%88/1437484631",""
-"tokyoisland-2026","2026-10-11","","Fear, and Loathing in Las Vegas","","https://music.apple.com/jp/artist/fear-and-loathing-in-las-vegas/261086516",""
-"tokyoisland-2026","2026-10-12","","ACIDMAN","","https://music.apple.com/jp/artist/acidman/74565843",""
-"tokyoisland-2026","2026-10-12","","大森靖子","","https://music.apple.com/jp/artist/%E5%A4%A7%E6%A3%AE%E9%9D%96%E5%AD%90/731413735",""
-"tokyoisland-2026","2026-10-12","","KANA-BOON","","https://music.apple.com/jp/artist/kana-boon/633973271",""
-"tokyoisland-2026","2026-10-12","","ZAZEN BOYS","","https://music.apple.com/jp/artist/zazen-boys/74456038",""
-"tokyoisland-2026","2026-10-12","","THE BAWDIES","","https://music.apple.com/jp/artist/the-bawdies/422556083",""
-"tokyoisland-2026","2026-10-12","","バックドロップシンデレラ","","https://music.apple.com/jp/artist/%E3%83%90%E3%83%83%E3%82%AF%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%B3%E3%83%87%E3%83%AC%E3%83%A9/276041144",""
-"tokyoisland-2026","2026-10-12","","flumpool","","https://music.apple.com/jp/artist/flumpool/570402072",""
-"tokyoisland-2026","2026-10-12","","Base Ball Bear","","https://music.apple.com/jp/artist/base-ball-bear/111133857",""
-"anation-2026","2026-10-03","","EXILE","","https://music.apple.com/jp/artist/exile/74067869",""
-"anation-2026","2026-10-03","","超特急","","https://music.apple.com/jp/artist/%E8%B6%85%E7%89%B9%E6%80%A5/847400135",""
-"anation-2026","2026-10-03","","CHANYEOL","","https://music.apple.com/jp/artist/chanyeol/935192676",""
-"anation-2026","2026-10-03","","すとぷり","","https://music.apple.com/jp/artist/%E3%81%99%E3%81%A8%E3%81%B7%E3%82%8A/1434966362","第二弾発表・a-nation初出演"
-"anation-2026","2026-10-03","","WINNER","","",""
-"anation-2026","2026-10-03","","NCT JNJM","","https://music.apple.com/jp/artist/nct-jnjm/1875870065",""
-"anation-2026","2026-10-03","","NCT WISH","","https://music.apple.com/jp/artist/nct-wish/1710322244",""
-"anation-2026","2026-10-03","","NEXZ","","https://music.apple.com/jp/artist/nexz/1719566463",""
-"anation-2026","2026-10-03","","KickFlip","","",""
-"anation-2026","2026-10-03","","騎士X - Knight X -","","https://music.apple.com/jp/artist/%E9%A8%8E%E5%A3%ABx-knight-x/1828825783","第二弾発表・a-nation初出演"
-"anation-2026","2026-10-03","","ONE OR EIGHT","","https://music.apple.com/jp/artist/one-or-eight/1758291632",""
-"anation-2026","2026-10-04","","浜崎あゆみ","","https://music.apple.com/jp/artist/%E6%B5%9C%E5%B4%8E%E3%81%82%E3%82%86%E3%81%BF/73951471",""
-"anation-2026","2026-10-04","","J.Y. Park","","https://music.apple.com/jp/artist/j-y-park/418893613",""
-"anation-2026","2026-10-04","","Da-iCE","","https://music.apple.com/jp/artist/da-ice/786833865",""
-"anation-2026","2026-10-04","","TRF","","",""
-"anation-2026","2026-10-04","","JUN. K","","https://music.apple.com/jp/artist/jun-k/419353014",""
-"anation-2026","2026-10-04","","AK-69","","",""
-"anation-2026","2026-10-04","","FANTASTICS","","https://music.apple.com/jp/artist/fantastics/60585497",""
-"anation-2026","2026-10-04","","ONE N' ONLY","","https://music.apple.com/jp/artist/one-n-only/1442049224",""
-"anation-2026","2026-10-04","","SHOW-WA & MATSURI","","",""
-"anation-2026","2026-10-04","","GENIC","","",""
-"anation-2026","2026-10-04","","VIBY","","",""
+lineup_id,date,stage,artist,is_headliner,apple_music_url,note
+tokyoisland-2026,2026-10-10,,OKAMOTO'S,,https://music.apple.com/jp/artist/okamotos/317115646,
+tokyoisland-2026,2026-10-10,,オカモトレイジ(OKAMOTO'S),,https://music.apple.com/jp/artist/%E3%82%AA%E3%82%AB%E3%83%A2%E3%83%88%E3%83%AC%E3%82%A4%E3%82%B8/569973471,
+tokyoisland-2026,2026-10-10,,金井政人(BIGMAMA)&斎藤宏介(UNISON SQUARE GARDEN／TenTwenty),,,
+tokyoisland-2026,2026-10-10,,氣志團,,https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981,
+tokyoisland-2026,2026-10-10,,Kroi,,https://music.apple.com/jp/artist/kroi/1439157589,
+tokyoisland-2026,2026-10-10,,スガシカオ,,,
+tokyoisland-2026,2026-10-10,,にしな,,https://music.apple.com/jp/artist/%E3%81%AB%E3%81%97%E3%81%AA/1531898758,
+tokyoisland-2026,2026-10-10,,BIGMAMA,,https://music.apple.com/jp/artist/bigmama/160844958,
+tokyoisland-2026,2026-10-10,,First Love is Never Returned,,https://music.apple.com/jp/artist/first-love-is-never-returned/1392834099,
+tokyoisland-2026,2026-10-10,,Lucky Kilimanjaro,,https://music.apple.com/jp/artist/lucky-kilimanjaro/1016378760,
+tokyoisland-2026,2026-10-10,,転換DJ：片平実(GETTiNG BETTER),,,
+tokyoisland-2026,2026-10-11,,ぁみ(怪談家),,,
+tokyoisland-2026,2026-10-11,,androp,,,
+tokyoisland-2026,2026-10-11,,キュウソネコカミ,,https://music.apple.com/jp/artist/%E3%82%AD%E3%83%A5%E3%82%A6%E3%82%BD%E3%83%8D%E3%82%B3%E3%82%AB%E3%83%9F/530074314,
+tokyoisland-2026,2026-10-11,,CLAN QUEEN,,https://music.apple.com/jp/artist/clan-queen/1650715887,
+tokyoisland-2026,2026-10-11,,G-FREAK FACTORY,,https://music.apple.com/jp/artist/g-freak-factory/74583775,
+tokyoisland-2026,2026-10-11,,四星球,,https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561,
+tokyoisland-2026,2026-10-11,,超能力戦士ドリアン,,https://music.apple.com/jp/artist/%E8%B6%85%E8%83%BD%E5%8A%9B%E6%88%A6%E5%A3%AB%E3%83%89%E3%83%AA%E3%82%A2%E3%83%B3/1266652978,
+tokyoisland-2026,2026-10-11,,トップシークレットマン,,https://music.apple.com/jp/artist/%E3%83%88%E3%83%83%E3%83%97%E3%82%B7%E3%83%BC%E3%82%AF%E3%83%AC%E3%83%83%E3%83%88%E3%83%9E%E3%83%B3/1513255370,
+tokyoisland-2026,2026-10-11,,花冷え。,,https://music.apple.com/jp/artist/%E8%8A%B1%E5%86%B7%E3%81%88/1437484631,
+tokyoisland-2026,2026-10-11,,"Fear, and Loathing in Las Vegas",,https://music.apple.com/jp/artist/fear-and-loathing-in-las-vegas/261086516,
+tokyoisland-2026,2026-10-11,,転換DJ：片平実(GETTiNG BETTER),,,
+tokyoisland-2026,2026-10-12,,ACIDMAN,,https://music.apple.com/jp/artist/acidman/74565843,
+tokyoisland-2026,2026-10-12,,大森靖子,,https://music.apple.com/jp/artist/%E5%A4%A7%E6%A3%AE%E9%9D%96%E5%AD%90/731413735,
+tokyoisland-2026,2026-10-12,,KANA-BOON,,https://music.apple.com/jp/artist/kana-boon/633973271,
+tokyoisland-2026,2026-10-12,,ZAZEN BOYS,,https://music.apple.com/jp/artist/zazen-boys/74456038,
+tokyoisland-2026,2026-10-12,,THE BAWDIES,,https://music.apple.com/jp/artist/the-bawdies/422556083,
+tokyoisland-2026,2026-10-12,,DJダイノジ,,,
+tokyoisland-2026,2026-10-12,,バックドロップシンデレラ,,https://music.apple.com/jp/artist/%E3%83%90%E3%83%83%E3%82%AF%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%B3%E3%83%87%E3%83%AC%E3%83%A9/276041144,
+tokyoisland-2026,2026-10-12,,flumpool,,https://music.apple.com/jp/artist/flumpool/570402072,
+tokyoisland-2026,2026-10-12,,Base Ball Bear,,https://music.apple.com/jp/artist/base-ball-bear/111133857,
+tokyoisland-2026,2026-10-12,,忘れらんねえよ,,https://music.apple.com/jp/artist/%E5%BF%98%E3%82%8C%E3%82%89%E3%82%93%E3%81%AD%E3%81%88%E3%82%88/393304431,
+tokyoisland-2026,2026-10-12,,転換DJ：片平実(GETTiNG BETTER),,,
+anation-2026,2026-10-03,MAIN STAGE,EXILE,,https://music.apple.com/jp/artist/exile/74067869,
+anation-2026,2026-10-03,MAIN STAGE,超特急,,https://music.apple.com/jp/artist/%E8%B6%85%E7%89%B9%E6%80%A5/847400135,
+anation-2026,2026-10-03,MAIN STAGE,CHANYEOL,,https://music.apple.com/jp/artist/chanyeol/935192676,
+anation-2026,2026-10-03,MAIN STAGE,すとぷり,,https://music.apple.com/jp/artist/%E3%81%99%E3%81%A8%E3%81%B7%E3%82%8A/1434966362,
+anation-2026,2026-10-03,MAIN STAGE,WINNER,,,
+anation-2026,2026-10-03,MAIN STAGE,NCT JNJM,,https://music.apple.com/jp/artist/nct-jnjm/1875870065,
+anation-2026,2026-10-03,MAIN STAGE,NCT WISH,,https://music.apple.com/jp/artist/nct-wish/1710322244,
+anation-2026,2026-10-03,MAIN STAGE,NEXZ,,https://music.apple.com/jp/artist/nexz/1719566463,
+anation-2026,2026-10-03,MAIN STAGE,KickFlip,,,
+anation-2026,2026-10-03,MAIN STAGE,騎士X - Knight X -,,https://music.apple.com/jp/artist/%E9%A8%8E%E5%A3%ABx-knight-x/1828825783,
+anation-2026,2026-10-03,MAIN STAGE,ONE OR EIGHT,,https://music.apple.com/jp/artist/one-or-eight/1758291632,
+anation-2026,2026-10-04,MAIN STAGE,浜崎あゆみ,,https://music.apple.com/jp/artist/%E6%B5%9C%E5%B4%8E%E3%81%82%E3%82%86%E3%81%BF/73951471,
+anation-2026,2026-10-04,MAIN STAGE,J.Y. Park,,https://music.apple.com/jp/artist/j-y-park/418893613,
+anation-2026,2026-10-04,MAIN STAGE,Da-iCE,,https://music.apple.com/jp/artist/da-ice/786833865,
+anation-2026,2026-10-04,MAIN STAGE,TRF,,,
+anation-2026,2026-10-04,MAIN STAGE,JUN. K,,https://music.apple.com/jp/artist/jun-k/419353014,
+anation-2026,2026-10-04,MAIN STAGE,AK-69,,,
+anation-2026,2026-10-04,MAIN STAGE,Novelbright,,https://music.apple.com/jp/artist/novelbright/1022677279,
+anation-2026,2026-10-04,MAIN STAGE,FANTASTICS,,https://music.apple.com/jp/artist/fantastics/60585497,
+anation-2026,2026-10-04,MAIN STAGE,ONE N' ONLY,,https://music.apple.com/jp/artist/one-n-only/1442049224,
+anation-2026,2026-10-04,MAIN STAGE,SHOW-WA & MATSURI,,,
+anation-2026,2026-10-04,MAIN STAGE,THE JET BOY BANGERZ,,,
+anation-2026,2026-10-04,MAIN STAGE,鈴木亜美,,,
+anation-2026,2026-10-04,MAIN STAGE,GENIC,,,
+anation-2026,2026-10-04,MAIN STAGE,VIBY,,,
+anation-2026,2026-10-04,MAIN STAGE,いぎなり東北産,,https://music.apple.com/jp/artist/%E3%81%84%E3%81%8E%E3%81%AA%E3%82%8A%E6%9D%B1%E5%8C%97%E7%94%A3/1586407152,
+anation-2026,2026-10-03,OPENING ACT,Be-ray,,https://music.apple.com/jp/artist/be-ray/6778627478,
+anation-2026,2026-10-03,OPENING ACT,Girls²,,https://music.apple.com/jp/artist/girls2/1457944595,
+anation-2026,2026-10-03,OPENING ACT,VIBY,,,
+anation-2026,2026-10-03,OPENING ACT,僕が見たかった青空,,https://music.apple.com/jp/artist/%E5%83%95%E3%81%8C%E8%A6%8B%E3%81%9F%E3%81%8B%E3%81%A3%E3%81%9F%E9%9D%92%E7%A9%BA/1814542524,
+anation-2026,2026-10-03,OPENING ACT,Pasmal,,,
+anation-2026,2026-10-03,OPENING ACT,GPP,,,
+anation-2026,2026-10-03,OPENING ACT,KRUNK,,,
+anation-2026,2026-10-04,OPENING ACT,@onefive,,https://music.apple.com/jp/artist/onefive/1483633274,
+anation-2026,2026-10-04,OPENING ACT,PG,,,
+anation-2026,2026-10-04,OPENING ACT,ONE LOVE ONE HEART,,https://music.apple.com/jp/artist/one-love-one-heart/1619110085,
+anation-2026,2026-10-03,PARK STAGE,PG,,,
+anation-2026,2026-10-03,PARK STAGE,SVRN,,,
+anation-2026,2026-10-03,PARK STAGE,Cloud ten,,,
+anation-2026,2026-10-03,PARK STAGE,aY trainee,,,
+anation-2026,2026-10-04,PARK STAGE,Be-ray,,https://music.apple.com/jp/artist/be-ray/6778627478,
+anation-2026,2026-10-04,PARK STAGE,CiON,,https://music.apple.com/jp/artist/cion/1227381682,
+anation-2026,2026-10-04,PARK STAGE,Pasmal,,,
+kishidan-banpaku-2026,2026-11-07,,秋山竜次(ロバート)<OPENING CEREMONY ACT>,,,
+kishidan-banpaku-2026,2026-11-07,,打首獄門同好会,,https://music.apple.com/jp/artist/%E6%89%93%E9%A6%96%E7%8D%84%E9%96%80%E5%90%8C%E5%A5%BD%E4%BC%9A/201607388,
+kishidan-banpaku-2026,2026-11-07,,氣志團,,https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981,
+kishidan-banpaku-2026,2026-11-07,,go!go!vanillas,,https://music.apple.com/jp/artist/go-go-vanillas/671623880,
+kishidan-banpaku-2026,2026-11-07,,ゴールデンボンバー,,https://music.apple.com/jp/artist/%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%87%E3%83%B3%E3%83%9C%E3%83%B3%E3%83%90%E3%83%BC/325594527,
+kishidan-banpaku-2026,2026-11-07,,Saucy Dog,,https://music.apple.com/jp/artist/saucy-dog/1229933633,
+kishidan-banpaku-2026,2026-11-07,,スチャダラパー,,https://music.apple.com/jp/artist/%E3%82%B9%E3%83%81%E3%83%A3%E3%83%80%E3%83%A9%E3%83%91%E3%83%BC/74588142,
+kishidan-banpaku-2026,2026-11-07,,DJ OZMA,,https://music.apple.com/jp/artist/dj-ozma/131607673,
+kishidan-banpaku-2026,2026-11-07,,怒髪天,,https://music.apple.com/jp/artist/%E6%80%92%E9%AB%AA%E5%A4%A9/291534566,
+kishidan-banpaku-2026,2026-11-07,,NEWS,,https://music.apple.com/jp/artist/news/1765474507,
+kishidan-banpaku-2026,2026-11-07,,バックドロップシンデレラ,,https://music.apple.com/jp/artist/%E3%83%90%E3%83%83%E3%82%AF%E3%83%89%E3%83%AD%E3%83%83%E3%83%97%E3%82%B7%E3%83%B3%E3%83%87%E3%83%AC%E3%83%A9/276041144,
+kishidan-banpaku-2026,2026-11-07,,PUFFY,,https://music.apple.com/jp/artist/puffy/416758827,
+kishidan-banpaku-2026,2026-11-07,,美少女戦士セーラームーン -Shining Theater Shinagawa Tokyo- Team Silver Moon<WELCOME ACT>,,,
+kishidan-banpaku-2026,2026-11-07,,日向坂46,,https://music.apple.com/jp/artist/%E6%97%A5%E5%90%91%E5%9D%8246/1456116642,
+kishidan-banpaku-2026,2026-11-07,,モナキ,,https://music.apple.com/jp/artist/%E3%83%A2%E3%83%8A%E3%82%AD/1878550824,
+kishidan-banpaku-2026,2026-11-08,,アイナ・ジ・エンド,,https://music.apple.com/jp/artist/%E3%82%A2%E3%82%A4%E3%83%8A-%E3%82%B8-%E3%82%A8%E3%83%B3%E3%83%89/991663287,
+kishidan-banpaku-2026,2026-11-08,,海援隊<OPENING CEREMONY ACT>,,,
+kishidan-banpaku-2026,2026-11-08,,氣志團,,https://music.apple.com/jp/artist/%E6%B0%A3%E5%BF%97%E5%9C%98/74577981,
+kishidan-banpaku-2026,2026-11-08,,奇妙礼太郎BAND,,,
+kishidan-banpaku-2026,2026-11-08,,キュウソネコカミ,,https://music.apple.com/jp/artist/%E3%82%AD%E3%83%A5%E3%82%A6%E3%82%BD%E3%83%8D%E3%82%B3%E3%82%AB%E3%83%9F/530074314,
+kishidan-banpaku-2026,2026-11-08,,くるり,,https://music.apple.com/jp/artist/%E3%81%8F%E3%82%8B%E3%82%8A/105025123,
+kishidan-banpaku-2026,2026-11-08,,四星球,,https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561,
+kishidan-banpaku-2026,2026-11-08,,超ときめき宣伝部,,,
+kishidan-banpaku-2026,2026-11-08,,DJダイノジ<WELCOME ACT>,,,
+kishidan-banpaku-2026,2026-11-08,,10-FEET,,https://music.apple.com/jp/artist/10-feet/76125500,
+kishidan-banpaku-2026,2026-11-08,,BARBEE BOYS 4 PEACE,,,
+kishidan-banpaku-2026,2026-11-08,,ももいろクローバーZ,,https://music.apple.com/jp/artist/%E3%82%82%E3%82%82%E3%81%84%E3%82%8D%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%90%E3%83%BCz/448294481,
+kishidan-banpaku-2026,2026-11-08,,Lienel,,,
+kishidan-banpaku-2026,2026-11-08,,ROTTENGRAFFTY,,https://music.apple.com/jp/artist/rottengraffty/415227338,
+kishidan-banpaku-2026,2026-11-08,,WANIMA,,https://music.apple.com/jp/artist/wanima/936535085,

@@ -1,16 +1,16 @@
 venue,kind,pref,area,capacity,lat,lng,url,status,closed_until,first_seen,last_hit,hit_count,note
 国立競技場,dome,tokyo,東京都・新宿区,68000,35.6778,139.7146,https://www.jpnsport.go.jp/newstadium/,active,,2026-08-02,,0,
-東京ドーム,dome,tokyo,東京都・文京区,55000,35.7056,139.7519,https://www.tokyo-dome.co.jp/dome/,active,,2026-08-02,2026-09-04,5,
+東京ドーム,dome,tokyo,東京都・文京区,55000,35.7056,139.7519,https://www.tokyo-dome.co.jp/dome/,active,,2026-08-02,2026-09-25,6,
 味の素スタジアム,dome,tokyo,東京都・調布市,49000,35.6641,139.5272,https://www.ajinomotostadium.com/,active,,2026-08-02,2026-08-29,3,
-有明アリーナ,arena,tokyo,東京都・江東区,15000,35.6434,139.7942,https://ariake-arena.tokyo/,active,,2026-08-02,2026-09-04,4,
-日本武道館,arena,tokyo,東京都・千代田区,14000,35.6933,139.7497,https://www.nipponbudokan.or.jp/,active,,2026-08-02,2026-08-29,3,
+有明アリーナ,arena,tokyo,東京都・江東区,15000,35.6434,139.7942,https://ariake-arena.tokyo/,active,,2026-08-02,2026-09-25,5,
+日本武道館,arena,tokyo,東京都・千代田区,14000,35.6933,139.7497,https://www.nipponbudokan.or.jp/,active,,2026-08-02,2026-09-25,4,
 国立代々木競技場第一体育館,arena,tokyo,東京都・渋谷区,13000,35.6683,139.7000,https://www.jpnsport.go.jp/yoyogi/,active,,2026-08-02,,0,
 両国国技館,arena,tokyo,東京都・墨田区,11000,35.6967,139.7933,https://www.sumo.or.jp/KokugikanInfo/,active,,2026-08-02,,0,
 東京体育館,arena,tokyo,東京都・渋谷区,10000,35.6800,139.7128,https://www.jpnsport.go.jp/tokyo-taiikukan/,active,,2026-08-02,,0,
 武蔵野の森総合スポーツプラザ,arena,tokyo,東京都・調布市,10000,35.6625,139.5283,https://www.musashinonomori.tokyo/,active,,2026-08-02,,0,
 東京ガーデンシアター,arena,tokyo,東京都・江東区,8000,35.6378,139.7921,https://www.bellesalle.co.jp/ariake_event-hall/visitor/index.php,active,,2026-08-02,2026-08-29,3,
 大田区総合体育館,arena,tokyo,東京都・大田区,4000,35.5622,139.7169,https://www.ota-gym.jp/,active,,2026-08-02,,0,
-東京国際フォーラム ホールA,hall,tokyo,東京都・千代田区,5012,35.6764,139.7639,https://www.t-i-forum.co.jp/,active,,2026-08-02,2026-09-23,4,総称: 東京国際フォーラム
+東京国際フォーラム ホールA,hall,tokyo,東京都・千代田区,5012,35.6764,139.7639,https://www.t-i-forum.co.jp/,active,,2026-08-02,2026-09-25,5,総称: 東京国際フォーラム
 NHKホール,hall,tokyo,東京都・渋谷区,3601,35.6672,139.6975,https://www.nhk-sc.or.jp/nhk_hall/,active,,2026-08-02,2026-08-08,1,
 東京ドームシティホール,hall,tokyo,東京都・文京区,3000,35.7047,139.7528,https://www.tokyo-dome.co.jp/hall/,active,,2026-08-02,,0,ネーミングライツにより2025年4月1日〜2028年3月31日の契約で「Kanadevia Hall（カナデビアホール）」に改称
 東京文化会館,hall,tokyo,東京都・台東区,2303,35.7147,139.7758,https://www.t-bunka.jp/,active,,2026-08-02,,0,
@@ -19,31 +19,31 @@ Bunkamuraオーチャードホール,hall,tokyo,東京都・渋谷区,2150,35.66
 J:COMホール八王子,hall,tokyo,東京都・八王子市,2021,35.6547,139.3376,https://jcom.hall-info.jp/,active,,2026-08-07,2026-09-04,1,旧称：八王子市民会館
 サントリーホール,hall,tokyo,東京都・港区,2006,35.6694,139.7397,https://www.suntory.co.jp/suntoryhall/,active,,2026-08-02,,0,
 昭和女子大学 人見記念講堂,hall,tokyo,東京都・世田谷区,2000,35.6367,139.6633,https://hitomi.swu.ac.jp/,active,,2026-08-02,2026-08-29,3,
-東京芸術劇場 コンサートホール,hall,tokyo,東京都・豊島区,1999,35.7306,139.7086,https://www.geigeki.jp/,active,,2026-08-02,2026-08-29,3,総称: 東京芸術劇場
+東京芸術劇場 コンサートホール,hall,tokyo,東京都・豊島区,1999,35.7306,139.7086,https://www.geigeki.jp/,active,,2026-08-02,2026-09-25,4,総称: 東京芸術劇場
 LINE CUBE SHIBUYA,hall,tokyo,東京都・渋谷区,1956,35.6647,139.6975,https://www.line-cube-shibuya.com/,active,,2026-08-02,,0,
 文京シビックホール,hall,tokyo,東京都・文京区,1802,35.7080,139.7529,https://www.b-academy.jp/hall/,active,,2026-08-07,,0,正式名称は響きの森文京公会堂。文京シビックセンター内
 東京オペラシティ コンサートホール,hall,tokyo,東京都・新宿区,1632,35.6836,139.6864,https://www.operacity.jp/concert/,active,,2026-08-02,2026-08-08,1,
 新宿文化センター,hall,tokyo,東京都・新宿区,1601,35.6954,139.7094,https://www.regasu-shinjuku.or.jp/bunka-center/,active,,2026-08-07,,0,
 練馬文化センター,hall,tokyo,東京都・練馬区,1344,35.7394,139.6538,https://www.neribun.or.jp/nerima.html,active,,2026-08-07,,0,
 なかのZERO,hall,tokyo,東京都・中野区,1292,35.7046,139.6712,https://www.nicesacademia.jp/zero/,active,,2026-08-07,,0,正式名称は中野区立もみじ山文化センター
-日本青年館ホール,hall,tokyo,東京都・新宿区,1249,35.6742,139.7155,https://seinenkan-hall.com/,active,,2026-08-07,2026-09-04,1,
+日本青年館ホール,hall,tokyo,東京都・新宿区,1249,35.6742,139.7155,https://seinenkan-hall.com/,active,,2026-08-07,2026-09-25,2,
 パルテノン多摩,hall,tokyo,東京都・多摩市,1154,35.6217,139.4263,https://www.parthenon.or.jp/,active,,2026-08-07,,0,
 有楽町よみうりホール,hall,tokyo,東京都・千代田区,1100,35.6747,139.7639,https://yomiuri-hall.jp/,active,,2026-08-02,2026-08-29,3,
-八王子市芸術文化会館 いちょうホール,hall,tokyo,東京都・八王子市,800,35.6625,139.3323,https://www.hachiojibunka.or.jp/icho/,active,,2026-08-07,2026-09-04,1,2025年7月にリニューアルオープン
+八王子市芸術文化会館 いちょうホール,hall,tokyo,東京都・八王子市,800,35.6625,139.3323,https://www.hachiojibunka.or.jp/icho/,active,,2026-08-07,2026-09-25,2,2025年7月にリニューアルオープン
 日本橋三井ホール,hall,tokyo,東京都・中央区,690,35.6867,139.7741,https://nihonbashi-hall.jp/,active,,2026-08-07,,0,収容人数は着席時。スタンディング時は約1000人
 日経ホール,hall,tokyo,東京都・千代田区,610,35.6889,139.7624,https://www.nikkei-hall.com/,active,,2026-08-07,,0,
-Hakuju Hall,hall,tokyo,東京都・渋谷区,300,35.6674,139.6902,https://www.hakujuhall.jp/,active,,2026-08-07,2026-09-04,1,リクライニング席使用時162席・固定席使用時300席
+Hakuju Hall,hall,tokyo,東京都・渋谷区,300,35.6674,139.6902,https://www.hakujuhall.jp/,active,,2026-08-07,2026-09-25,2,リクライニング席使用時162席・固定席使用時300席
 Zepp Haneda(TOKYO),livehouse,tokyo,東京都・大田区,3000,35.5497,139.7458,https://www.zepp.co.jp/hall/haneda/,active,,2026-08-02,2026-09-04,5,
-豊洲PIT,livehouse,tokyo,東京都・江東区,3000,35.6486,139.7986,https://toyosu.pia-pit.jp/,active,,2026-08-02,2026-09-23,3,
+豊洲PIT,livehouse,tokyo,東京都・江東区,3000,35.6486,139.7986,https://toyosu.pia-pit.jp/,active,,2026-08-02,2026-09-25,4,
 Zepp DiverCity(TOKYO),livehouse,tokyo,東京都・江東区,2473,35.6250,139.7756,https://www.zepp.co.jp/hall/divercity/,active,,2026-08-02,2026-09-04,2,
 EX THEATER ROPPONGI,livehouse,tokyo,東京都・港区,1746,35.6612,139.7272,https://www.ex-theater.com/,active,,2026-08-07,,0,収容人数はスタンディング時。着席時920席
 Zepp Shinjuku(TOKYO),livehouse,tokyo,東京都・新宿区,1500,35.6939,139.7036,https://www.zepp.co.jp/hall/shinjuku/,active,,2026-08-02,2026-09-04,2,
 マイナビBLITZ赤坂,livehouse,tokyo,東京都・港区,1400,35.6736,139.7369,https://akasaka-blitz.com/,active,,2026-08-02,,0,
 Spotify O-EAST,livehouse,tokyo,東京都・渋谷区,1300,35.6583,139.6969,https://shibuya-o.com/,active,,2026-08-02,2026-09-04,2,沿革: Shibuya O-EAST（開業時）→2013年12月 TSUTAYA O-EASTに改称→2021年12月1日 Spotify Japanとのネーミングライツ契約で現名称「Spotify O-EAST」に改称
-LIQUIDROOM,livehouse,tokyo,東京都・渋谷区,1000,35.6444,139.7050,https://www.liquidroom.net/,active,,2026-08-02,2026-09-04,2,
-Spotify O-WEST,livehouse,tokyo,東京都・渋谷区,1000,35.6583,139.6967,https://shibuya-o.com/,active,,2026-08-02,2026-09-04,2,
-恵比寿ザ・ガーデンホール,livehouse,tokyo,東京都・渋谷区,750,35.6428,139.7133,https://gardenplace.jp/hall/,active,,2026-08-02,2026-09-04,4,
-渋谷CLUB QUATTRO,livehouse,tokyo,東京都・渋谷区,750,35.6614,139.6975,https://www.club-quattro.com/,active,,2026-08-02,2026-09-04,2,別表記: Shibuya CLUB QUATTRO
+LIQUIDROOM,livehouse,tokyo,東京都・渋谷区,1000,35.6444,139.7050,https://www.liquidroom.net/,active,,2026-08-02,2026-09-25,3,
+Spotify O-WEST,livehouse,tokyo,東京都・渋谷区,1000,35.6583,139.6967,https://shibuya-o.com/,active,,2026-08-02,2026-09-25,3,
+恵比寿ザ・ガーデンホール,livehouse,tokyo,東京都・渋谷区,750,35.6428,139.7133,https://gardenplace.jp/hall/,active,,2026-08-02,2026-09-25,5,
+渋谷CLUB QUATTRO,livehouse,tokyo,東京都・渋谷区,750,35.6614,139.6975,https://www.club-quattro.com/,active,,2026-08-02,2026-09-25,3,別表記: Shibuya CLUB QUATTRO
 WWW X,livehouse,tokyo,東京都・渋谷区,600,35.6615,139.6987,https://www-shibuya.jp/,active,,2026-08-07,2026-09-04,1,WWWと同じ建物（ライズビル）2階
 新宿LOFT,livehouse,tokyo,東京都・新宿区,500,35.6947,139.7017,https://www.loft-prj.co.jp/LOFT/,active,,2026-08-02,2026-09-04,1,
 WWW,livehouse,tokyo,東京都・渋谷区,400,35.6615,139.6987,https://www-shibuya.jp/,active,,2026-08-07,2026-09-04,1,WWW Xと同じ建物（ライズビル）地下1階
@@ -57,19 +57,19 @@ TOKYO ODAIBA ULTRA PARK,outdoor,tokyo,東京都・江東区,,35.6197,139.7756,ht
 横浜スタジアム,dome,kanagawa,神奈川県・横浜市中区,34000,35.4433,139.6400,https://www.yokohama-stadium.co.jp/,active,,2026-08-02,2026-08-27,2,
 Kアリーナ横浜,arena,kanagawa,神奈川県・横浜市西区,20000,35.4644,139.6285,https://k-arena.com/,active,,2026-08-02,2026-08-29,2,
 横浜アリーナ,arena,kanagawa,神奈川県・横浜市港北区,17000,35.5116,139.6178,https://www.yokohama-arena.co.jp/,active,,2026-08-02,2026-08-29,2,
-ぴあアリーナMM,arena,kanagawa,神奈川県・横浜市西区,12000,35.4589,139.6339,https://pia-arena-mm.jp/,active,,2026-08-02,2026-09-23,4,
+ぴあアリーナMM,arena,kanagawa,神奈川県・横浜市西区,12000,35.4589,139.6339,https://pia-arena-mm.jp/,active,,2026-08-02,2026-09-25,5,
 横浜武道館,arena,kanagawa,神奈川県・横浜市中区,5000,35.4444,139.6389,https://y-budokan.jp/,active,,2026-08-02,,0,
 パシフィコ横浜 国立大ホール,hall,kanagawa,神奈川県・横浜市西区,5002,35.4600,139.6367,https://www.pacifico.co.jp/,active,,2026-08-02,2026-08-08,1,
 神奈川県民ホール,hall,kanagawa,神奈川県・横浜市中区,2493,35.4462,139.6470,https://www.kanagawa-kenminhall.com/,active,,2026-08-07,,0,老朽化のため2025年3月31日から休館中。建替えによる再整備方針が示されているが再開時期は未定
-横浜みなとみらいホール,hall,kanagawa,神奈川県・横浜市西区,2020,35.4577,139.6351,https://yokohama-minatomiraihall.jp/,active,,2026-08-07,2026-08-29,1,
-横浜関内ホール,hall,kanagawa,神奈川県・横浜市中区,1038,35.4474,139.6361,https://www.kannaihall.jp/,active,,2026-08-07,2026-08-29,1,
+横浜みなとみらいホール,hall,kanagawa,神奈川県・横浜市西区,2020,35.4577,139.6351,https://yokohama-minatomiraihall.jp/,active,,2026-08-07,2026-09-25,2,
+横浜関内ホール,hall,kanagawa,神奈川県・横浜市中区,1038,35.4474,139.6361,https://www.kannaihall.jp/,active,,2026-08-07,2026-09-25,2,
 KT Zepp Yokohama,livehouse,kanagawa,神奈川県・横浜市西区,2020,35.4642,139.6300,https://www.zepp.co.jp/hall/yokohama/,active,,2026-08-02,2026-08-29,2,
-川崎CLUB CITTA',livehouse,kanagawa,神奈川県・川崎市川崎区,1300,35.5306,139.7000,http://clubcitta.co.jp/,active,,2026-08-02,2026-08-29,3,別表記: CLUB CITTA'川崎
+川崎CLUB CITTA',livehouse,kanagawa,神奈川県・川崎市川崎区,1300,35.5306,139.7000,http://clubcitta.co.jp/,active,,2026-08-02,2026-09-25,4,別表記: CLUB CITTA'川崎
 横浜BAY HALL,livehouse,kanagawa,神奈川県・横浜市中区,1000,35.4489,139.6497,https://www.yokohamabayhall.com/,active,,2026-08-02,,0,別表記: 横浜Bay Hall
 SUPERNOVA KAWASAKI,livehouse,kanagawa,神奈川県・川崎市幸区,500,35.5295,139.6942,https://supernova-kawasaki.jp/,active,,2026-08-07,,0,
 F.A.D YOKOHAMA,livehouse,kanagawa,神奈川県・横浜市中区,380,35.4415,139.6450,http://www.fad-music.com/,active,,2026-08-07,,0,
 関内7th AVENUE,livehouse,kanagawa,神奈川県・横浜市中区,350,35.4424,139.6411,http://www2.big.or.jp/~7th/,blocked,,2026-08-07,,0,robots.txt が Claude-SearchBot を拒否(閉館ではない。公演は他の情報源から拾う)
-川崎Serbian Night,livehouse,kanagawa,神奈川県・川崎市川崎区,300,35.5280,139.6999,https://www.serbian-night.tv/,active,,2026-08-07,2026-08-29,1,
+川崎Serbian Night,livehouse,kanagawa,神奈川県・川崎市川崎区,300,35.5280,139.6999,https://www.serbian-night.tv/,active,,2026-08-07,2026-09-25,2,
 横浜BAYSIS,livehouse,kanagawa,神奈川県・横浜市中区,300,35.4463,139.6366,http://www.yokohamabaysis.com/,active,,2026-08-07,,0,
 新横浜NEW SIDE BEACH!!,livehouse,kanagawa,神奈川県・横浜市港北区,200,35.5119,139.6195,https://ns-beach.com/,active,,2026-08-07,,0,
 Thunder Snake ATSUGI,livehouse,kanagawa,神奈川県・厚木市,,35.4370,139.3634,https://thunder-snake.com/,active,,2026-08-07,2026-08-29,1,
@@ -121,7 +121,7 @@ ZX WEST CHIBA,livehouse,chiba,千葉県・千葉市中央区,170,35.6228,140.102
 新松戸FIRE BIRD,livehouse,chiba,千葉県・松戸市,120,35.8259,139.9197,http://www.aj-group.co.jp/firebird.html,active,,2026-08-08,,0,
 千葉ANGA,livehouse,chiba,千葉県・千葉市中央区,,35.6092,140.1179,https://anga-hp.com/,active,,2026-08-08,,0,
 志津Sound Stream sakura,livehouse,chiba,千葉県・佐倉市,,35.7189,140.1478,https://shizu-sound-stream.com/,active,,2026-08-08,,0,
-幕張メッセ,outdoor,chiba,千葉県・千葉市美浜区,,35.6480,140.0347,https://www.m-messe.co.jp/,active,,2026-08-02,2026-08-27,2,
+幕張メッセ,outdoor,chiba,千葉県・千葉市美浜区,,35.6480,140.0347,https://www.m-messe.co.jp/,active,,2026-08-02,2026-09-25,3,
 蘇我スポーツ公園,outdoor,chiba,千葉県・千葉市中央区,,35.5731,140.1153,https://sogasportspark.com/,active,,2026-08-02,2026-08-27,2,
 高崎芸術劇場,hall,gunma,群馬県・高崎市,2027,36.3222,139.0117,https://www.takasaki-foundation.or.jp/theatre/,active,,2026-08-02,2026-08-27,2,
 高崎club FLEEZ,livehouse,gunma,群馬県・高崎市,500,36.3222,139.0125,https://www.clubfleez.info/,active,,2026-08-02,,0,
@@ -138,18 +138,18 @@ ANIMAL NEST,livehouse,other,静岡県・富士市,,35.1561,138.6499,https://www.
 DOT COOL,livehouse,other,静岡県・静岡市,,34.9727,138.3827,http://dotcool.info/,active,,2026-08-08,,0,ジャズバー、週末ライブ有り
 "Jazz in ""Bb""",livehouse,other,静岡県・浜松市,,34.7770,137.7391,https://b-flat.cafe.coocan.jp/,active,,2026-08-08,,0,自家焙煎珈琲店兼ライブハウス、半田山
 LIVE HOUSE UHU,livehouse,other,静岡県・静岡市,,34.9729,138.3803,http://livehouse-uhu.com/,active,,2026-08-08,,0,静岡東宝会館B1、2023年8月移転
-LIVE ROXY SHIZUOKA,livehouse,other,静岡県・静岡市,,34.9718,138.3884,https://live-roxy.com/,active,,2026-08-08,2026-08-29,1,
+LIVE ROXY SHIZUOKA,livehouse,other,静岡県・静岡市,,34.9718,138.3884,https://live-roxy.com/,active,,2026-08-08,2026-09-25,2,
 Live House 浜松窓枠,livehouse,other,静岡県・浜松市,,34.7067,137.7351,https://madowaku.com/,active,,2026-08-08,,0,
 Magical River,livehouse,other,静岡県・静岡市,,34.9725,138.3858,https://magical-river.com/,active,,2026-08-08,,0,
 なんでモール,livehouse,other,静岡県・浜松市,,34.7443,137.7437,http://www.nandemall.com/,active,,2026-08-08,,0,アコースティックライブカフェバー
-浜松G-SIDE,livehouse,other,静岡県・浜松市,,34.7084,137.7310,http://g-side.net/,active,,2026-08-08,2026-08-29,1,
+浜松G-SIDE,livehouse,other,静岡県・浜松市,,34.7084,137.7310,http://g-side.net/,active,,2026-08-08,2026-09-25,2,
 浜松MESCALIN DRIVE,livehouse,other,静岡県・浜松市,,34.7054,137.7334,http://mescalin-drive.com/,active,,2026-08-08,,0,
 藤枝ココペリ,livehouse,other,静岡県・藤枝市,,34.8519,138.2521,https://livehousekokopelli.wixsite.com/live-house-kokopelli,active,,2026-08-08,,0,
 静岡Freakyshow,livehouse,other,静岡県・静岡市,,34.9746,138.3799,https://freakyshow.net/,active,,2026-08-08,,0,
 静岡SOUND SHOWER ark,livehouse,other,静岡県・静岡市,,35.0108,138.4928,https://ark-soundshower.jp/,active,,2026-08-08,,0,エスパルスドリームプラザ内
 静岡SUNASH,livehouse,other,静岡県・静岡市,,34.9677,138.3908,http://sunash.info/,active,,2026-08-08,,0,
 静岡UMBER,livehouse,other,静岡県・静岡市,,34.9819,138.4374,http://www.umber.jp/index.html,active,,2026-08-08,,0,
-海の森公園,outdoor,tokyo,東京都・江東区,,,,https://www.tptc.co.jp/park/03_08,active,,2026-08-12,2026-08-29,3,
+海の森公園,outdoor,tokyo,東京都・江東区,,,,https://www.tptc.co.jp/park/03_08,active,,2026-08-12,2026-09-25,4,
 明治神宮野球場,outdoor,tokyo,東京都・新宿区,,,,https://www.jingu-stadium.com/,candidate,,2026-08-12,2026-08-12,1,
 山中湖交流プラザきらら,outdoor,other,山梨県・南都留郡山中湖村,,35.4235,138.8654,https://2026.sweetloveshower.com/,candidate,,2026-08-27,2026-08-27,1,
-a-nation特設会場,outdoor,tokyo,東京都・江東区(お台場),,35.6270,139.7800,https://a-nation.net/,active,,2026-08-27,2026-08-29,2,
+a-nation特設会場,outdoor,tokyo,東京都・江東区(お台場),,35.6270,139.7800,https://a-nation.net/,active,,2026-08-27,2026-09-25,3,

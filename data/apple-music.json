@@ -32,6 +32,10 @@
       "url": "",
       "why": "同名の候補が2件（別アーティストの可能性）"
     },
+    "@onefive": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/onefive/1483633274"
+    },
     "ACIDMAN": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/acidman/74565843"
@@ -189,6 +193,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/base-ball-bear/111133857"
     },
+    "Be-ray": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/be-ray/6778627478"
+    },
     "Bray me": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/bray-me/857389879"
@@ -248,6 +256,15 @@
     "Chilli Beans.": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/chilli-beans/1579829422"
+    },
+    "CiON": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/cion/1227381682"
+    },
+    "Cloud ten": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
     },
     "Cloudy": {
       "checked": "2026-08-13",
@@ -322,6 +339,11 @@
     },
     "DJダイノジ": {
       "checked": "2026-08-27",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "DJダイノジ<WELCOME ACT>": {
+      "checked": "2026-09-25",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
@@ -434,6 +456,15 @@
     "GOOD NEIGHBOURS": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/good-neighbours/1726004707"
+    },
+    "GPP": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "Girls²": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/girls2/1457944595"
     },
     "HALCALI": {
       "checked": "2026-08-13",
@@ -603,6 +634,11 @@
       "checked": "2026-08-29",
       "url": "",
       "why": "同名の候補が3件（別アーティストの可能性）"
+    },
+    "KRUNK": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "大小文字を無視すると候補が3件"
     },
     "KUZIRA": {
       "checked": "2026-08-13",
@@ -838,10 +874,18 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/oau/122930871"
     },
+    "OKAMOTO'S": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/okamotos/317115646"
+    },
     "OMARION": {
       "checked": "2026-08-13",
       "url": "",
       "why": "大小文字を無視すると候補が2件"
+    },
+    "ONE LOVE ONE HEART": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/one-love-one-heart/1619110085"
     },
     "ONE N' ONLY": {
       "checked": "2026-08-27",
@@ -891,6 +935,11 @@
       "url": "",
       "why": "同名の候補が3件（別アーティストの可能性）"
     },
+    "PG": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "同名の候補が6件（別アーティストの可能性）"
+    },
     "PRETTY BLEAK": {
       "checked": "2026-08-13",
       "url": "",
@@ -903,6 +952,11 @@
     "Paledusk": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/paledusk/1131535929"
+    },
+    "Pasmal": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
     },
     "PassCode": {
       "checked": "2026-08-13",
@@ -1021,6 +1075,11 @@
       "url": "",
       "why": "大小文字を無視すると候補が6件"
     },
+    "SVRN": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
+    },
     "SWEE": {
       "checked": "2026-08-27",
       "url": "",
@@ -1050,6 +1109,11 @@
     "THE GUEST LIST": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/the-guest-list/1652225665"
+    },
+    "THE JET BOY BANGERZ": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
     },
     "THE ORAL CIGARETTES": {
       "checked": "2026-08-13",
@@ -1288,6 +1352,11 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/alexandros/350239299"
     },
+    "aY trainee": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "amazarashi": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/amazarashi/342419284"
@@ -1449,6 +1518,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E3%81%82%E3%81%84%E3%81%BF%E3%82%87%E3%82%93/1165017710"
     },
+    "いぎなり東北産": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/%E3%81%84%E3%81%8E%E3%81%AA%E3%82%8A%E6%9D%B1%E5%8C%97%E7%94%A3/1586407152"
+    },
     "おいしくるメロンパン": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E3%81%8A%E3%81%84%E3%81%97%E3%81%8F%E3%82%8B%E3%83%A1%E3%83%AD%E3%83%B3%E3%83%91%E3%83%B3/1179928265"
@@ -1525,6 +1598,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E3%82%A8%E3%83%AB%E3%82%B9%E3%82%A6%E3%82%A7%E3%82%A2%E7%B4%80%E8%A1%8C/1529421002"
     },
+    "オカモトレイジ(OKAMOTO'S)": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/%E3%82%AA%E3%82%AB%E3%83%A2%E3%83%88%E3%83%AC%E3%82%A4%E3%82%B8/569973471"
+    },
     "キタニタツヤ": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E3%82%AD%E3%82%BF%E3%83%8B%E3%82%BF%E3%83%84%E3%83%A4/1289607378"
@@ -1585,6 +1662,10 @@
     "トゲナシトゲアリ": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E3%83%88%E3%82%B2%E3%83%8A%E3%82%B7%E3%83%88%E3%82%B2%E3%82%A2%E3%83%AA/1688539273"
+    },
+    "トップシークレットマン": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/%E3%83%88%E3%83%83%E3%83%97%E3%82%B7%E3%83%BC%E3%82%AF%E3%83%AC%E3%83%83%E3%83%88%E3%83%9E%E3%83%B3/1513255370"
     },
     "ハク。": {
       "checked": "2026-08-13",
@@ -1686,6 +1767,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E4%B8%AD%E5%B7%9D%E6%95%AC/259230301"
     },
+    "僕が見たかった青空": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/%E5%83%95%E3%81%8C%E8%A6%8B%E3%81%9F%E3%81%8B%E3%81%A3%E3%81%9F%E9%9D%92%E7%A9%BA/1814542524"
+    },
     "優里": {
       "checked": "2026-08-13",
       "url": "",
@@ -1754,6 +1839,10 @@
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
+    "忘れらんねえよ": {
+      "checked": "2026-09-25",
+      "url": "https://music.apple.com/jp/artist/%E5%BF%98%E3%82%8C%E3%82%89%E3%82%93%E3%81%AD%E3%81%88%E3%82%88/393304431"
+    },
     "怒髪天": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E6%80%92%E9%AB%AA%E5%A4%A9/291534566"
@@ -1820,6 +1909,11 @@
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/%E6%B5%B7%E6%8F%B4%E9%9A%8A/74457017"
     },
+    "海援隊<OPENING CEREMONY ACT>": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "清春": {
       "checked": "2026-08-13",
       "url": "",
@@ -1863,6 +1957,11 @@
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/%E7%A7%8B%E5%B1%B1%E7%AB%9C%E6%AC%A1/470254917"
     },
+    "秋山竜次(ロバート)<OPENING CEREMONY ACT>": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "秋山竜次（ロバート）": {
       "checked": "2026-08-29",
       "url": "https://music.apple.com/jp/artist/%E7%A7%8B%E5%B1%B1%E7%AB%9C%E6%AC%A1/470254917"
@@ -1886,6 +1985,11 @@
     },
     "美少女戦士セーラームーン -Shining Theater Shinagawa Tokyo- Team Silver Moon": {
       "checked": "2026-08-27",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "美少女戦士セーラームーン -Shining Theater Shinagawa Tokyo- Team Silver Moon<WELCOME ACT>": {
+      "checked": "2026-09-25",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
@@ -1914,8 +2018,18 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E8%B6%85%E8%83%BD%E5%8A%9B%E6%88%A6%E5%A3%AB%E3%83%89%E3%83%AA%E3%82%A2%E3%83%B3/1266652978"
     },
+    "転換DJ：片平実(GETTiNG BETTER)": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "金井政人(BIGMAMA)&斎藤宏介(UNISON SQUARE GARDEN/TenTwenty)": {
       "checked": "2026-08-27",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "金井政人(BIGMAMA)&斎藤宏介(UNISON SQUARE GARDEN／TenTwenty)": {
+      "checked": "2026-09-25",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
@@ -1928,6 +2042,11 @@
       "checked": "2026-08-13",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "鈴木亜美": {
+      "checked": "2026-09-25",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
     },
     "阿部真央": {
       "checked": "2026-08-13",
