@@ -8,17 +8,38 @@ name: 週次収集の自動調査
 # routine-repair.yml との違い:
 #   repair      機械的な後始末だけを行い、Claude を起動しない（第13.4節）
 #   investigate Claude を起動して原因を調べさせ、小さく直せるものだけを main に push する
-# 両者は排他ではない。どちらも weekly-routine の concurrency group に入るので直列に走る。
 #
 # ============================================================
-# actions/checkout をあえて呼ばない理由
+# なぜ repair から起動され、weekly-collect から直接起動されないのか
 # ============================================================
-# routine-repair.yml と同じ理由である。actions/checkout は clean:false を指定しても
-# 対象refへの `git checkout --force` 自体は必ず実行し、失敗回が残した書きかけの
-# data/*.csv を破棄してしまう。repair がそれを救い出す前に investigate が消して
-# しまうと、救えたはずの回を落とすことになる（起動順は保証されない）。
-# self-hosted runner の作業ツリーはジョブをまたいで残るので、ここでは checkout を
-# 呼ばず、直前のジョブが残した状態にそのまま触る。git の認証だけは張り直す。
+# このワークフローは repair の**後**でなければ走ってはいけない。下の checkout が
+# `git checkout --force` を伴い、失敗回が残した書きかけの data/*.csv を破棄するため、
+# repair がそれを救い出す前に走ると、救えたはずの回を落とすことになる。
+#
+# weekly-collect.yml の失敗時に直接 dispatch していると、この順序が保証されないうえ、
+# **同じ concurrency group で pending していた実行が、後から作られた実行に
+# キャンセルされる**という問題も起きる（GitHub は1グループにつき pending を1つしか
+# 保持しない。2026-09-25 に pages.yml の #73 が同じ機構で cancelled になっている）。
+# weekly-collect がグループを抱えたまま dispatch すると investigate は pending に入り、
+# weekly-collect の完了で作られる repair の実行がそれをキャンセルしうる。
+#
+# そのため起動元は routine-repair.yml の最終ステップに置いている。repair が
+# グループを保持したまま dispatch するので investigate は1つだけ pending に入り、
+# repair の完了後に確実に走る（docs/DESIGN.md 第13.9.1節）。
+#
+# ============================================================
+# checkout する理由（repair との違い）
+# ============================================================
+# repair は失敗回の書きかけ data/ を救い出すのが仕事なので checkout を呼べない
+# （第13.4節）。investigate の仕事は**ログとコードを読むこと**で、書きかけの data/ は
+# 要らない（スクリプト側が起動前の汚れを基準線として除外している）。むしろ
+# checkout しないと、直前の収集が checkout した時点のコードで走ってしまい、
+# **このスクリプト自身の更新が反映されない**——2026-09-25、手動実行が
+# `exit 127（command not found）` で落ちる形で実際に踏んだ。
+#
+# clean:false は weekly-collect.yml と同じ理由で必要である。既定の clean は
+# git clean -ffdx で .gitignore 対象も消すため、調査が読みたい .claude/logs/ が
+# 消えてしまう。
 
 on:
   workflow_dispatch:
@@ -59,12 +80,14 @@ jobs:
     # 外側で強制終了されると Issue の起票まで届かず、何が起きたか分からなくなる。
     timeout-minutes: 90
     steps:
-      - name: git の push 認証を張り直す
-        # actions/checkout が内部で使っているのと同じ方式。checkout を呼ばない分、
-        # ここで自分のトークンに張り替えておく必要がある。
-        run: |
-          git config --local http.https://github.com/.extraheader \
-            "AUTHORIZATION: basic $(echo -n "x-access-token:${{ github.token }}" | base64 -w0)"
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          # 調査中に Claude が git log / diff を読むため、浅いクローンにしない。
+          fetch-depth: 0
+          # 既定の clean:true は .gitignore 対象も消すため、調査が読みたい
+          # .claude/logs/ が失われる（weekly-collect.yml と同じ理由）。
+          clean: false
 
       - name: 実行前のHEADを記録する
         id: before

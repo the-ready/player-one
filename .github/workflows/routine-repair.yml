@@ -100,6 +100,41 @@ jobs:
             cat /tmp/pages-dispatch-response.txt
           fi
 
+      # 機械的な修復の次の一手として、原因の自動調査を起動する（第13.9節）。
+      # **起動元がここにあるのは、順序を保証するためである。** investigate は
+      # actions/checkout（--force を伴う）を行うので、repair が書きかけの data/ を
+      # 救い出す前に走ると、救えたはずの回を落とす。repair の最終ステップから
+      # dispatch すれば、repair が concurrency group を保持したまま investigate が
+      # 1つだけ pending に入り、repair の完了後に確実に走る。
+      #
+      # always() なのは、repair-routine.sh が失敗した回こそ調べたいためである。
+      # workflow_run の回に限るのは、schedule（毎日06:15 JST）の巡回がほとんど
+      # 「直すものが無い」で終わるからで、そこから毎日 Claude を起こす理由が無い
+      # （このジョブ自体、workflow_run では conclusion != success のときしか動かない）。
+      - name: 失敗の調査を明示的に起動する
+        if: always() && github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+        run: |
+          # 値は環境変数で渡して python に組み立てさせる。ワークフロー名などを
+          # シェルの文字列連結で JSON に埋めると、引用符を含む値で壊れる。
+          # 1行に収めているのは、YAML のブロックスカラーの中で列0から書いた行が
+          # ブロックを抜けてしまい、ワークフロー全体が構文エラーになるためである。
+          payload="$(python3 -c 'import json, os; print(json.dumps({"ref": "main", "inputs": {"failed_run_url": os.environ.get("RUN_URL", ""), "failed_run_conclusion": os.environ.get("CONCLUSION", ""), "failed_run_name": os.environ.get("WF_NAME", "")}}))')"
+          code="$(curl -sS -o /tmp/investigate-dispatch-response.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/routine-investigate.yml/dispatches" \
+            -d "$payload")"
+          if [ "$code" != "204" ]; then
+            echo "::warning::routine-investigate.yml の起動に失敗しました (HTTP $code)"
+            cat /tmp/investigate-dispatch-response.txt
+          fi
+
       - name: 修復ログを保存
         if: always()
         uses: actions/upload-artifact@v4

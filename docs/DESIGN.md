@@ -2647,7 +2647,22 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 
 「失敗したら Issue を立て、その Issue の作成を検知して調査を始める」という形は**採れない**。**GITHUB_TOKEN が作った Issue は `on: issues` を発火させない**ためである（第13.2節と同じ、GITHUB_TOKEN 起点のイベント連鎖を止める仕様）。既存の Issue 起票経路は `watchdog.yml`（`actions/github-script` の既定トークン）も `repair-routine.sh`（`GITHUB_TOKEN`）もこれに該当し、Actions 内で使える PAT も置いていないため、`on: issues` の調査ワークフローを書いても永久に起動しない。
 
-そのため第13.2節と同じ型を採り、**失敗を知っているジョブ自身が `routine-investigate.yml` を直接 `workflow_dispatch` する**。`if: failure() || cancelled()` としているのは、`timeout-minutes` 超過と runner 落ちが `cancelled` 側に来るためである。Issue は記録として残すが、トリガーには使わない。
+そのため第13.2節と同じ型を採り、**`workflow_dispatch` で明示的に起動する**。Issue は記録として残すが、トリガーには使わない。
+
+**起動元は `routine-repair.yml` の最終ステップに置いている。** 当初は `weekly-collect.yml` の失敗時ステップから直接 dispatch していたが、これには2つの問題がある。
+
+1. **順序が保証されない。** 調査は `actions/checkout`（`git checkout --force` を伴う）を行うため、repair が失敗回の書きかけ `data/` を救い出す前に走ると、救えたはずの回を落とす。
+2. **pending のキャンセル競合が起きる。** `weekly-collect.yml` が `concurrency: weekly-routine` を保持したまま dispatch すると調査は pending に入り、`weekly-collect.yml` の完了で作られる `routine-repair.yml` の実行がそれをキャンセルしうる（GitHub は1グループにつき pending を1つしか保持しない。2026-09-25 に `pages.yml` の #73 が同じ機構で cancelled になっている）。
+
+repair の最終ステップから dispatch すれば、repair がグループを保持したまま調査が1つだけ pending に入り、repair の完了後に確実に走る。`if: always() && github.event_name == 'workflow_run'` としているのは、repair 自身が失敗した回こそ調べたいこと、および `schedule`（毎日 06:15 JST）の巡回はほとんどが「直すものが無い」で終わるため、そこから毎日 Claude を起こす理由が無いことによる。
+
+この置き方には、`weekly-collect.yml` が GITHUB_TOKEN で代理起動された回は `workflow_run` が発火せず repair も調査も起動されない、という穴が残る（第13.2節の仕様そのもの）。repair については毎日の巡回がそれを拾うが、調査は次の定期回まで動かない。**調査は「あれば助かるもの」で、収集の成否そのものは `watchdog.yml` が独立に見張っている**ため、この穴は許容している。
+
+#### 13.9.1.1 調査は checkout する（repair はしない）
+
+`routine-repair.yml` が `actions/checkout` を呼べないのは、失敗回の書きかけ `data/` を救い出すことがその仕事だからである（第13.4節）。調査の仕事は**ログとコードを読むこと**で、書きかけの `data/` は要らない（起動前の汚れを基準線として除外している）。
+
+むしろ checkout しないと、**直前の収集が checkout した時点のコードで走り、調査スクリプト自身の更新が反映されない**。2026-09-25、`routine-investigate.yml` を追加した直後の手動実行が `exit 127（command not found）` で落ちる形でこれを踏んだ——runner の作業ツリーはその朝の収集が checkout した時点のままで、追加したばかりのスクリプトがまだ存在しなかった。`clean: false` は `weekly-collect.yml` と同じ理由で、既定の `git clean -ffdx` が調査の読みたい `.claude/logs/` まで消すためである。
 
 #### 13.9.2 Claude が起動できない回は、調査せず通知に降格する
 

@@ -30,6 +30,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -456,6 +457,64 @@ def _():
     if rc != 0:
         return f"正常終了していない: rc={rc}\n{out}"
     return "自動調査して修正" not in head or f"push=0 なのに push された: {head}"
+
+
+# ============================================================
+# ワークフローの結線
+#
+# 2026-09-25、routine-investigate.yml に actions/checkout が無く、runner の作業ツリーが
+# 直前の収集が checkout した時点のまま（＝このスクリプトがまだ存在しない）だったため、
+# 手動実行が exit 127（command not found）で落ちた。**ワークフローの結線そのものは
+# 動かしてみるまで誰も検査していなかった**ので、ここで機械的に固定する。
+# YAML ライブラリには依存せず、collect_fallback_test.mjs と同じく本文を読んで見る。
+# ============================================================
+
+def _wf(name):
+    with open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8") as f:
+        return f.read()
+
+
+@check("結線: routine-investigate.yml が参照するスクリプトが実在する")
+def _():
+    # exit 127 の直接の再発防止。パスを書き換えたまま置き忘れたら、ここで落ちる。
+    s = _wf("routine-investigate.yml")
+    refs = re.findall(r"run:\s*(\.claude/scripts/[\w.-]+\.sh)", s)
+    if not refs:
+        return "スクリプトを実行するステップが見つからない"
+    missing = [r for r in refs if not os.path.exists(os.path.join(ROOT, r))]
+    return not missing or f"実在しないパスを実行しようとしている: {missing}"
+
+
+@check("結線: routine-investigate.yml は checkout する（clean:false で）")
+def _():
+    s = _wf("routine-investigate.yml")
+    if "actions/checkout" not in s:
+        return "checkout が無い（作業ツリーが古いまま走り、スクリプトの更新が反映されない）"
+    return "clean: false" in s or "clean:false" in s \
+        or "clean: true 相当になっている（.claude/logs/ が消え、調査が読むものを失う）"
+
+
+@check("結線: routine-investigate.yml は weekly-routine の concurrency group に入る")
+def _():
+    # 別グループにすると収集と同時に走り、checkout --force が収集中の data/ を壊す。
+    s = _wf("routine-investigate.yml")
+    m = re.search(r"concurrency:\s*\n\s*group:\s*(\S+)", s)
+    if not m:
+        return "concurrency group の指定が無い"
+    return m.group(1) == "weekly-routine" or f"group が weekly-routine でない: {m.group(1)}"
+
+
+@check("結線: 起動元は routine-repair.yml で、weekly-collect.yml ではない")
+def _():
+    # investigate は checkout --force を伴うため、repair が書きかけの data/ を
+    # 救い出した後でなければ走ってはいけない。weekly-collect から直接起動すると
+    # 順序が保証されず、pending のキャンセル競合も起きる。
+    collect = _wf("weekly-collect.yml")
+    repair = _wf("routine-repair.yml")
+    target = "routine-investigate.yml/dispatches"
+    if target in collect:
+        return "weekly-collect.yml が investigate を直接起動している（順序が保証されない）"
+    return target in repair or "routine-repair.yml が investigate を起動していない"
 
 
 def main():
