@@ -85,11 +85,9 @@ docs/
 .github/workflows/
   pages.yml                     push / 週次収集の完了(workflow_run) で Pages へデプロイ
   weekly-collect.yml            ラズパイのタイマーから水木金02:30 JSTに起動され、self-hosted runner(ラズパイ)上で収集を実行
-  collect-fallback.yml          タイマーが起動しなかった枠だけ、hosted runnerから代わりに起動する予備
   routine-repair.yml            収集失敗時、同じrunner上で機械的な後始末だけを行う
+  routine-investigate.yml       後始末のあと、同じrunner上でClaudeに原因を調べさせる
   watchdog.yml                  hosted runner上で毎日、直近の成功実行の有無を見張る
-.github/scripts/
-  collect-fallback.cjs          予備起動の判定
 ```
 
 `index.html` をルートに置いているのは、Pages がリポジトリのルートをそのまま配信する設定（`upload-pages-artifact` の `path: .`）のため。**ビルド工程・パッケージ依存はない**（`<script type="module">` で読むだけ）。

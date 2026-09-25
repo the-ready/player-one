@@ -19,19 +19,14 @@ name: 週次収集の自動修復
 # git の認証情報だけは checkout がやっていたことを手で再現する
 # （前ジョブのGITHUB_TOKENは既に失効しているため、このジョブ自身のトークンで張り直す）。
 
+# weekly-collect.yml の起動元は Pi のタイマー（PAT）か人の手動実行だけなので、
+# その完了は必ず workflow_run を発火する。かつて代理起動（GITHUB_TOKEN 起点）の回を
+# 拾うために毎日の schedule を置いていたが、代理起動そのものを廃止したため不要になった
+# （docs/DESIGN.md 第13.3節）。
 on:
   workflow_run:
     workflows: ["週次データ収集"]
     types: [completed]
-  # weekly-collect.yml が GITHUB_TOKEN による workflow_dispatch（collect-fallback.yml
-  # からの代理起動）で始まった回は、失敗して終わってもこの workflow_run が発火しない
-  # （第13.2節と同じ「GITHUB_TOKEN起点のイベント連鎖はさらに連鎖しない」仕様のため）。
-  # その回だけ後始末が永遠に走らない穴を塞ぐため、毎日1回、data/ docs/ に未コミットの
-  # 変更が残っていないかを直接確かめにいく。直すものが無ければ repair-routine.sh は
-  # 何もせず終わるので、通常日はほぼ何もしないコストの軽い保険である
-  # （docs/routine-postmortems.md 2026-09-24）。
-  schedule:
-    - cron: "15 21 * * *" # 毎日 06:15 JST。20時間遅れの代理起動が終わる時間帯より後
   workflow_dispatch:
 
 concurrency:
@@ -47,7 +42,7 @@ permissions:
 
 jobs:
   repair:
-    # workflow_run 以外（schedule・手動実行）は無条件で見にいく。実際に直すものが
+    # workflow_run 以外（手動実行）は無条件で見にいく。実際に直すものが
     # あるかどうかは repair-routine.sh 自身が data/ docs/ の差分の有無で判断する。
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'success'
     runs-on: [self-hosted, player-one-pi]
@@ -76,9 +71,9 @@ jobs:
       # weekly-collect.yml と同じ理由（docs/DESIGN.md 第13.2節）。この実行自体が
       # workflow_run で起動されており、workflow_run 起動の実行が push できても
       # さらに次の workflow_run（pages.yml）を発火する保証が無いため、直接起動する。
-      # repair-routine.sh は「直すものが無かった」回も exit 0 で終える（schedule での
-      # 毎日の巡回はほとんどがこれに当たる）。HEAD が動いていない＝実際には push して
-      # いない回まで毎回デプロイし直さないよう、コミットが増えたときだけ起動する。
+      # repair-routine.sh は「直すものが無かった」回も exit 0 で終えるため、
+      # HEAD が動いていない＝実際には push していない回まで毎回デプロイし直さないよう、
+      # コミットが増えたときだけ起動する。
       - name: 公開を明示的に起動する
         if: success()
         env:
@@ -108,8 +103,8 @@ jobs:
       # 1つだけ pending に入り、repair の完了後に確実に走る。
       #
       # always() なのは、repair-routine.sh が失敗した回こそ調べたいためである。
-      # workflow_run の回に限るのは、schedule（毎日06:15 JST）の巡回がほとんど
-      # 「直すものが無い」で終わるからで、そこから毎日 Claude を起こす理由が無い
+      # workflow_run の回に限るのは、手動実行（動作確認や取りこぼしの回収）から
+      # 調査まで巻き込んで Claude を起こす理由が無いためである
       # （このジョブ自体、workflow_run では conclusion != success のときしか動かない）。
       - name: 失敗の調査を明示的に起動する
         if: always() && github.event_name == 'workflow_run'

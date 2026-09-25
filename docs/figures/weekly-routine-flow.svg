@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1450" viewBox="0 0 1120 1450" role="img" aria-labelledby="t d">
   <title id="t">週次データ収集の流れ</title>
-  <desc id="d">Raspberry Pi のタイマーが水木金 02:30 JST に weekly-collect.yml を起動し、Pi 上の self-hosted runner で claude-routine.sh・親エージェント・子エージェントが収集し、検証を通った回だけ push されて GitHub Pages に公開される流れ。予備起動・自動修復・自動調査・見張りを含む。docs/DESIGN.md 第13.8節。</desc>
+  <desc id="d">Raspberry Pi のタイマーが水木金 02:30 JST に weekly-collect.yml を起動し、Pi 上の self-hosted runner で claude-routine.sh・親エージェント・子エージェントが収集し、検証を通った回だけ push されて GitHub Pages に公開される流れ。自動修復・自動調査・見張りを含む。docs/DESIGN.md 第13.8節。</desc>
   <defs>
     <style>
       text { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', 'Noto Sans JP', 'Yu Gothic', 'Meiryo', 'IPAPGothic', sans-serif; fill: #1f2328; font-size: 12px; }
@@ -10,7 +10,6 @@
       .ttl { font-size: 13.5px; font-weight: 700; }
       .note { font-size: 11px; fill: #57606a; }
       .lbl { font-size: 11px; fill: #1f2328; }
-      .lbl-blue { font-size: 11px; fill: #1f4e8c; font-weight: 700; }
       .lbl-red { font-size: 11px; fill: #b42318; font-weight: 700; }
       .num { font-size: 11px; font-weight: 700; fill: #ffffff; text-anchor: middle; }
       .chip { font-size: 10.5px; font-weight: 700; }
@@ -21,11 +20,9 @@
       .box { fill: #ffffff; stroke: #7c8a9e; stroke-width: 1.2; }
       .claude { fill: #fdf1e9; stroke: #d97757; stroke-width: 1.6; }
       .flow { fill: none; stroke: #1f2328; stroke-width: 1.6; }
-      .flow-blue { fill: none; stroke: #1f4e8c; stroke-width: 1.6; stroke-dasharray: 6 4; }
       .flow-red { fill: none; stroke: #b42318; stroke-width: 1.6; stroke-dasharray: 6 4; }
     </style>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f2328"/></marker>
-    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e8c"/></marker>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#b42318"/></marker>
   </defs>
 
@@ -80,20 +77,6 @@
   <!-- 3 → 5 ジョブの割り当て -->
   <path d="M712,228 L684,228 L684,303 L658,303" class="flow" marker-end="url(#a)"/>
 
-  <!-- ===== 4 予備起動 ===== -->
-  <rect x="712" y="272" width="372" height="150" rx="8" fill="#ffffff" stroke="#1f4e8c" stroke-width="1.4" stroke-dasharray="6 4"/>
-  <circle cx="730" cy="290" r="11" fill="#1f4e8c"/><text x="730" y="294" class="num">4</text>
-  <text x="748" y="295" class="ttl">予備: collect-fallback.yml</text>
-  <rect x="728" y="306" width="96" height="19" rx="9.5" fill="#dbe7fb"/><text x="776" y="319.5" class="chip chip-b" text-anchor="middle">hosted runner</text>
-  <rect x="830" y="306" width="118" height="19" rx="9.5" fill="#1f4e8c"/><text x="889" y="319.5" class="chip chip-w" text-anchor="middle">02:50・04:50 JST</text>
-  <text x="728" y="345">枠の10分前以降に実行が無ければ、代わりに起動</text>
-  <text x="728" y="362">→ routine-timer の Issue で知らせる</text>
-  <text x="728" y="379">起動済みなら何もしない（タイマー回復で close）</text>
-  <text x="728" y="396">枠から20時間を過ぎたら起動しない</text>
-  <text x="728" y="413" class="note">（JST の日付をまたぐと別の曜日のスキルが走るため）</text>
-  <path d="M1000,272 L1000,247" class="flow-blue" marker-end="url(#ab)"/>
-  <text x="994" y="263" class="lbl-blue" text-anchor="end">未起動の枠だけ</text>
-
   <!-- ===== 14 見張り ===== -->
   <rect x="712" y="446" width="372" height="104" rx="8" class="box"/>
   <circle cx="730" cy="464" r="11" fill="#1f4e8c"/><text x="730" y="468" class="num">14</text>
@@ -104,14 +87,13 @@
   <text x="728" y="536">→ routine-watchdog の Issue（回復で自動 close）</text>
 
   <!-- ===== 15 Issue ===== -->
-  <rect x="712" y="574" width="372" height="137" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="1.2"/>
+  <rect x="712" y="574" width="372" height="118" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="1.2"/>
   <circle cx="730" cy="592" r="11" fill="#9a6700"/><text x="730" y="596" class="num">15</text>
   <text x="748" y="597" class="ttl">人への通知（GitHub Issue）</text>
-  <text x="728" y="621">・routine-timer: タイマーが起動しなかった枠（4）</text>
-  <text x="728" y="640">・routine-watchdog: 6日以上成功が無い（14）</text>
+  <text x="728" y="621">・routine-watchdog: 6日以上成功が無い（14）</text>
   <text x="728" y="659">・修復できなかった回（13 が起票）</text>
-  <text x="728" y="678">・失敗を調査した結果（17 が起票。直せた回も残す）</text>
-  <text x="728" y="700" class="note">人が直すもの: Pi の停止・トークンや認証の期限切れ</text>
+  <text x="728" y="659">・失敗を調査した結果（17 が起票。直せた回も残す）</text>
+  <text x="728" y="681" class="note">人が直すもの: Pi の停止・トークンや認証の期限切れ</text>
 
   <!-- ===== 5 runner ===== -->
   <rect x="36" y="272" width="620" height="62" rx="8" class="box"/>
@@ -231,7 +213,6 @@
 
   <!-- ===== 凡例 ===== -->
   <path d="M36,1386 L84,1386" class="flow" marker-end="url(#a)"/><text x="92" y="1390">通常の流れ</text>
-  <path d="M176,1386 L224,1386" class="flow-blue" marker-end="url(#ab)"/><text x="232" y="1390">予備の起動</text>
   <path d="M316,1386 L364,1386" class="flow-red" marker-end="url(#ar)"/><text x="372" y="1390">失敗したとき</text>
   <rect x="468" y="1377" width="30" height="18" rx="4" class="claude"/><text x="506" y="1390">Claude のエージェント</text>
   <rect x="652" y="1377" width="30" height="18" rx="4" class="box"/><text x="690" y="1390">シェル・ワークフロー（Claude なし）</text>

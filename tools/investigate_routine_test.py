@@ -466,7 +466,7 @@ def _():
 # 直前の収集が checkout した時点のまま（＝このスクリプトがまだ存在しない）だったため、
 # 手動実行が exit 127（command not found）で落ちた。**ワークフローの結線そのものは
 # 動かしてみるまで誰も検査していなかった**ので、ここで機械的に固定する。
-# YAML ライブラリには依存せず、collect_fallback_test.mjs と同じく本文を読んで見る。
+# YAML ライブラリには依存せず、本文を読んで見る（他のテストと同じ流儀）。
 # ============================================================
 
 def _wf(name):
@@ -502,6 +502,27 @@ def _():
     if not m:
         return "concurrency group の指定が無い"
     return m.group(1) == "weekly-routine" or f"group が weekly-routine でない: {m.group(1)}"
+
+
+@check("結線: pages.yml は起動元の head_sha を checkout しない")
+def _():
+    # head_sha は「起動を依頼された時点のコミット」で、その実行が走っている間に
+    # push したコミットではない。週次収集はまさに実行中に data/ を push するので、
+    # head_sha を指定すると先週のデータを公開してしまう（2026-09-25 に実測）。
+    s = _wf("pages.yml")
+    if "workflow_run.head_sha" in s:
+        return "起動元の head_sha を checkout している（収集前のデータを公開してしまう）"
+    return True
+
+
+@check("結線: 収集結果を公開する明示起動が weekly-collect.yml にある")
+def _():
+    # pages.yml の workflow_run だけでは、push したてのコミットが公開されない。
+    # ref: main を指定して自分で起動するこの経路が、唯一確実に公開できる。
+    s = _wf("weekly-collect.yml")
+    if "pages.yml/dispatches" not in s:
+        return "公開の明示起動が無い（収集結果が公開されない）"
+    return '"ref":"main"' in s or "ref: main を指定していない"
 
 
 @check("結線: 起動元は routine-repair.yml で、weekly-collect.yml ではない")

@@ -38,11 +38,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # workflow_run イベントの既定ref/shaは「デフォルトブランチの最新」を指し、
-          # 必ずしも起動元の実行が実際に触ったコミットと一致する保証が無いため、
-          # 起動元の head_sha を明示する（push / workflow_dispatch では未指定のまま
-          # 既定の挙動に任せる）。
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          # **workflow_run のとき、起動元の head_sha を指定してはいけない。**
+          # head_sha は「その実行が起動を依頼された時点のコミット」であって、
+          # その実行が**走っている間に push したコミットではない**。週次収集は
+          # まさに実行中に data/*.csv をコミットして push するため、head_sha を
+          # 指定すると収集前＝先週のデータを公開してしまう（2026-09-25 に実測。
+          # weekly-collect の実行 #4 の head_sha は 6737e7a で、その回が push した
+          # c653f80 の1つ前だった）。
+          #
+          # このサイトが公開するのは常に main の最新であり、それ以外を公開したい
+          # 場面は無い。よって ref は指定せず、既定（workflow_run ではデフォルト
+          # ブランチの最新、push ではそのコミット、workflow_dispatch では指定 ref）
+          # に任せる。docs/DESIGN.md 第13.2.1節。
           # データCSVごとの「最後に更新されたコミット」を引くために全履歴が要る。
           # 既定の浅いクローン(fetch-depth:1)だと git log がその1コミットしか見ず、
           # ファイル単位の更新日が取れない。

@@ -11,8 +11,9 @@ on:
   # schedule は持たない。GitHub Actions の schedule は数時間遅れることがあるため
   # （2026-09-22 は2時間46分）、起動はすべて workflow_dispatch で受ける（docs/DESIGN.md 第13.3節）:
   #   - 水木金 02:30 JST: Raspberry Pi の systemd タイマー（.claude/systemd/player-one-dispatch.timer）
-  #   - タイマーが起動しなかった枠: 予備の collect-fallback.yml（hosted runner）が遅れて代わりに起動
-  #   - 任意の曜日の手動実行（シミュレーション）
+  #   - 任意の曜日の手動実行（枠を落としたときの回収・シミュレーション）
+  # 起動元をこの2つに絞っているのは、どちらも GITHUB_TOKEN 起点ではなく、完了が
+  # workflow_run を確実に発火するためである（第13.2節・第13.3節）。
   # 自動実行は水木金だけで、`.claude/skills/weekly-routine/SKILL.md` の```schedule ブロックの
   # `other` 行は手動実行したときの既定値として存在する。
   workflow_dispatch:
@@ -89,14 +90,20 @@ jobs:
           ROUTINE_SKILL: ${{ contains(fromJSON('["kanto-event-collector","kanto-live-collector","kanto-movie-collector"]'), github.event.inputs.routine_skill) && github.event.inputs.routine_skill || '' }}
         run: .claude/scripts/claude-routine.sh
 
-      # pages.yml の workflow_run トリガーは、この実行自体が GITHUB_TOKEN による
-      # workflow_dispatch（＝collect-fallback.yml からの代理起動）で始まっていると
-      # 発火しない（GITHUB_TOKEN起点のイベント連鎖を止める仕様が、workflow_dispatch
-      # 自身の「新しい実行は作れる」という例外を通り抜けたあとの完了通知には及ばない
-      # ため。docs/DESIGN.md 第13.2節）。2026-09-24、代理起動された回のpushが
-      # デプロイされない事故として実際に発生した。workflow_run に頼らず、
-      # 成功したこのジョブ自身が pages.yml を直接 workflow_dispatch する
-      # （このAPI呼び出し自体はGITHUB_TOKENでも新しい実行を作れる。上と同じ例外）。
+      # **このステップが、収集結果を公開している唯一の経路である。**
+      # pages.yml は workflow_run で起動されたとき、起動元の実行の head_sha を
+      # checkout する。weekly-collect.yml の head_sha は「起動を依頼された時点の
+      # main」——つまり**収集が push する前のコミット**なので、その経路で公開すると
+      # 先週のデータが出てしまう（2026-09-25 に実測。実行 #4 の head_sha は 6737e7a で、
+      # その回が push した c653f80 の1つ前だった）。
+      #
+      # 加えて、ジョブ内の push は GITHUB_TOKEN によるもので pages.yml の push
+      # トリガーも発火しない（docs/DESIGN.md 第13.2節）。したがって「成功した
+      # このジョブ自身が ref: main を指定して明示的に起動する」形だけが、
+      # 収集したてのデータを公開できる。
+      #
+      # HEAD が動いていない＝実際には push していない回まで起動しないよう、
+      # コミットが増えたときだけ叩く。
       - name: 公開を明示的に起動する
         if: success() && github.event.inputs.push != 'false'
         env:

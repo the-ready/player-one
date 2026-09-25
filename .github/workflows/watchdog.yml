@@ -1,9 +1,8 @@
 name: 週次収集の見張り
 
 # weekly-collect.yml・routine-repair.yml は「動いたが失敗した」ことしか検知できない。
-# 起動そのものが欠落する（Piのタイマーと予備起動の collect-fallback.yml がどちらも
-# 起動しない）・Pi/self-hosted runnerそのものが長期間
-# 沈黙している、といった「そもそも動いていない」はここでしか拾えない
+# 起動そのものが欠落する（Piのタイマーが起動しない）・Pi/self-hosted runnerそのものが
+# 長期間沈黙している、といった「そもそも動いていない」はここでしか拾えない
 #（docs/DESIGN.md 第13.5節）。
 #
 # self-hosted（Pi）ではなく hosted runner で動かす。Pi自体が原因の障害は、
@@ -78,7 +77,7 @@ jobs:
                   "",
                   "考えられる原因:",
                   "- self-hosted runner（Pi）がオフライン、または `systemd: actions-runner.service` が停止している",
-                  "- Pi のタイマーも予備の `collect-fallback.yml` も起動していない（`routine-timer` ラベルの Issue も確認）",
+                  "- Pi のタイマーが起動していない（`systemctl list-timers player-one-dispatch.timer`）",
                   "- `CLAUDE_CODE_OAUTH_TOKEN` の失効など、認証まわりの問題",
                   "",
                   `[Actions の実行一覧](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/weekly-collect.yml) と、Pi上の \`.claude/logs/\` を確認してください。`,

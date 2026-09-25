@@ -2108,11 +2108,9 @@ docs/
 .github/workflows/
   pages.yml                   push / 週次収集の完了(workflow_run) で Pages へデプロイ
   weekly-collect.yml          Piのタイマーから水木金02:30 JSTに起動され、self-hosted runner上でclaude-routine.shを実行（第13章）
-  collect-fallback.yml        タイマーが起動しなかった枠だけ、hosted runnerから代わりに起動する予備（第13.3節）
   routine-repair.yml          weekly-collect.yml失敗時、同じrunner上で機械的な後始末だけを行う（第13.4節）
   watchdog.yml                hosted runner上で毎日、直近の成功実行の有無を見張る（第13.5節）
 .github/scripts/
-  collect-fallback.cjs        予備起動の判定（純粋関数。tools/collect_fallback_test.mjs が検証。第13.3節）
 ```
 
 **書き換え頻度でフォルダを分けている。** 週次で差し替わるのは `data/` だけ、ほぼ変わらないのが `assets/` という対応にすることで、**更新作業がどこを触るのかを構成から読める**ようにした。
@@ -2498,35 +2496,42 @@ lives 収集は、フェスの行を8件書いた直後にアカウントの利�
 
 そのため `pages.yml` には `workflow_run`（`weekly-collect.yml` / `routine-repair.yml` の完了）を追加し、`conclusion == 'success'` の回だけデプロイする形にしている。`workflow_run` はトリガー元のワークフローファイルがデフォルトブランチに存在して初めて有効になるため、この仕組み自体の初回反映には main へのマージが要る。
 
-**この「無限ループ防止」は、`workflow_dispatch` による代理起動そのものにも及ぶ。** `collect-fallback.yml` は `weekly-collect.yml` を GITHUB_TOKEN で `workflow_dispatch` する（第13.3節）。`workflow_dispatch` は無限ループ防止の対象から**例外的に外れている**ため、この代理起動は `weekly-collect.yml` の新しい実行を確かに作る——ここまでは正しい。しかし、**その実行が完了した通知（`workflow_run`）は、実行そのものの起点が GITHUB_TOKEN であるために発火しない。** 例外はあくまで「新しい実行を作れる」ことに対してで、「作られた実行の完了がさらに連鎖する」ことまでは救っていない。
+**この「無限ループ防止」は、`workflow_dispatch` による代理起動そのものにも及ぶ。** `GITHUB_TOKEN` による `workflow_dispatch` は無限ループ防止の対象から**例外的に外れている**ため、新しい実行を確かに作る——ここまでは正しい。しかし、**その実行が完了した通知（`workflow_run`）は、実行そのものの起点が GITHUB_TOKEN であるために発火しない。** 例外はあくまで「新しい実行を作れる」ことに対してで、「作られた実行の完了がさらに連鎖する」ことまでは救っていない。
 
-2026-09-24、Pi のタイマー未導入（第13.7節の導入手順が未実施だった）により `collect-fallback.yml` が代理起動し、収集自体は成功して push まで終わったにもかかわらず、`pages.yml` の `workflow_run` が発火せず**サイトだけが更新されない**事故として実際に発生した（`docs/routine-postmortems.md` 2026-09-24）。`weekly-collect.yml` の実行を GitHub API で列挙して actor を比較すると、人（PAT）による起動は毎回 `workflow_run` を発火させ、`collect-fallback.yml`（`github-actions[bot]`）による代理起動だけが発火させていないことが確認できる。
+2026-09-24、当時あった予備起動（`collect-fallback.yml`）が GITHUB_TOKEN で代理起動した回で、収集自体は成功して push まで終わったにもかかわらず、`pages.yml` の `workflow_run` が発火せず**サイトだけが更新されない**事故として実際に発生した（`docs/routine-postmortems.md` 2026-09-24）。この仕様が補償の連鎖を生み続けたため、予備起動そのものを 2026-09-25 に廃止している（第13.3.1節）。**現在、`weekly-collect.yml` の起動元は Pi のタイマー（PAT）と人の手動実行だけで、どちらも完了が `workflow_run` を確実に発火する。**
 
 **塞ぎ方は、`workflow_run` という間接的な連鎖に頼らないことである。** `weekly-collect.yml`・`routine-repair.yml` はそれぞれ、自分のジョブが成功した直後に `pages.yml` を自分自身で `workflow_dispatch` する（`actions: write` 権限を追加）。この呼び出し自体も GITHUB_TOKEN で行うが、**呼び出す先が `workflow_dispatch` である限り、上の例外がそのまま働いて確実に新しい実行を作れる**。連鎖の発火に賭けるのではなく、成功したジョブ自身が次を明示的に起動する形にすることで、起動元が人であろうと `github-actions[bot]` であろうと同じように公開される。
+
+#### 13.2.1 `workflow_run` では、起動元の `head_sha` を公開してはいけない
+
+`pages.yml` が `workflow_run` で起動されるとき、**起動元の実行の `head_sha` を checkout してはならない。**
+
+`head_sha` は「その実行が起動を依頼された時点のコミット」であって、**その実行が走っている間に push したコミットではない**。週次収集はまさに実行中に `data/*.csv` をコミットして push するため、`head_sha` を指定すると**収集前＝先週のデータを公開する**ことになる。2026-09-25 の実測では、`weekly-collect.yml` の実行 #4 の `head_sha` は `6737e7a` で、その回が push した `c653f80` の1つ前だった。
+
+このサイトが公開するのは常に main の最新であり、それ以外を公開したい場面は無い。そのため `pages.yml` の checkout は `ref` を指定せず、既定（`workflow_run` ではデフォルトブランチの最新）に任せる。
+
+**この落とし穴があるため、`weekly-collect.yml`・`routine-repair.yml`・`routine-investigate.yml` の「公開を明示的に起動する」ステップは冗長ではない。** `ref: main` を指定して自分で起動する経路だけが、push したてのコミットを確実に公開できる。`pages.yml` の `workflow_run` は、その起動に失敗した回を拾う保険として残している。
 
 ### 13.3 起動はなぜ Pi のタイマーからの `workflow_dispatch` か
 
 収集は週3回、水木金の 02:30 JST に動く設計である。`.claude/skills/weekly-routine/SKILL.md` の `schedule` ブロックは水木金の3行（イベント／映画／ライブ）だけを自動実行の対象にしている。`other` 行（それ以外の曜日を `kanto-event-collector` に落とす）はこの自動実行の一部ではなく、**ユーザーが `workflow_dispatch` で任意の曜日に手動実行（シミュレーション・動作確認）したときの既定値**として存在する。
 
-**GitHub Actions の `schedule` には、保証された実行時刻も保証された実行そのものも無い。** 実測で、2026-09-22（火）17:30 UTC の枠は 20:16 UTC に発火した（2時間46分の遅れ）。収集を時刻どおりに始めるため、`weekly-collect.yml` は `schedule` を持たず、起動はすべて `workflow_dispatch` で受ける。起動役は次の2段である。
-
-| 段   | 何が                                                                                                          | いつ                                 | 受け持つこと                                 |
-| ---- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------- |
-| 主   | Pi の systemd タイマー（`.claude/systemd/player-one-dispatch.timer` → `.claude/scripts/dispatch-routine.sh`） | 水木金 02:30 JST（秒単位で正確）     | 時刻どおりに起動する                         |
-| 予備 | `.github/workflows/collect-fallback.yml`（hosted runner）                                                     | 02:50 JST と 04:50 JST の `schedule` | 主が起動しなかった枠だけ、遅れてでも起動する |
+**GitHub Actions の `schedule` には、保証された実行時刻も保証された実行そのものも無い。** 実測で、2026-09-22（火）17:30 UTC の枠は 20:16 UTC に発火した（2時間46分の遅れ）。収集を時刻どおりに始めるため、`weekly-collect.yml` は `schedule` を持たず、**起動は Pi の systemd タイマー（`.claude/systemd/player-one-dispatch.timer` → `.claude/scripts/dispatch-routine.sh`）からの `workflow_dispatch` だけで受ける**。任意の曜日の手動実行も同じ入口を使う。
 
 - **起動役を Pi に置いても、信頼性は下がらない。** ジョブはもともと Pi の上で動くため、Pi が止まれば収集はどのみち動けない。Pi の時計（NTP）は GitHub の `schedule` より正確である
-- **予備は `weekly-collect.yml` 自身の `schedule` にせず、別のワークフローから起動を依頼する形にしている。** 「既に起動済みなので何もしない」回を `weekly-collect.yml` の中で作ると、その回は success で終わり、`pages.yml` のデプロイと第13.5節の見張りがそれを収集の成功と取り違えるためである（`routine-repair.yml` は success 以外で発火するので、失敗扱いにもできない）。別のワークフローから起動すれば、`weekly-collect.yml` の実行はすべて本物の収集になる。`GITHUB_TOKEN` による `workflow_dispatch` は、例外的に新しい実行を作れる
-- **予備の判定は「枠（UTC 火水木 17:30）の10分前以降に `weekly-collect.yml` の実行が作られているか」である。** 手動実行でも数える。判定は `.github/scripts/collect-fallback.cjs` の純粋関数にあり、`tools/collect_fallback_test.mjs` が固定している
-- **予備が起動したときは `routine-timer` ラベルの Issue で知らせ、次にタイマーが時刻どおり起動した枠で自動で close する。** 予備が黙って拾い続けると、トークンの失効などでタイマーが壊れたまま「数時間遅れの運用」に戻っても気づけないためである。予備自身（`github-actions[bot]`）が起動した回はタイマーの回復に数えない
-- **予備の `schedule` を2本にしている。** 予備の `schedule` 自体も間引かれることがあるためである。2本目は1本目が起動済みなら何もしない。2本が重なっても、`concurrency` で直列にしたうえで、1本目は起動した実行が一覧に現れるまで待ってから終える（まだ一覧に無い実行を2本目が見落とさないように）
-- **予備の1本目は 02:50 JST（枠の20分後）に置いている。** タイマーの再試行（最悪約12分。`TimeoutStartSec=15min` で打ち切る）が終わる前に予備が起動を依頼すると、収集が2回走るためである。毎時00分台は `schedule` が混みやすいため、どちらも :50 に置く
-- **枠から20時間を過ぎたら、予備は起動しない（Issue だけ起票する）。** `claude-routine.sh` は起動した時点の曜日（`date +%u`）でスキルを選ぶため、JST の日付をまたいで起動すると別の曜日のスキルが走るためである。枠から 24:00 JST までは21.5時間あり、余裕を見て20時間で切る
-- **タイマーは `Persistent=false` にしている。** Pi が停止中に過ぎた枠は予備が既に起動を依頼しており（ジョブは Pi の復帰を待って走る）、復帰後にタイマーが取り戻すと収集が2回走るためである
-- **`dispatch-routine.sh` は、再送の前に「実は届いていたか」を確かめる。** 起動の依頼が GitHub に届いたのに応答だけが失われた（タイムアウト・5xx）ときに再送すると、収集が2回走るためである。401/403/404/422 は設定の問題（トークンの失効・権限不足・ワークフローの無効化）で待っても直らないため、再試行せずに落として予備に委ねる
+- **タイマーは `Persistent=false` にしている。** Pi の停止中に過ぎた枠を復帰後に取り戻すと、選ばれるスキルが本来の曜日とずれるためである（`claude-routine.sh` は起動した時点の `date +%u` でスキルを選ぶ）
+- **`dispatch-routine.sh` は、再送の前に「実は届いていたか」を確かめる。** 起動の依頼が GitHub に届いたのに応答だけが失われた（タイムアウト・5xx）ときに再送すると、収集が2回走るためである。401/403/404/422 は設定の問題（トークンの失効・権限不足・ワークフローの無効化）で待っても直らないため、再試行せずに落とす。再試行の上限は systemd の `TimeoutStartSec=15min` に収まるよう決めており、`tools/dispatch_routine_test.py` がその収まりを検証する
 - **トークンは fine-grained PAT（このリポジトリの Actions: Read and write だけ）を使い、Pi の `/etc/player-one/dispatch-token`（root のみ読める）に置く。** サービスは `DynamicUser` の使い捨てユーザーで動き、トークンは `LoadCredential` でその実行の間だけ渡す。curl にはトークンを引数ではなく標準入力の設定として渡す——引数は `/proc/<pid>/cmdline` から同じ機体の他ユーザーにも読めるためである
 
-起動時刻は3か所（タイマーの `OnCalendar`・予備の `cron`・予備の判定の定数）が別々に持っている。1か所だけ直すと「タイマーが起動したのに予備も起動する」ずれが生まれるため、`tools/collect_fallback_test.mjs` がこの3か所と `weekly-routine` の対応表の曜日の一致を検証する。
+#### 13.3.1 予備起動を持たない理由
+
+hosted runner 上の予備（`collect-fallback.yml`）がタイマーの落とした枠を数時間遅れで拾う形を採っていたが、**2026-09-25 に廃止している。**
+
+予備は `GITHUB_TOKEN` で `weekly-collect.yml` を `workflow_dispatch` するため、そうして始まった実行は完了しても `workflow_run` を発火しない（第13.2節）。この一点から、補償のための仕組みが次々と要る形になっていた——`pages.yml` を明示的に起動するステップ、`routine-repair.yml` の毎日の巡回、そして自動調査（第13.9節）が起動しない穴である。**めったに起きない異常（タイマーの故障）のために、常設の複雑さと、そこから派生する連鎖の穴を抱え続ける割に合わなさ**が廃止の理由である。
+
+廃止後、`weekly-collect.yml` の起動元は Pi のタイマー（PAT）と人の手動実行だけになり、どちらも完了が `workflow_run` を確実に発火する。起動時刻を持つ場所も、3か所（タイマーの `OnCalendar`・予備の `cron`・予備の判定の定数）からタイマー1か所に畳まれた。
+
+代償は、**タイマーが落とした枠がその週は埋まらないこと**である。収集は曜日ごとに別のデータを取る（水=イベント／木=映画／金=ライブ）ため、1枠の欠落は「1日の遅れ」ではなく「そのデータが翌週まで古いまま」を意味する。これは運用者が GitHub の通知（いつも来る完了通知が来ない）で気づき、必要なら手動で `weekly-collect.yml` を起動して回収する前提としている。自動の検知は第13.5節の見張りが引き続き担う。
 
 ### 13.4 routine-repair.yml が actions/checkout を呼ばない理由
 
@@ -2538,11 +2543,11 @@ self-hosted runner は使い捨てではなく、直前のジョブが残した 
 
 `data/` `docs/` に未コミットの変更が最初から無い回（典型は認証切れで一度もツールを呼べなかった回）は、直すものが無いためここでは何もしない。この種の異常は第13.5節の見張りに委ねている——ここで毎回 Issue を立てると、見張りの通知と二重になる。
 
-**`routine-repair.yml` は `workflow_run` に加えて、毎日1回の `schedule` でも起動する。** `weekly-collect.yml` が `collect-fallback.yml` から GITHUB_TOKEN で代理起動され、かつ失敗して終わった回は、`workflow_run` 自体が発火しない（第13.2節）ため、後始末が永遠に走らない穴になる。この穴は「動いたが失敗した」を検知する仕組みが無いのではなく、**検知できたはずの通知が届かない**という別の壊れ方なので、第13.5節の見張り（起動そのものの欠落を見る）とは別に、`routine-repair.yml` 自身が毎日 `data/` `docs/` の未コミットの変更の有無を直接確かめにいく形にしている。直すものが無ければ `repair-routine.sh` は何もせず終わるので、通常日はほぼコストの無い保険である（`docs/routine-postmortems.md` 2026-09-24）。
+**`routine-repair.yml` は `workflow_run` と手動実行だけで起動する。** かつては代理起動された失敗回（`workflow_run` が発火しない）を拾うために毎日1回の `schedule` も持っていたが、代理起動そのものを廃止した（第13.3.1節）ため、`weekly-collect.yml` の失敗は必ず `workflow_run` として届くようになり、不要になった。
 
 ### 13.5 見張り（watchdog.yml）が hosted runner で動く理由
 
-`weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**起動そのものが欠落する（Pi のタイマーも予備の `collect-fallback.yml` も起動しない）・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
+`weekly-collect.yml`・`routine-repair.yml` は「動いたが失敗した」ことしか検知できない。**起動そのものが欠落する（Pi のタイマーが起動しない）・Pi/self-hosted runnerそのものが長期間沈黙している**、といった「そもそも動いていない」はこの2つでは拾えない。
 
 `watchdog.yml` は毎日、`weekly-collect.yml` の直近の成功実行を GitHub Actions API で確認し、しきい値（6日）を超えて成功実行が無ければ Issue を起票する。金曜の成功から次の水曜まで最大5日空くのは正常運転であり、それより余裕を持たせてある。self-hosted（Pi）ではなく hosted runner で動かしているのは、**Pi 自体が原因の障害を、Pi 上の何かで検知するのは原理的に無理**なためである——見張りが検知したい最悪のケース（Pi が完全に沈黙している）そのものが、Pi 上の見張りを同時に無力化してしまう。
 
@@ -2572,13 +2577,13 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 1. **fine-grained PAT を発行する**（GitHub の Settings → Developer settings → Fine-grained tokens）。Resource owner は `the-ready`、Repository access はこのリポジトリだけ、Permissions は **Actions: Read and write** だけにする（Metadata: Read は自動で付く）。組織が PAT に承認を求める設定なら、組織の管理者の承認が要る
 2. **Pi 上で、リポジトリの中から `sudo .claude/scripts/install-dispatch-timer.sh` を実行し、トークンを貼り付ける。** スクリプトの配置（`/usr/local/lib/player-one/`）・ユニットの配置と有効化・トークンの保存（`/etc/player-one/dispatch-token`、root のみ）を行い、最後に `dispatch-routine.sh --check` でトークンでワークフローを読めるかを確かめる（起動はしない）
 3. **`systemctl list-timers player-one-dispatch.timer` で、次の起動が水木金 02:30 JST になっていることを確かめる**
-4. **PAT の期限が切れる前に、`sudo .claude/scripts/install-dispatch-timer.sh --rotate-token` で差し替える。** 切れると予備の起動（数時間遅れ）に落ち、`routine-timer` ラベルの Issue が立つ
+4. **PAT の期限が切れる前に、`sudo .claude/scripts/install-dispatch-timer.sh --rotate-token` で差し替える。** 切れるとその枠は起動されず、そのデータは翌週まで更新されない（第13.3.1節）
 
-`dispatch-routine.sh` やユニットを直したときも、同じスクリプトを実行し直せば反映される（トークンは保たれる）。予備の判定だけを確かめたいときは、`collect-fallback.yml` を `workflow_dispatch`（`dry_run: true`。既定）で起動すると、判定を表示するだけで起動も Issue の起票もしない。
+`dispatch-routine.sh` やユニットを直したときも、同じスクリプトを実行し直せば反映される（トークンは保たれる）。
 
 ### 13.8 起動から公開までの全体の流れ（図）
 
-![週次データ収集の流れ。左のレーンが Raspberry Pi、右のレーンが GitHub。Pi のタイマーが水木金 02:30 JST に weekly-collect.yml を起動し、Pi 上で claude-routine.sh・親エージェント・子エージェントが収集し、検証を通った回だけ push されて GitHub Pages に公開される。予備起動・自動修復・自動調査・見張りの経路も描いてある](figures/weekly-routine-flow.svg)
+![週次データ収集の流れ。左のレーンが Raspberry Pi、右のレーンが GitHub。Pi のタイマーが水木金 02:30 JST に weekly-collect.yml を起動し、Pi 上で claude-routine.sh・親エージェント・子エージェントが収集し、検証を通った回だけ push されて GitHub Pages に公開される。自動修復・自動調査・見張りの経路も描いてある](figures/weekly-routine-flow.svg)
 
 第13.1〜13.7節で個別に述べた仕組みを、1回の実行の流れとしてつないだ図である（`docs/figures/weekly-routine-flow.svg`）。丸数字はこの節の番号と対応する。
 
@@ -2602,7 +2607,7 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 
 #### 13.8.2 Claude エージェントの役割分担（7・8）
 
-1回の実行で動く Claude は、**親1体と、波ごとに起動される子数体**だけである。自動修復（13）と予備起動（4）・見張り（14）では Claude を起動しない。
+1回の実行で動く Claude は、**親1体と、波ごとに起動される子数体**だけである。自動修復（13）と見張り（14）では Claude を起動しない（調査（17）だけが Claude を起動する）。
 
 |                | 親エージェント（7）                                                                                                | 子エージェント（8）                                                                  |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
@@ -2626,16 +2631,15 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 
 **親と子で役割を分け、親はページを取得しない。** 取得したページの本文は文脈に入り、その後のターンで毎回再送される。親がそれを抱えると全工程のコストが膨らむため、取得は範囲を小さく割った子に任せ、親には「パスと件数」だけを返させている。**子が行を JSONL へ逐次追記し、CSV への書き込みは親だけが行う。** 子は60ターンで打ち切られることがあり、逐次追記していればそこまでの成果が残るうえ、同時に動く複数の子が CSV を奪い合わないためである。
 
-#### 13.8.3 うまくいかなかったときの経路（4・12〜15）
+#### 13.8.3 うまくいかなかったときの経路（12〜17）
 
 | 何が起きたか                                            | 誰が拾うか                                                 | どうなるか                                                                                                                                                      |
 | ------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| タイマーが起動しなかった（Pi の停止・トークン失効など） | 4 `collect-fallback.yml`（02:50・04:50 JST）               | 遅れて代わりに起動し、`routine-timer` の Issue（15）を立てる。次にタイマーが時刻どおり起動した枠で自動で close する                                             |
 | 収集が検証に落ちた・途中で止まった                      | 12 `routine-repair.yml` → 13 `repair-routine.sh`           | 同じ Pi の作業ツリーのまま、機械的な後始末と検証だけをやり直す。通れば push して公開（11）、通らなければ退避して Issue（15）                                    |
 | 6日以上、成功した回が無い                               | 14 `watchdog.yml`（毎日 04:00 JST）                        | `routine-watchdog` の Issue（15）を立てる。成功が戻れば自動で close する                                                                                        |
 | 収集が失敗した・打ち切られた（原因を知りたい）          | 16 `routine-investigate.yml` → 17 `investigate-routine.sh` | 同じ Pi で Claude を起動して原因を調べさせる。5つの関門を全部通った修正だけを main に push して公開（11）。通らなければ診断だけを Issue（15）に残す（第13.9節） |
 
-**人の手が要るものは、すべて Issue に集めている。** Pi の電源、トークンや認証の期限切れのように人にしか直せない原因は、ログを見に行かなければ気づけない形で残すと、次の枠まで放置されるためである。予備と見張りは hosted runner で動くため、Pi が完全に止まっていても Issue は立つ（第13.5節）。
+**人の手が要るものは、すべて Issue に集めている。** Pi の電源、トークンや認証の期限切れのように人にしか直せない原因は、ログを見に行かなければ気づけない形で残すと、次の枠まで放置されるためである。見張りは hosted runner で動くため、Pi が完全に止まっていても Issue は立つ（第13.5節）。なお**タイマーが起動しなかった枠そのものは Issue にならない**——運用者が GitHub の完了通知が来ないことで気づき、必要なら手動で起動して回収する（第13.3.1節）。
 
 **図は手で書いた SVG である。** 起動の経路・エージェントの役割・ワークフローの分担を変えたときは、この節の表と図の両方を直す。図の丸数字はこの節の表の番号と揃える。
 
@@ -2656,7 +2660,7 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 
 repair の最終ステップから dispatch すれば、repair がグループを保持したまま調査が1つだけ pending に入り、repair の完了後に確実に走る。`if: always() && github.event_name == 'workflow_run'` としているのは、repair 自身が失敗した回こそ調べたいこと、および `schedule`（毎日 06:15 JST）の巡回はほとんどが「直すものが無い」で終わるため、そこから毎日 Claude を起こす理由が無いことによる。
 
-この置き方には、`weekly-collect.yml` が GITHUB_TOKEN で代理起動された回は `workflow_run` が発火せず repair も調査も起動されない、という穴が残る（第13.2節の仕様そのもの）。repair については毎日の巡回がそれを拾うが、調査は次の定期回まで動かない。**調査は「あれば助かるもの」で、収集の成否そのものは `watchdog.yml` が独立に見張っている**ため、この穴は許容している。
+この置き方は `workflow_run` が発火することを前提にしている。かつては GITHUB_TOKEN による代理起動の回だけ発火せず、repair も調査も起動されない穴があったが、**代理起動そのものを廃止したため（第13.3.1節）、`weekly-collect.yml` の失敗は必ず `workflow_run` として届く。**
 
 #### 13.9.1.1 調査は checkout する（repair はしない）
 

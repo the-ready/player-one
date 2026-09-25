@@ -7,7 +7,7 @@
 ## なぜ念入りにやるか
 
 このスクリプトは週3回、深夜に無人で1度だけ走る。**起動しそこねても、二重に起動しても、
-その場では誰も気づかない**（前者は予備起動が数時間遅れで拾い、後者は収集が2回走る）。
+その場では誰も気づかない**（前者はその枠のデータが翌週まで古いまま、後者は収集が2回走る）。
 固定したいのは次の倒し方である。
 
   - 一時的な失敗（通信断・5xx・429）だけを再試行し、設定の問題（401/403/404/422）では粘らない
@@ -223,7 +223,7 @@ def check_all_503_gives_up(sb):
     code, out = sb.run()
     expect(code == 3, f"exit {code}: {out}")
     expect(sb.gh.kinds().count("dispatch") == 5, sb.gh.kinds())
-    expect("collect-fallback.yml" in out, out)
+    expect("手動で weekly-collect.yml を起動" in out, out)
     return True
 
 
@@ -247,7 +247,8 @@ def check_no_retries_when_delays_empty(sb):
 
 
 def check_default_retry_budget(sb):
-    # 既定の待ち時間と上限の合計が、予備起動（20分後）と TimeoutStartSec（15分）に収まること
+    # 既定の待ち時間と上限の合計が TimeoutStartSec（15分）に収まること。
+    # 超えると systemd が先にサービスを殺し、再試行の途中で枠が落ちる。
     src = open(SCRIPT).read()
     delays = src.split('DISPATCH_RETRY_DELAYS-', 1)[1].split('}', 1)[0]
     max_time = int(src.split('DISPATCH_CURL_MAX_TIME:-', 1)[1].split('}', 1)[0])
@@ -255,7 +256,7 @@ def check_default_retry_budget(sb):
     worst = sum(waits) + (len(waits) + 1) * max_time + len(waits) * max_time
     unit = open(os.path.join(ROOT, ".claude", "systemd", "player-one-dispatch.service")).read()
     limit = int(unit.split("TimeoutStartSec=", 1)[1].split("min", 1)[0]) * 60
-    expect(worst < limit < 20 * 60, f"最悪 {worst}秒・TimeoutStartSec {limit}秒・予備まで1200秒")
+    expect(worst < limit, f"最悪 {worst}秒・TimeoutStartSec {limit}秒")
     return True
 
 
