@@ -1,0 +1,116 @@
+name: 週次収集の自動調査
+
+# weekly-collect.yml が失敗した回に、そのジョブ自身から workflow_dispatch される
+# （docs/DESIGN.md 第13.9節）。Issue の起票をトリガーにしない理由は第13.2節と同じで、
+# **GITHUB_TOKEN が作った Issue は `on: issues` を発火させない**ためである。
+# 発火しない連鎖に賭けず、失敗を知っているジョブ自身が直接起動する。
+#
+# routine-repair.yml との違い:
+#   repair      機械的な後始末だけを行い、Claude を起動しない（第13.4節）
+#   investigate Claude を起動して原因を調べさせ、小さく直せるものだけを main に push する
+# 両者は排他ではない。どちらも weekly-routine の concurrency group に入るので直列に走る。
+#
+# ============================================================
+# actions/checkout をあえて呼ばない理由
+# ============================================================
+# routine-repair.yml と同じ理由である。actions/checkout は clean:false を指定しても
+# 対象refへの `git checkout --force` 自体は必ず実行し、失敗回が残した書きかけの
+# data/*.csv を破棄してしまう。repair がそれを救い出す前に investigate が消して
+# しまうと、救えたはずの回を落とすことになる（起動順は保証されない）。
+# self-hosted runner の作業ツリーはジョブをまたいで残るので、ここでは checkout を
+# 呼ばず、直前のジョブが残した状態にそのまま触る。git の認証だけは張り直す。
+
+on:
+  workflow_dispatch:
+    inputs:
+      failed_run_url:
+        description: "調べる対象の失敗した実行のURL"
+        required: false
+        type: string
+      failed_run_conclusion:
+        description: "その実行の結末（failure / cancelled など）"
+        required: false
+        type: string
+      failed_run_name:
+        description: "その実行のワークフロー名"
+        required: false
+        type: string
+      push:
+        description: "関門を全部通った修正を実際に push する"
+        required: false
+        type: boolean
+        default: true
+
+# 同じ Pi 上で weekly-collect / routine-repair / routine-investigate を同時に走らせない。
+concurrency:
+  group: weekly-routine
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  # push が通った回に pages.yml を直接 workflow_dispatch するために要る（第13.2節）。
+  actions: write
+
+jobs:
+  investigate:
+    runs-on: [self-hosted, player-one-pi]
+    # investigate-routine.sh 自身の上限（既定3600秒）より余裕を持たせる。
+    # 外側で強制終了されると Issue の起票まで届かず、何が起きたか分からなくなる。
+    timeout-minutes: 90
+    steps:
+      - name: git の push 認証を張り直す
+        # actions/checkout が内部で使っているのと同じ方式。checkout を呼ばない分、
+        # ここで自分のトークンに張り替えておく必要がある。
+        run: |
+          git config --local http.https://github.com/.extraheader \
+            "AUTHORIZATION: basic $(echo -n "x-access-token:${{ github.token }}" | base64 -w0)"
+
+      - name: 実行前のHEADを記録する
+        id: before
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: 失敗の原因を調査する
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          FAILED_RUN_URL: ${{ github.event.inputs.failed_run_url }}
+          FAILED_RUN_CONCLUSION: ${{ github.event.inputs.failed_run_conclusion }}
+          FAILED_RUN_NAME: ${{ github.event.inputs.failed_run_name }}
+          INVESTIGATE_PUSH: ${{ (github.event.inputs.push == 'false') && '0' || '1' }}
+          # Claude 自身の上限（秒）。上の timeout-minutes より余裕を持って短く。
+          INVESTIGATE_TIMEOUT_SEC: "3600"
+        run: .claude/scripts/investigate-routine.sh
+
+      # 修正が push された回だけ、公開を明示的に起動する。GITHUB_TOKEN による push は
+      # pages.yml の push トリガーを発火しないため（第13.2節）。
+      # **weekly-collect.yml は起動しない。** 起動すると調査と収集が輪になる（第13.9節）。
+      - name: 公開を明示的に起動する
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ steps.before.outputs.sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" = "$BEFORE_SHA" ]; then
+            echo "新しいコミットが無いため、デプロイの起動をスキップします"
+            exit 0
+          fi
+          code="$(curl -sS -o /tmp/pages-dispatch-response.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}')"
+          if [ "$code" != "204" ]; then
+            echo "::warning::pages.yml の再デプロイ起動に失敗しました (HTTP $code)"
+            cat /tmp/pages-dispatch-response.txt
+          fi
+
+      - name: 調査ログを保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: investigate-log-${{ github.run_id }}
+          path: .claude/logs/investigate_*.log
+          retention-days: 30
+          if-no-files-found: ignore

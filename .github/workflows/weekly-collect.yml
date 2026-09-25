@@ -118,6 +118,38 @@ jobs:
             cat /tmp/pages-dispatch-response.txt
           fi
 
+      # 失敗した回は、その原因を調べる実行を自分で起動する（docs/DESIGN.md 第13.9節）。
+      # 「失敗したらIssueを立て、Issueの作成を検知して調査を始める」形は採れない——
+      # GITHUB_TOKEN が作った Issue は `on: issues` を発火させないため、調査が永久に
+      # 起動しない（第13.2節と同じ仕様で、2026-09-24 に一度踏んでいる）。
+      # 上の「公開を明示的に起動する」と対になる、失敗側の明示起動である。
+      #
+      # cancelled() も拾うのは、timeout-minutes 超過と runner 落ちがそちらに来るため。
+      # そのまま黙って終わると、収集が止まったこと自体に誰も気づかない。
+      - name: 失敗の調査を明示的に起動する
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CONCLUSION: ${{ job.status }}
+          WF_NAME: ${{ github.workflow }}
+        run: |
+          # 値は環境変数で渡して python に組み立てさせる。ワークフロー名などを
+          # シェルの文字列連結で JSON に埋めると、引用符を含む値で壊れる。
+          # 1行に収めているのは、YAML のブロックスカラーの中で列0から書いた行が
+          # ブロックを抜けてしまい、ワークフロー全体が構文エラーになるためである。
+          payload="$(python3 -c 'import json, os; print(json.dumps({"ref": "main", "inputs": {"failed_run_url": os.environ.get("RUN_URL", ""), "failed_run_conclusion": os.environ.get("CONCLUSION", ""), "failed_run_name": os.environ.get("WF_NAME", "")}}))')"
+          code="$(curl -sS -o /tmp/investigate-dispatch-response.txt -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/routine-investigate.yml/dispatches" \
+            -d "$payload")"
+          if [ "$code" != "204" ]; then
+            echo "::warning::routine-investigate.yml の起動に失敗しました (HTTP $code)"
+            cat /tmp/investigate-dispatch-response.txt
+          fi
+
       - name: 実行ログを保存
         if: always()
         uses: actions/upload-artifact@v4

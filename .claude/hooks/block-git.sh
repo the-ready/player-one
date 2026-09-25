@@ -14,8 +14,14 @@
 #
 # 対話セッションでは発火させない。人間が git を使うのは当然で、そちらまで止めると
 # このリポジトリで普通の作業ができなくなる。見分けには claude-routine.sh が export
-# する CLAUDE_ROUTINE を使う。フックのプロセスは claude プロセスの子なので、この
-# 変数を継承している。
+# する CLAUDE_ROUTINE と、investigate-routine.sh が export する CLAUDE_INVESTIGATE を
+# 使う。フックのプロセスは claude プロセスの子なので、この変数を継承している。
+#
+# 変数を2つに分けているのは、収集向けに調整された他の門（read_gate / fetch_mix など）を
+# 調査ルーチンで発火させたくないためである。**git の禁止だけは両方に効かせる**——
+# どちらのルーチンも「Claude が書き、スクリプトが検証して push する」分業で動いており、
+# 検証を飛ばして push されると困る度合いは変わらない（調査ルーチンは main へ直接
+# push するので、むしろこちらの方が重い。docs/DESIGN.md 第13.9節）。
 #
 # matcher は "Bash" だけにして `if: "Bash(git *)"` は使っていない。`if` の
 # コマンド解析はドキュメント上「ベストエフォート」で、解析できない書き方が
@@ -24,7 +30,9 @@
 #
 set -u
 
-[ "${CLAUDE_ROUTINE:-0}" = "1" ] || exit 0
+if [ "${CLAUDE_ROUTINE:-0}" != "1" ] && [ "${CLAUDE_INVESTIGATE:-0}" != "1" ]; then
+  exit 0
+fi
 
 INPUT="$(cat)"
 
@@ -93,7 +101,20 @@ SUB="$(printf '%s\n' "$CMD" | awk '
 
 [ -n "$SUB" ] || exit 0
 
-cat >&2 <<MSG
+if [ "${CLAUDE_INVESTIGATE:-0}" = "1" ]; then
+  cat >&2 <<MSG
+git ${SUB} は実行できません。git の操作は調査ルーチンのスクリプト
+（.claude/scripts/investigate-routine.sh）が行います。
+
+  - commit と push は、5つの関門（禁止パス・data/・規模・弱体化・ゲート）を
+    **全部通ったときだけ** スクリプトが行います
+  - push されるかどうかをあなたが判断する必要はありません
+
+あなたの仕事は、原因を突き止めて報告を残すことと、直せると確信したものだけを
+直すことの2つです。git には触らず、作業を続けてください。
+MSG
+else
+  cat >&2 <<MSG
 git ${SUB} は実行できません。git の操作は週次ルーチンのスクリプト
 （.claude/scripts/claude-routine.sh）が行います。
 
@@ -104,4 +125,5 @@ git ${SUB} は実行できません。git の操作は週次ルーチンのス�
 あなたの仕事は data/ を更新し、検証を通る状態にして終了工程まで通し切ることです。
 git には触らず、作業を続けてください。
 MSG
+fi
 exit 2

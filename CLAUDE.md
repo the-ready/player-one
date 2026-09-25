@@ -8,17 +8,19 @@
 
 ## ドキュメントの役割
 
-| ファイル                         | 何が書いてあるか                                               | いつ読む・書く                |
-| -------------------------------- | -------------------------------------------------------------- | ----------------------------- |
-| `docs/DESIGN.md`                 | **なぜそうなっているか**（節番号つき）                         | 設計判断を変える／したとき    |
-| `README.md`                      | 構成とCSVスキーマの一覧                                        | 列や構成を変えたとき          |
-| `docs/COLLECTION-PROTOCOL.md`    | 収集の仕組み（uid・持ち越し・予算）                            | `tools/` を変えたとき         |
-| `.claude/skills/*/SKILL.md`      | 収集タスクの指示（**正本はここ**）                             | CSVの列・収集規則を変えたとき |
-| `.claude/skills/source-optout/`  | 調査対象外・掲載停止の申請への対応手順                         | 申請が来たとき                |
-| `docs/skill-feedback.md`         | 収集を実行して分かったこと                                     | スキルの改善を提案するとき    |
-| `.claude/routines/invariants.md` | 無人実行で**最後まで緩まない規則**（システムプロンプトに載る） | 規則そのものを変えるとき      |
-| `.claude/skills/weekly-routine/` | 無人実行の手順（曜日→スキルの対応表・終了工程）                | ルーチンの流れを変えたとき    |
-| `docs/routine-postmortems.md`    | 無人実行で実際に起きた事故と、その塞ぎ方                       | 規則を緩めたくなったとき      |
+| ファイル                                     | 何が書いてあるか                                                      | いつ読む・書く                |
+| -------------------------------------------- | --------------------------------------------------------------------- | ----------------------------- |
+| `docs/DESIGN.md`                             | **なぜそうなっているか**（節番号つき）                                | 設計判断を変える／したとき    |
+| `README.md`                                  | 構成とCSVスキーマの一覧                                               | 列や構成を変えたとき          |
+| `docs/COLLECTION-PROTOCOL.md`                | 収集の仕組み（uid・持ち越し・予算）                                   | `tools/` を変えたとき         |
+| `.claude/skills/*/SKILL.md`                  | 収集タスクの指示（**正本はここ**）                                    | CSVの列・収集規則を変えたとき |
+| `.claude/skills/source-optout/`              | 調査対象外・掲載停止の申請への対応手順                                | 申請が来たとき                |
+| `docs/skill-feedback.md`                     | 収集を実行して分かったこと                                            | スキルの改善を提案するとき    |
+| `.claude/routines/invariants.md`             | 無人実行で**最後まで緩まない規則**（システムプロンプトに載る）        | 規則そのものを変えるとき      |
+| `.claude/skills/weekly-routine/`             | 無人実行の手順（曜日→スキルの対応表・終了工程）                       | ルーチンの流れを変えたとき    |
+| `.claude/routines/investigate-invariants.md` | 失敗の自動調査で**最後まで緩まない規則**（main へ直接 push する前提） | 関門や上限を変えるとき        |
+| `.claude/skills/routine-investigate/`        | 失敗の自動調査の手順（原因の分類・再現・報告の書式）                  | 調査の進め方を変えたとき      |
+| `docs/routine-postmortems.md`                | 無人実行で実際に起きた事故と、その塞ぎ方                              | 規則を緩めたくなったとき      |
 
 コードのコメントは**「なぜ」を書く**。この方針は既存コードを読めば分かる密度で徹底されている。合わせること。
 
@@ -49,6 +51,16 @@ python3 tools/bash_gate_test.py    # 検証の出力の切り詰めと curl/wget
 python3 tools/fetch_mix_test.py    # WebFetch 偏重の催促が「1度だけ」であること
 python3 tools/validate_data_test.py # 裸の数字の price と、同一CSV内の重複候補の判定
 python3 tools/carry_audit_test.py  # 波が「前回CSVの言い換え」になっていないかの判定
+python3 tools/run_all_tests_test.py # 一括ランナーが「0件」や実行不能を成功と答えないこと
+python3 tools/investigate_routine_test.py # 自動調査の5つの関門（通しの検証を含む）
+```
+
+上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。
+**まとめて回すときは一覧ではなく自動検出のランナーを使うこと。**
+
+```bash
+python3 tools/run_all_tests.py     # tools/*_test.py と *_test.mjs を全部（smoke_test.mjs は除く）
+python3 tools/run_all_tests.py --with-data  # validate_data.py も併せて
 ```
 
 収集の起動の仕組み（`.claude/scripts/dispatch-routine.sh`・`install-dispatch-timer.sh`・`.claude/systemd/`・
@@ -69,6 +81,9 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 **読み取り・返答・取得手段の門（`read_gate.py` / `reply_gate.py` / `bash_gate.py` / `fetch_mix.py`）は、週次ルーチンの中でしか発火しない**
 （`CLAUDE_ROUTINE=1` のときだけ。`claude-routine.sh` が export する）。対話セッションでは今までどおり何でも読める。
 これらが何を見ているかは `docs/DESIGN.md` 第9.1.5節。
+
+**失敗の自動調査（`investigate-routine.sh`）は `CLAUDE_INVESTIGATE=1` を立てる。** 上の4つの門は収集向けの調整なので
+調査では発火させず、`block-git.sh`（git の禁止）だけが両方で効く。理由は `docs/DESIGN.md` 第13.9.5節。
 
 ### CSVの列を足す・変える・消す
 
