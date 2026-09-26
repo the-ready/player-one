@@ -385,6 +385,32 @@ def _():
         return "空になりました" not in buf.getvalue() or f"誤検知: {buf.getvalue()[:120]!r}"
 
 
+@check("同じ波の中で、先に処理した行が後の行の持ち越し元になる")
+def _():
+    # --carry-rest は前回CSVの全行を1度に投入する。重複していた組のうち desc を
+    # 持つ側が先に処理され、持たない側が後から上書きすると、説明文が失われる。
+    with Sandbox() as s:
+        s.put([])
+        d = "重複していた組の片方だけが持っている具体的な説明" * 3
+        out = s.send([_row(desc=d, **BASE), _row(price="あとの行", **BASE)])
+        if len(out["rows"]) != 1:
+            return f"1行に畳まれていない: {len(out['rows'])}行"
+        r = out["rows"][0]
+        if r["price"] != "あとの行":
+            return "あとの行で更新されていない"
+        return r["desc"] == d or f"先の行の desc が失われた: {r['desc']!r}"
+
+
+@check("波の中の持ち越しでも _no_carry は効く")
+def _():
+    with Sandbox() as s:
+        s.put([])
+        d = "先の行が持っている説明" * 8
+        out = s.send([_row(desc=d, **BASE),
+                      dict(_row(price="あとの行", **BASE), _no_carry="desc")])
+        return out["rows"][0]["desc"] == "" or f"_no_carry が無視された: {out['rows'][0]['desc']!r}"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

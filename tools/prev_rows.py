@@ -906,6 +906,34 @@ def _warn_similar_notes(records):
                   file=sys.stderr)
 
 
+def _drop_rows_from_current(name, uids):
+    """いまのCSVから、指定した uid の行を取り除く。取り除いた行数を返す。
+
+    書き出しは一時ファイル経由で置き換える（`append_rows.write_rows` と同じ理由。
+    全体を書き直す以上、途中で落ちるとCSVごと失う）。
+    """
+    path = os.path.join(DATA, name)
+    if not os.path.exists(path):
+        return 0
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames or []
+        rows_now = list(reader)
+    if not headers:
+        return 0
+    keep = [r for r in rows_now if row_uid(name, r) not in uids]
+    if len(keep) == len(rows_now):
+        return 0
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, quoting=csv.QUOTE_ALL)
+        w.writerow(headers)
+        for r in keep:
+            w.writerow([r.get(h, "") for h in headers])
+    os.replace(tmp, path)
+    return len(rows_now) - len(keep)
+
+
 def cmd_dispose(name, rows, args):
     known = {row_uid(name, r): r for r in rows}
     today = args.today if args.today else date.today()
@@ -959,6 +987,25 @@ def cmd_dispose(name, rows, args):
         for obj in recs:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
     print(f"{len(recs)}件の処分を記録しました → {os.path.relpath(disposition_path(name), ROOT)}")
+
+    # **消滅を記録したら、いまのCSVからその行を取り除く。**
+    #
+    # 以前は記録するだけでよかった。`append_rows.py --init` がCSVを空にしてから
+    # 収集を始めるので、処分した行はそもそも書かれず、記録は「なぜ書かれていないか」
+    # の説明に過ぎなかったためである。**収集手順が「先に前回行を全部書き戻してから
+    # 調査を上積みする」順序になると、この前提が消える**——行は既にCSVにあるので、
+    # 記録だけでは中止になった催しが公開され続ける。
+    #
+    # `notfound` は対象外。あれは「確認できなかった」であって消滅ではなく、
+    # 下のブロックが前回値のまま書き戻す（行を残すのが正しい）。
+    #
+    # 行が無ければ何もしない。従来の順序（--init 直後に処分する）ではこの経路は
+    # 空振りするだけで、振る舞いは変わらない。
+    goners = {r["uid"] for r in recs if r.get("status") != "notfound"}
+    if goners:
+        removed = _drop_rows_from_current(name, goners)
+        if removed:
+            print(f"  いまの {name} から {removed}行を取り除きました", file=sys.stderr)
 
     # notfound は「消滅」ではない。前回値のまま自動で書き戻す
     # （DISPOSITIONS["notfound"] の説明・`docs/COLLECTION-PROTOCOL.md` 第5節参照）。

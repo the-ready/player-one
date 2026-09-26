@@ -435,11 +435,19 @@ def apply_carryover(name, headers, records, by_uid, by_place):
     misses = []
     regressions = []
 
+    # **同じ波の中で先に処理した行も、持ち越しの供給元にする。**
+    # `by_uid` は波の開始時点で1度だけ作られるので、同じ波に同じ uid の行が2つ
+    # 入っていると、2つ目は1つ目が持っている値を見られない。`--carry-rest` は
+    # 前回CSVの全行を1度に投入するため、**重複していた組のうち説明文を持つ側が
+    # 先に処理され、持たない側が後から上書きする**という形で desc が失われていた
+    # （2026-09-27 のシミュレーションで実データ10組ぶんを確認した）。
+    seen_in_batch = {}
+
     for i, row in enumerate(records, start=1):
         requested = resolve_carry_request(row.pop("_carry", None), headers, i)
         blocked = {c.strip() for c in str(row.pop("_no_carry", "") or "").split("|") if c.strip()}
         src_uid = (row.pop("_carry_from", "") or "").strip() or row_uid(name, row)
-        src = by_uid.get(src_uid)
+        src = seen_in_batch.get(src_uid) or by_uid.get(src_uid)
 
         for col in CARRY_ALWAYS:
             if col not in headers or col in blocked or (row.get(col) or "").strip():
@@ -488,6 +496,8 @@ def apply_carryover(name, headers, records, by_uid, by_place):
             if (old_desc and len(old_desc) >= DESC_MIN_LEN
                     and len(new_desc) < len(old_desc) * 0.5):
                 regressions.append((i, row.get("title", "")[:30], len(old_desc), len(new_desc)))
+
+        seen_in_batch[row_uid(name, row)] = row
 
     return filled, misses, regressions
 

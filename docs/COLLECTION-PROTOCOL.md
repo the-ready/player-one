@@ -154,8 +154,8 @@ EOF
 
 | 区分                   | 列                                                                                                                              | 扱い                                                                                                                        |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **自動で埋まる**       | `kana` `lineup_id` `lat` `lng` `parking` `nearest_station` `venue_url` `theater_url`                                            | 空欄なら前回値で補完。何も書かなくてよい。`lineup_id` は書き手が決めたスラッグを毎週使い回すだけなので同じ扱い（第12.12節） |
-| **頼めば埋まる**       | `desc` `note` `official_url` `artists` `cats`/`genre` `series_id`/`tour_id` など                                                | `"_carry": "*"` か `"_carry": "desc\|note"`                                                                                 |
+| **自動で埋まる**       | `kana` `lineup_id` `desc` `cats` `area` `official_url` `lat` `lng` `parking` `nearest_station` `venue_url` `theater_url`        | 空欄なら前回値で補完。何も書かなくてよい。会期中に動かない事実は、書き忘れたときに前回値を消してよい理由が無いため（`lineup_id` は書き手が決めたスラッグ。第12.12節） |
+| **頼めば埋まる**       | `note` `artists` `genre` `series_id`/`tour_id` など                                                                              | `"_carry": "*"` か `"_carry": "note"`。**書き忘れると消える**——消えた列は `append_rows.py` が警告に出す                     |
 | **絶対に持ち越さない** | 日付・`status`・`rank`・`onsale_*`・`price*`・`coupon_note`・`limited_sale`・`url`・`source`・`announced_date`・`is_additional` | スクリプトが拒否する                                                                                                        |
 
 `"_no_carry": "lineup_id"` を添えると、**自動で埋まる列を行単位で打ち消せる。**

@@ -134,7 +134,8 @@ def _uid(row):
     return pr.row_uid("lives.csv", row)
 
 
-def _dispose(prev, stdin_lines, today=TODAY, dispositions=None, capture=None, paths_out=None):
+def _dispose(prev, stdin_lines, today=TODAY, dispositions=None, capture=None,
+             paths_out=None, current=None):
     """一時ディレクトリで --dispose を回し、(returncode, stdout, stderr) を返す。
 
     `raise SystemExit(msg)` は argparse 由来の使用法エラーと区別せず、
@@ -161,6 +162,8 @@ def _dispose(prev, stdin_lines, today=TODAY, dispositions=None, capture=None, pa
     pr.subprocess.run = _stub_subprocess_run(capture if capture is not None else [])
     try:
         _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, prev)
+        if current is not None:
+            _write_csv(os.path.join(tmp, "lives.csv"), HEADERS, current)
         if dispositions:
             with open(os.path.join(prev_dir, "lives.dispositions.jsonl"),
                       "w", encoding="utf-8") as f:
@@ -528,6 +531,53 @@ def _():
     if code != 0:
         return f"警告のはずがブロックされた: {err}"
     return "WARNING" in err or f"似た理由文への警告が出ていない: {err}"
+
+
+@check("消滅の処分は、いまのCSVからその行を取り除く")
+def _():
+    # 収集手順が「先に前回行を書き戻してから調査を上積みする」順序になると、
+    # 処分を記録するだけでは中止になった催しが公開され続ける。
+    row = _row(title="中止になった公演", venue="会場A", start_date="2026-12-01",
+               end_date="2026-12-01")
+    keep = _row(title="続いている公演", venue="会場B", start_date="2026-12-02",
+                end_date="2026-12-02")
+    tmp = {}
+    code, out, err = _dispose([row, keep],
+                              [{"uid": pr.row_uid("lives.csv", row),
+                                "status": "cancelled", "note": "中止を確認した"}],
+                              paths_out=tmp, current=[row, keep])
+    if code != 0:
+        return f"落ちた: {err[:120]}"
+    with open(os.path.join(tmp["tmp"], "lives.csv"), newline="", encoding="utf-8") as f:
+        now = list(csv.DictReader(f))
+    titles = [r["title"] for r in now]
+    return titles == ["続いている公演"] or f"残った行が違う: {titles}"
+
+
+@check("notfound の処分では、いまのCSVから行を取り除かない")
+def _():
+    row = _row(title="確認できなかった公演", venue="会場A", start_date="2026-12-01",
+               end_date="2026-12-01")
+    tmp = {}
+    code, out, err = _dispose([row],
+                              [{"uid": pr.row_uid("lives.csv", row),
+                                "status": "notfound", "note": "情報源に辿り着けなかった"}],
+                              paths_out=tmp, current=[row])
+    if code != 0:
+        return f"落ちた: {err[:120]}"
+    with open(os.path.join(tmp["tmp"], "lives.csv"), newline="", encoding="utf-8") as f:
+        now = list(csv.DictReader(f))
+    return len(now) == 1 or f"notfound の行が消えた: {len(now)}行"
+
+
+@check("いまのCSVにその行が無くても落ちない（従来の順序）")
+def _():
+    row = _row(title="中止になった公演", venue="会場A", start_date="2026-12-01",
+               end_date="2026-12-01")
+    code, out, err = _dispose([row],
+                              [{"uid": pr.row_uid("lives.csv", row),
+                                "status": "cancelled", "note": "中止を確認した"}])
+    return code == 0 or f"落ちた: {err[:150]}"
 
 
 def main():
