@@ -580,6 +580,46 @@ def _():
     return code == 0 or f"落ちた: {err[:150]}"
 
 
+@check("削除が失敗したら、処分の記録はまだ書かれていない（再実行で安全に復旧できる）")
+def _():
+    row = _row(title="中止になった公演", venue="会場A", start_date="2026-12-01",
+               end_date="2026-12-01")
+    tmp = {}
+    orig = pr._drop_rows_from_current
+    def boom(name, uids):
+        raise OSError("模擬的なディスク書き込み失敗")
+    pr._drop_rows_from_current = boom
+    try:
+        code, out, err = _dispose([row],
+                                  [{"uid": pr.row_uid("lives.csv", row),
+                                    "status": "cancelled", "note": "中止を確認した"}],
+                                  paths_out=tmp, current=[row])
+    finally:
+        pr._drop_rows_from_current = orig
+    if code == 0:
+        return "削除の失敗を検知できていない（exit=0で終わった）"
+    disp_path = os.path.join(tmp["prev_dir"], "lives.dispositions.jsonl")
+    if os.path.exists(disp_path) and open(disp_path, encoding="utf-8").read().strip():
+        return "削除が失敗したのに処分が記録されてしまった（不整合が残る）"
+    return True
+
+
+@check("削除成功後は、処分が正しく記録される（順序を変えても壊れていない）")
+def _():
+    row = _row(title="中止になった公演", venue="会場A", start_date="2026-12-01",
+               end_date="2026-12-01")
+    tmp = {}
+    code, out, err = _dispose([row],
+                              [{"uid": pr.row_uid("lives.csv", row),
+                                "status": "cancelled", "note": "中止を確認した"}],
+                              paths_out=tmp, current=[row])
+    if code != 0:
+        return f"落ちた: {err[:120]}"
+    disp_path = os.path.join(tmp["prev_dir"], "lives.dispositions.jsonl")
+    content = open(disp_path, encoding="utf-8").read() if os.path.exists(disp_path) else ""
+    return "cancelled" in content or f"処分が記録されていない: {content!r}"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

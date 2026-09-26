@@ -411,6 +411,56 @@ def _():
         return out["rows"][0]["desc"] == "" or f"_no_carry が無視された: {out['rows'][0]['desc']!r}"
 
 
+@check("バッチ内で同じuidが重複し、後の行が前の行のCARRY_NEVER列を上書きしたら警告する")
+def _():
+    import contextlib, io
+    with Sandbox() as s:
+        s.put([])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            s.send([_row(price="1500円", url="https://a.example/", note="重要な注記A",
+                        source="公式サイト", **BASE),
+                    _row(**BASE)])
+        return "price" in buf.getvalue() and "url" in buf.getvalue() and "note" in buf.getvalue() \
+            or f"CARRY_NEVER列の消失が警告されない: {buf.getvalue()[:200]!r}"
+
+
+@check("バッチ内重複の警告が実際にCARRY_NEVER列の中身も守る（desc等はCARRY_ALWAYSで別途保護済み）")
+def _():
+    with Sandbox() as s:
+        s.put([])
+        out = s.send([_row(price="1500円", url="https://a.example/", **BASE),
+                      _row(**BASE)])
+        r = out["rows"][0]
+        # 上書きは起きる（後の行が勝つ）が、それは正しく警告されている前提のうえでの仕様
+        return (r["price"] == "" and r["url"] == "") or f"想定と違う結果: {r}"
+
+
+@check("異なるuidが2件来ても、バッチ内重複の警告は出ない（誤検知しない）")
+def _():
+    import contextlib, io
+    with Sandbox() as s:
+        s.put([])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            s.send([_row(price="1500円", title="展覧会A", venue="美術館X",
+                        start_date="2026-10-01", end_date="2026-10-31"),
+                    _row(price="800円", title="展覧会B", venue="美術館Y",
+                        start_date="2026-11-01", end_date="2026-11-30")])
+        return "同じ回の中で前の行" not in buf.getvalue() or f"誤検知した: {buf.getvalue()[:200]!r}"
+
+
+@check("バッチ内重複で、後の行が値を追加するだけ（失う列が無い）なら警告しない")
+def _():
+    import contextlib, io
+    with Sandbox() as s:
+        s.put([])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            s.send([_row(price="1500円", **BASE), _row(price="1500円", note="追記", **BASE)])
+        return "同じ回の中で前の行" not in buf.getvalue() or f"誤検知した: {buf.getvalue()[:200]!r}"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

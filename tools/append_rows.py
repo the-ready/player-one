@@ -628,6 +628,31 @@ def prepare_records(name, records):
                   f"{gone} が空になりました。書き忘れなら `_carry` で持ち越してください",
                   file=sys.stderr)
 
+    # **同じバッチの中で同じuidが複数回現れたとき、後の行が前の行を無警告で
+    # 上書きしていないか。** `--carry-rest --apply` は前回CSVの全行を1回の
+    # バッチで投入するため、前回CSVに残っていた重複（同じuidの行が複数）に
+    # ここで初めて遭遇する。CARRY_ALWAYS列は apply_carryover の seen_in_batch が
+    # 既に補うが、それ以外の列（price・url・note等）は補われないまま
+    # 「後の行が勝つ」ため、前の行の値が完全に無警告で消えていた
+    # （2026-09-27 に実データで確認。CARRY_NEVER も含めて見る——このバッチ内
+    # 衝突は「今週確認できなかった」という判断ではなく、前回CSVに残っていた
+    # 重複という機械的な事故なので、価格・URLが消えても知らせる必要がある）。
+    watched_in_batch = [h for h in headers if h != "id"]
+    seen_this_batch = {}
+    for i, row in enumerate(records, start=1):
+        u = row_uid(name, row)
+        prior = seen_this_batch.get(u)
+        if prior is not None:
+            lost = [c for c in watched_in_batch
+                    if (prior.get(c) or "").strip() and not (row.get(c) or "").strip()]
+            if lost:
+                print(f"  WARNING: {i}件目「{(row.get('title') or '')[:30]}」は同じ回の中で"
+                      f"前の行（同じuid）を更新し、{lost} が空になりました。"
+                      "前回CSVに同じ催しの重複行が残っていた可能性があります"
+                      "（python3 tools/validate_data.py --duplicates-only で確認できます）",
+                      file=sys.stderr)
+        seen_this_batch[u] = row
+
     return headers, path, records, filled, misses, regressions, start_id
 
 

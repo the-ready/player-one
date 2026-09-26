@@ -982,19 +982,14 @@ def cmd_dispose(name, rows, args):
         )
     _warn_similar_notes(recs)
 
-    os.makedirs(PREV, exist_ok=True)
-    with open(disposition_path(name), "a", encoding="utf-8") as f:
-        for obj in recs:
-            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-    print(f"{len(recs)}件の処分を記録しました → {os.path.relpath(disposition_path(name), ROOT)}")
-
-    # **消滅を記録したら、いまのCSVからその行を取り除く。**
+    # **CSVからの削除を、処分の記録より先に行う。**
     #
-    # 以前は記録するだけでよかった。`append_rows.py --init` がCSVを空にしてから
-    # 収集を始めるので、処分した行はそもそも書かれず、記録は「なぜ書かれていないか」
-    # の説明に過ぎなかったためである。**収集手順が「先に前回行を全部書き戻してから
-    # 調査を上積みする」順序になると、この前提が消える**——行は既にCSVにあるので、
-    # 記録だけでは中止になった催しが公開され続ける。
+    # 以前は「記録 → 削除」の順で、削除が失敗すると「記録上は処分済みなのに
+    # CSVには残っている」という不整合が生じた——記録は追記専用で取り消せないため、
+    # 再実行しない限りその週はこの不整合を抱えたまま終わる。順序を入れ替えれば、
+    # 削除が失敗した時点で例外が上がり、記録はまだ書かれていないので、
+    # 呼び出し側は同じ入力をそのまま再実行するだけで安全にやり直せる
+    # （記録の重複追記そのものは上のコメントの通り許容している）。
     #
     # `notfound` は対象外。あれは「確認できなかった」であって消滅ではなく、
     # 下のブロックが前回値のまま書き戻す（行を残すのが正しい）。
@@ -1003,9 +998,24 @@ def cmd_dispose(name, rows, args):
     # 空振りするだけで、振る舞いは変わらない。
     goners = {r["uid"] for r in recs if r.get("status") != "notfound"}
     if goners:
-        removed = _drop_rows_from_current(name, goners)
+        try:
+            removed = _drop_rows_from_current(name, goners)
+        except OSError as e:
+            # 生のトレースバックではなく明確なエラーにする。処分の記録は
+            # まだ書いていないので、同じ入力をそのまま再実行すれば安全にやり直せる。
+            raise SystemExit(
+                f"ERROR: {name} から処分済みの行を取り除けませんでした"
+                f"（{type(e).__name__}: {e}）。処分はまだ記録していないので、"
+                "同じ内容で --dispose をやり直してください。"
+            )
         if removed:
             print(f"  いまの {name} から {removed}行を取り除きました", file=sys.stderr)
+
+    os.makedirs(PREV, exist_ok=True)
+    with open(disposition_path(name), "a", encoding="utf-8") as f:
+        for obj in recs:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    print(f"{len(recs)}件の処分を記録しました → {os.path.relpath(disposition_path(name), ROOT)}")
 
     # notfound は「消滅」ではない。前回値のまま自動で書き戻す
     # （DISPOSITIONS["notfound"] の説明・`docs/COLLECTION-PROTOCOL.md` 第5節参照）。

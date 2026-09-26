@@ -41,6 +41,55 @@ def _row(title, venue="会場", start_date="2026-09-01"):
     return {"title": title, "venue": venue, "start_date": start_date, "end_date": start_date}
 
 
+class _Sandbox:
+    """diff_data.DATA / prev_rows.PREV を一時ディレクトリへ差し替える。
+
+    `diff_one()` を丸ごと通して検証したいので、モジュール変数を差し替える
+    （collect-fallback系のテストと同じ手法）。
+    """
+
+    def __enter__(self):
+        import prev_rows as pr
+        self.tmp = tempfile.mkdtemp(prefix="diff_data_sandbox_")
+        self.prev_dir = os.path.join(self.tmp, ".prev")
+        os.makedirs(self.prev_dir, exist_ok=True)
+        self.orig = (dd.DATA, pr.DATA, pr.PREV)
+        dd.DATA = self.tmp
+        pr.DATA = self.tmp
+        pr.PREV = self.prev_dir
+        return self
+
+    def __exit__(self, *a):
+        import prev_rows as pr
+        dd.DATA, pr.DATA, pr.PREV = self.orig
+
+    def put_prev(self, name, headers, rows):
+        _write_csv(os.path.join(self.prev_dir, name), headers, rows)
+
+    def put_current(self, name, headers, rows):
+        _write_csv(os.path.join(self.tmp, name), headers, rows)
+
+
+def _write_csv(path, headers, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=headers)
+        w.writeheader()
+        for r in rows:
+            w.writerow({h: r.get(h, "") for h in headers})
+
+
+EVENTS_HEADERS = [
+    "id", "title", "kana", "cats", "area", "venue", "venue_url", "pref",
+    "start_date", "end_date", "date", "dates", "open_time", "start_time", "end_time",
+    "date_note", "backup_date", "status", "rank", "series_id", "announced_date",
+    "is_additional", "onsale_label", "onsale_start", "onsale_start_time",
+    "onsale_end", "onsale_end_time", "limited_sale", "price", "price_official",
+    "price_best", "discount_pct", "best_source", "coupon_note", "price_checked",
+    "price_condition", "source", "url", "official_url", "lat", "lng", "desc",
+    "note", "parking", "nearest_station",
+]
+
+
 CHECKS = []
 
 
@@ -130,6 +179,76 @@ def _():
     if len(pairs) != 1:
         return f"1対に絞れていない: {pairs}"
     return pairs[0][:2] == ("g1", "a1") or f"完全一致でない方が枠を取った: {pairs}"
+
+
+
+@check("_still_carried_verbatim: id・受付欄・lineup_id 以外が同じなら「触られていない」")
+def _():
+    prev_row = {"id": "5", "title": "展覧会A", "price": "1000円",
+                "onsale_start": "2026-09-01", "lineup_id": "old-slug"}
+    cur_row = {"id": "12", "title": "展覧会A", "price": "1000円",
+               "onsale_start": "", "lineup_id": ""}
+    return dd._still_carried_verbatim(prev_row, cur_row) or "id/受付/lineup_id 以外は同じなのに False になった"
+
+
+@check("_still_carried_verbatim: 監視対象の列が1つでも変われば「触られた」")
+def _():
+    prev_row = {"id": "5", "title": "展覧会A", "price": "1000円"}
+    cur_row = {"id": "12", "title": "展覧会A", "price": "1200円"}
+    return not dd._still_carried_verbatim(prev_row, cur_row) or "price が変わっているのに True になった"
+
+
+@check("diff_one: carry-rest で書き戻したまま未確認の行が改名候補として検出される")
+def _():
+    with _Sandbox() as sb:
+        prev = [dict(id="1", title="展覧会A", venue="美術館X", start_date="2026-10-01",
+                     end_date="2026-10-31", pref="tokyo", desc="もとの説明"*10,
+                     official_url="https://a.example/")]
+        # carry-rest が実際に書くのと同じ形（id は振り直され、受付欄は空）を模す
+        carried = [dict(id="99", title="展覧会A", venue="美術館X", start_date="2026-10-01",
+                        end_date="2026-10-31", pref="tokyo", desc="もとの説明"*10,
+                        official_url="https://a.example/")]
+        new = dict(id="100", title="展覧会A（副題つき）", venue="美術館X",
+                   start_date="2026-10-01", end_date="2026-10-31", pref="tokyo",
+                   desc="もとの説明"*10 + "追記", official_url="https://a.example/x")
+        sb.put_prev("events.csv", EVENTS_HEADERS, prev)
+        sb.put_current("events.csv", EVENTS_HEADERS, carried + [new])
+        res, _ = dd.diff_one("events.csv")
+    cands = res["rename_candidates"]
+    if len(cands) != 1:
+        return f"改名候補が1件でない: {cands}"
+    return bool(cands[0]["prev_uid"] and cands[0]["new_uid"]) or f"uidが空: {cands}"
+
+
+@check("diff_one: 実際に再確認された行（内容が変わった）は改名候補の元にしない")
+def _():
+    with _Sandbox() as sb:
+        prev = [dict(id="1", title="展覧会A", venue="美術館X", start_date="2026-10-01",
+                     end_date="2026-10-31", pref="tokyo", desc="もとの説明"*10)]
+        # 再確認済み：price が今週入った（carry-rest はこの列を持ち越さない）
+        reconfirmed = [dict(id="99", title="展覧会A", venue="美術館X",
+                            start_date="2026-10-01", end_date="2026-10-31",
+                            pref="tokyo", desc="もとの説明"*10, price="1000円")]
+        unrelated_new = dict(id="100", title="まったく別の展覧会B", venue="別会場",
+                             start_date="2026-11-01", end_date="2026-11-30", pref="chiba")
+        sb.put_prev("events.csv", EVENTS_HEADERS, prev)
+        sb.put_current("events.csv", EVENTS_HEADERS, reconfirmed + [unrelated_new])
+        res, _ = dd.diff_one("events.csv")
+    return not res["rename_candidates"] or f"再確認済みの行が誤って候補に入った: {res['rename_candidates']}"
+
+
+@check("diff_one: 物理的に消えた行の改名検知は従来どおり動く（回帰）")
+def _():
+    with _Sandbox() as sb:
+        prev = [dict(id="1", title="展覧会A", venue="美術館X", start_date="2026-10-01",
+                     end_date="2026-10-31", pref="tokyo", desc="もとの説明"*10)]
+        new = dict(id="2", title="展覧会A（改題）", venue="美術館X",
+                   start_date="2026-10-01", end_date="2026-10-31", pref="tokyo",
+                   desc="もとの説明"*10)
+        sb.put_prev("events.csv", EVENTS_HEADERS, prev)
+        sb.put_current("events.csv", EVENTS_HEADERS, [new])   # 旧行は物理的に無い
+        res, _ = dd.diff_one("events.csv")
+    return len(res["rename_candidates"]) == 1 or f"物理消失の改名検知が壊れた: {res['rename_candidates']}"
 
 
 def main():

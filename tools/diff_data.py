@@ -48,7 +48,7 @@ import json
 import os
 import sys
 
-from prev_rows import load_dispositions, load_prev, prev_taken_at, resolve_dataset
+from prev_rows import CARRY_REST_CLEAR, load_dispositions, load_prev, prev_taken_at, resolve_dataset
 from rowkey import natural_key, norm, similarity, title_key
 from rowkey import uid as row_uid
 from validate_data import START_COL
@@ -173,6 +173,34 @@ def fuzzy_pairs(name, gone, added):
     return pairs
 
 
+# id・受付欄（carry-rest が空にする）・lineup_id（carry-rest が個別事情で空にする
+# ことがある。_build_carry_obj 参照）は、「触られたか」の判定材料にしない。
+_CARRY_COMPARE_IGNORE = {"id", "lineup_id"} | set(CARRY_REST_CLEAR)
+
+
+def _still_carried_verbatim(prev_row, cur_row):
+    """cur_row が、prev_row を carry-rest がそのまま書き戻しただけで、
+    まだ一度も能動的に再確認されていない状態と一致するかを見る。
+
+    upsert + carry-rest-first の順序（第9.3.4.1節）では、表記が変わった行の
+    旧uid行は物理的に「消えて」いない——carry-rest が着手直後に書き戻すため、
+    調査がその行を実際に再確認するまでCSVに残り続ける。renamed の検知
+    （fuzzy_pairs）は「消えた行」を入力に取るため、このままでは旧uid行が
+    一度も候補に挙がらず、renamed の記録が永久に行われない
+    （2026-09-27 に実データで確認。docs/DESIGN.md 第9.3.4.1節）。
+
+    id・受付欄・lineup_id を除く全列が prev の値と完全一致するかで判定する。
+    1列でも変わっていれば、その回に誰かが能動的に触ったとみなして対象から外す。
+    """
+    keys = set(prev_row) | set(cur_row)
+    for col in keys:
+        if col in _CARRY_COMPARE_IGNORE:
+            continue
+        if (prev_row.get(col) or "").strip() != (cur_row.get(col) or "").strip():
+            return False
+    return True
+
+
 def diff_one(name):
     prev_rows, source = load_prev(name)
     cur_rows = read_current(name)
@@ -194,6 +222,18 @@ def diff_one(name):
     gone = {u: r for u, r in prev.items() if u not in cur}
     added = {u: r for u, r in cur.items() if u not in prev}
 
+    # renamed 検知（fuzzy_pairs）だけは、「物理的に消えた行」に加えて
+    # 「carry-rest が書き戻したまま、まだ再確認されていない行」も入力にする。
+    # gone 自体（消滅の報告・ERROR判定・is_noop の材料）は今までどおり
+    # 物理的な不在だけで決める——広げるのは表記ゆれの候補探しだけでよい。
+    rename_pool = dict(gone)
+    for u, r in prev.items():
+        if u in rename_pool:
+            continue
+        cur_row = cur.get(u)
+        if cur_row is not None and _still_carried_verbatim(r, cur_row):
+            rename_pool[u] = r
+
     for u, r in added.items():
         result["added"].append({
             "uid": u, "title": r.get("title", ""),
@@ -203,9 +243,9 @@ def diff_one(name):
             "announced_date": r.get("announced_date", ""),
         })
 
-    renames = {g: (a, s) for g, a, s in fuzzy_pairs(name, gone, added)}
+    renames = {g: (a, s) for g, a, s in fuzzy_pairs(name, rename_pool, added)}
     for g, (a, s) in renames.items():
-        prev_title, new_title = gone[g].get("title", ""), added[a].get("title", "")
+        prev_title, new_title = rename_pool[g].get("title", ""), added[a].get("title", "")
         result["rename_candidates"].append({
             "prev_uid": g, "new_uid": a, "similarity": s,
             "prev_title": prev_title, "new_title": new_title,
