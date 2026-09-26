@@ -22,6 +22,17 @@
 対象は events / lives / movies（events.csv / lives.csv / movies.csv でも可）。
 列の並びは validate_data.py の EXPECTED_HEADERS を正本として使う（二重管理しない）。
 
+## 書き込みは upsert である（2026-09-26 に追記専用から変更）
+
+uid（タイトル×会場×開始日）が既存行と一致すればその行を置き換え、無ければ末尾に足す。
+**同じ催しを再収集しても行は増えない。** 以前は無条件に追記していたため、既にCSVに
+ある催しを調べ直すたびに重複が生まれ、収集手順は「調べ終えてから前回行を書き戻す」
+順序を強いられていた。詳しくは `write_rows()` の説明を参照。
+
+置き換えは**行ごと**で、列ごとの重ね合わせではない。空欄で上書きして消す（料金が
+無くなった・受付が終わった）という正当な操作を残すためである。消えては困る安定した
+事実は下の CARRY_ALWAYS が受け持ち、それ以外の列が空になった更新は警告に出る。
+
 ## 持ち越し（carryover）
 
 前回と同じ行を書き直すとき、座標・最寄り駅・駐車場のような**動かない事実**まで
@@ -33,8 +44,8 @@
 「確認していない値を書く」そのものだからである。指示文でのお願いではなく、
 このスクリプトが受け付けないという形で担保する（CARRY_NEVER）。
 
-その中間（desc・note・official_url など）は、**行ごとに明示的に要求したときだけ**
-持ち越す。内容に変更がないことを確認できた行では、こう書けばよい:
+その中間（note など）は、**行ごとに明示的に要求したときだけ**持ち越す。
+内容に変更がないことを確認できた行では、こう書けばよい:
 
     {"title": "...", "venue": "...", "start_date": "...", "_carry": "*", ...}
 
@@ -142,7 +153,19 @@ def check_truncated_values(name, records):
 # lineup_id（フェスの日割りラインナップの参照キー）もここに入る。値は書き手が決めた
 # スラッグで、その週の調査で変わるものではない——毎週書き直させると綴りが揺れ、
 # lineups.csv 側との参照が静かに切れる（validate_data.py がERRORで捕まえる）。
-CARRY_ALWAYS = ["kana", "lineup_id"] + VENUE_FACTS
+#
+# desc もここに入れている。催しの中身の説明は会期中に変わるものではなく、SKILL.md も
+# 「内容に変更が無ければ書き直さず持ち越す」と既に指示している。既定で持ち越せば、
+# 子が `_carry` を書き忘れても失われない——2026-09-26 の回で、重複していた2行のうち
+# desc を持つ側が消え、持たない側が残って説明文が4件失われた。`_no_carry` で
+# 明示的に止められるので、意図して空にする道は残っている。
+# cats / area / official_url も同じ理由でここに入れている。催しの分類・エリア・公式
+# ページは会期中に動かない事実で、子が書き忘れたときに**前回値を消してよい理由が無い**。
+# upsert にしたことで、書き忘れは「疎な重複行が増える」ではなく「既存行の列が消える」
+# という壊れ方に変わった（2026-09-26 のシミュレーションで、cats/area/official_url が
+# 検証をすり抜けて失われることを確認した）。
+CARRY_ALWAYS = (["kana", "lineup_id", "desc", "cats", "area", "official_url"]
+                + VENUE_FACTS)
 
 # 持ち越しを絶対に許さない列。日付・金額・受付は毎回確認するか、空欄にするかの二択。
 CARRY_NEVER = {
@@ -182,17 +205,44 @@ def resolve_filename(arg):
     )
 
 
-def read_last_id(path):
+def read_current_rows(path):
+    """いまのCSVの行を、ファイルの順序のまま返す。"""
     if not os.path.exists(path):
-        return 0
+        return []
     with open(path, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+        return list(csv.DictReader(f))
+
+
+def index_by_uid(name, rows):
+    """uid -> その uid を持つ行の位置（複数ありうる）。
+
+    同じ uid が複数あるのは、過去に追記専用だった頃に作られた重複である。
+    ここでは潰さず、最初の1行だけを更新の対象にして、残りは呼び出し側が
+    警告として報告する——黙って消すと、追記の道具が予告なく行を削ることになる。
+    """
+    idx = {}
+    for i, r in enumerate(rows):
+        idx.setdefault(row_uid(name, r), []).append(i)
+    return idx
+
+
+def read_last_id(path):
+    """既存行の id の最大値を返す。
+
+    以前は「最後の行の id」を見ていた。追記専用だった頃はそれで最大値と一致したが、
+    uid が一致する行をその場で更新するようになると、末尾の行が必ずしも最大 id を
+    持つとは限らない。最大値を取れば、どちらの書き方でも id が衝突しない。
+    """
+    rows = read_current_rows(path)
     if not rows:
         return 0
-    try:
-        return int((rows[-1].get("id") or "0").strip() or 0)
-    except ValueError:
-        return 0
+    best = 0
+    for r in rows:
+        try:
+            best = max(best, int((r.get("id") or "0").strip() or 0))
+        except ValueError:
+            continue
+    return best
 
 
 def init_file(name, path, headers):
@@ -220,13 +270,59 @@ def init_file(name, path, headers):
 
 
 def write_rows(path, headers, records):
-    file_exists = os.path.exists(path)
-    with open(path, "a", newline="", encoding="utf-8") as f:
+    """uid が既存行と一致すればその行を置き換え、無ければ末尾に足す（upsert）。
+
+    返り値は `(inserted, updated, dup_uids)`。`dup_uids` は「同じ uid の行が
+    もともと複数あって、最初の1行だけを更新した」uid の一覧である。
+
+    ## なぜ追記専用をやめたのか
+
+    以前はファイルを `"a"` で開いて無条件に書き足していた。そのため、既にCSVに
+    ある催しを再収集すると**必ず重複行が増えた**（2026-09-26 の回で、Claude 自身が
+    「append_rows.py はCSV内の既存行とは照合しない」と気づき、追記した4行を
+    `sed` で消している）。このため収集手順は「調べ終えてから前回行を書き戻す」
+    という順序を強いられ、予算が尽きた回では大量の行が未確認のまま最後に
+    流れ込んでいた。uid で突き合わせて更新できれば、先に前回行を全部書き戻して
+    から調査を上積みできる（docs/DESIGN.md 第9.3節）。
+
+    ## 置き換えは「行ごと」であって「列ごと」ではない
+
+    既存行に新しい値を重ねるのではなく、**新しい行で丸ごと置き換える**。
+    持ち越したい列は CARRY_ALWAYS と `_carry` が既に埋めているので、ここで
+    さらに「空欄なら既存値を残す」を足すと、**空欄で上書きして消す**という
+    正当な操作（料金が無くなった・受付が終わった）ができなくなる。
+    「確認できないものは空欄」という規則と噛み合わなくなるため、行ごとに置く。
+    """
+    name = os.path.basename(path)
+    rows = read_current_rows(path)
+    idx = index_by_uid(name, rows) if rows else {}
+
+    inserted, updated, dup_uids = 0, 0, []
+    for row in records:
+        out = {h: row.get(h, "") for h in headers}
+        u = row_uid(name, out)
+        at = idx.get(u)
+        if at:
+            rows[at[0]] = out
+            updated += 1
+            if len(at) > 1 and u not in dup_uids:
+                dup_uids.append(u)
+        else:
+            rows.append(out)
+            # 同じ波の中で同じ uid が2度来たら、2度目は1度目を更新する
+            idx[u] = [len(rows) - 1]
+            inserted += 1
+
+    # 書き出しは一時ファイル経由で置き換える。全体を書き直す以上、途中で落ちると
+    # CSVそのものを失う——追記だったころは最悪でも末尾の1行が欠けるだけだった。
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
-        if not file_exists:
-            w.writerow(headers)
-        for row in records:
+        w.writerow(headers)
+        for row in rows:
             w.writerow([row.get(h, "") for h in headers])
+    os.replace(tmp, path)
+    return inserted, updated, dup_uids
 
 
 def parse_jsonl(raw):
@@ -289,6 +385,14 @@ def build_prev_index(name, headers, current_path=None):
     for r in rows:
         by_uid[row_uid(name, r)] = r
     _fold_places(rows, headers, by_place, place_col)
+
+    # **いまのCSVにある行を、前回スナップショットより優先する。**
+    # 今週この行を既に書いている（前の波が新しく見つけた催しなど）なら、持ち越しの
+    # 供給元はそちらでなければならない。前回だけを見ていると、今週の波1が書いた
+    # desc を波2の再収集が消してしまう——`.prev/` にその行は無いので持ち越せない。
+    if current_path and os.path.exists(current_path):
+        for r in read_current_rows(current_path):
+            by_uid[row_uid(name, r)] = r
 
     # 今回このセッションで既に書いた行からも、会場の事実を引けるようにする。
     # 名簿にも前回にも無い新しい会場では、1公演目で調べた駐車場・最寄り駅を
@@ -372,10 +476,16 @@ def apply_carryover(name, headers, records, by_uid, by_place):
         # それだけで前回の良い値を上書きできてしまい、悪化する方向の書き直しを
         # 誰も止めていなかった。半分未満に縮んだ場合だけを拾う——多少の言い回しの
         # 変更まで拾うと、正当な書き直しにまで警告が付いて読まれなくなる。
+        #
+        # **新しい値が空のときこそ拾う。** 以前は `new_desc and` を条件に入れていたため、
+        # 89字→40字（短縮）は警告されるのに 89字→空（全損）は素通りしていた。軽い劣化を
+        # 止めて重い劣化を見逃す、逆向きの守り方になっていた。desc を CARRY_ALWAYS に
+        # 入れた今、空で渡した行は前回値が自動で入るのでここには来ない——来るのは
+        # `_no_carry` で持ち越しを止めたうえで空にした行だけで、それは警告に値する。
         if "desc" in headers and src:
             new_desc = (row.get("desc") or "").strip()
             old_desc = (src.get("desc") or "").strip()
-            if (new_desc and old_desc and len(old_desc) >= DESC_MIN_LEN
+            if (old_desc and len(old_desc) >= DESC_MIN_LEN
                     and len(new_desc) < len(old_desc) * 0.5):
                 regressions.append((i, row.get("title", "")[:30], len(old_desc), len(new_desc)))
 
@@ -473,9 +583,40 @@ def prepare_records(name, records):
     by_uid, by_place = build_prev_index(name, headers, current_path=path)
     filled, misses, regressions = apply_carryover(name, headers, records, by_uid, by_place)
 
-    start_id = read_last_id(path) + 1
-    for offset, row in enumerate(records):
-        row["id"] = str(start_id + offset)
+    # id の採番。**既存 uid の行は、その行が既に持っている id を保つ。**
+    # upsert で同じ行を更新するのに id を振り直すと、id が毎週飛び回って
+    # 「この行は先週と同じか」を人が目で追えなくなる。新しい uid の行にだけ、
+    # 既存の最大 id の次から順に振る。
+    cur_rows = read_current_rows(path)
+    cur_idx = index_by_uid(name, cur_rows) if cur_rows else {}
+    next_id = read_last_id(path) + 1
+    start_id = next_id
+    for row in records:
+        at = cur_idx.get(row_uid(name, row))
+        if at:
+            row["id"] = (cur_rows[at[0]].get("id") or "").strip() or str(next_id)
+            if not (cur_rows[at[0]].get("id") or "").strip():
+                next_id += 1
+        else:
+            row["id"] = str(next_id)
+            next_id += 1
+
+    # **更新が、値のあった列を空にしていないか。**
+    # upsert は行ごと置き換えるので、子が列を書き忘れるとその列は消える。
+    # 日付・料金・受付（CARRY_NEVER）は「確認できなければ空欄」が正しい書き方なので
+    # 除く——そこまで警告すると、正当な更新のたびに鳴って読まれなくなる。
+    watched = [h for h in headers if h not in CARRY_NEVER and h != "id"]
+    for i, row in enumerate(records, start=1):
+        at = cur_idx.get(row_uid(name, row))
+        if not at:
+            continue
+        old = cur_rows[at[0]]
+        gone = [c for c in watched
+                if (old.get(c) or "").strip() and not (row.get(c) or "").strip()]
+        if gone:
+            print(f"  WARNING: {i}件目「{(row.get('title') or '')[:30]}」の更新で "
+                  f"{gone} が空になりました。書き忘れなら `_carry` で持ち越してください",
+                  file=sys.stderr)
 
     return headers, path, records, filled, misses, regressions, start_id
 
@@ -510,10 +651,15 @@ def main():
               f"{type(e).__name__}: {e}", file=sys.stderr)
 
     headers, path, records, filled, misses, regressions, start_id = prepare_records(name, records)
-    write_rows(path, headers, records)
+    inserted, updated, dup_uids = write_rows(path, headers, records)
 
-    end_id = start_id + len(records) - 1
-    print(f"{len(records)}件を {name} に追記しました（id: {start_id}〜{end_id}）")
+    if updated:
+        print(f"{len(records)}件を {name} に書きました（新規{inserted}件・既存の更新{updated}件）")
+    else:
+        print(f"{inserted}件を {name} に追記しました（id: {start_id}〜{start_id + inserted - 1}）")
+    for u in dup_uids:
+        print(f"  WARNING: uid={u} の行がCSVに複数あります。最初の1行だけを更新しました"
+              f"（残りは消していません。重複の解消は別工程で行ってください）", file=sys.stderr)
     if any(filled.values()):
         print(f"  前回値から補完: 固定列{filled['always']} / 会場から{filled['by_place']} "
               f"/ 明示要求{filled['requested']}")

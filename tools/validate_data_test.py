@@ -256,6 +256,38 @@ def _():
     return (rep.errors == [] and rep.warnings != []) or f"errors={rep.errors}"
 
 
+@check("完全重複（同じ uid）を find_exact_duplicates が拾う")
+def _():
+    rows = [
+        {"id": "1", "title": "展覧会A", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+        {"id": "2", "title": "展覧会A", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+        {"id": "3", "title": "展覧会B", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+    ]
+    got = vd.find_exact_duplicates("events.csv", rows)
+    if len(got) != 1:
+        return f"1組にならない: {[(u, [i for i, _ in it]) for u, it in got]}"
+    u, items = got[0]
+    return [i for i, _ in items] == [2, 3] or f"行番号が違う: {[i for i, _ in items]}"
+
+
+@check("uid が違えば完全重複には数えない（近似重複の担当）")
+def _():
+    rows = [
+        {"id": "1", "title": "展覧会A", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+        {"id": "2", "title": "特別展 展覧会A", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+    ]
+    return not vd.find_exact_duplicates("events.csv", rows) or "uid が違う組を完全重複にした"
+
+
+@check("完全重複が無ければ空を返す")
+def _():
+    rows = [
+        {"id": "1", "title": "展覧会A", "venue": "美術館X", "start_date": "2026-10-01", "end_date": "2026-10-31"},
+        {"id": "2", "title": "展覧会B", "venue": "美術館Y", "start_date": "2026-10-02", "end_date": "2026-10-31"},
+    ]
+    return vd.find_exact_duplicates("events.csv", rows) == [] or "重複でないものを挙げた"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

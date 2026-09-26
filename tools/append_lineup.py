@@ -269,11 +269,16 @@ def main():
     # （どちらも検証済みで、順序が結果を変えることは無い）が、`append_lineup.py`
     # 自身が扱うファイルを先に書くほうが読みやすいので、この順にしてある。
     write_records(records)
-    append_rows.write_rows(path, headers, row_records)
+    inserted, updated, dup_uids = append_rows.write_rows(path, headers, row_records)
 
-    end_id = start_id + len(row_records) - 1
     print(summarize(records))
-    print(f"{len(row_records)}件を lives.csv に追記しました（id: {start_id}〜{end_id}）")
+    if updated:
+        print(f"{len(row_records)}件を lives.csv に書きました（新規{inserted}件・既存の更新{updated}件）")
+    else:
+        print(f"{inserted}件を lives.csv に追記しました（id: {start_id}〜{start_id + inserted - 1}）")
+    for u in dup_uids:
+        print(f"  WARNING: uid={u} の行が lives.csv に複数あります。最初の1行だけを"
+              f"更新しました（残りは消していません）", file=sys.stderr)
     if any(filled.values()):
         print(f"  前回値から補完: 固定列{filled['always']} / 会場から{filled['by_place']} "
               f"/ 明示要求{filled['requested']}")

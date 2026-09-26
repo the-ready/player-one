@@ -653,6 +653,62 @@ def check_same_file_duplicates(name, rows, rep):
                     "prev_rows.py --dispose で処分を記録すること")
 
 
+def find_exact_duplicates(name, rows):
+    """同じ uid の行が複数ある組を返す（[(uid, [(行番号, 行), ...]), ...]）。
+
+    `check_intra_duplicates()` は uid が**一致する**組をわざと飛ばしている
+    （「append_rows.py が弾く側」だから）。ところが追記専用だった頃の
+    `append_rows.py` は既存行と照合しておらず、同じ催しを再収集するたびに
+    同一 uid の行が増えていた——2026-09-26 時点の events.csv に21組残っている。
+    **どちらの検査からも漏れる死角だった**ので、ここで明示的に拾う。
+
+    uid が一致するなら「タイトル・会場・開始日が同じ」ということなので、
+    近似重複と違って別企画の可能性は無い。機械的に解消してよい組である。
+    """
+    groups = {}
+    for i, r in enumerate(rows, start=2):
+        groups.setdefault(uid(name, r), []).append((i, r))
+    return [(u, items) for u, items in groups.items() if len(items) > 1]
+
+
+def report_duplicates_only(loaded):
+    """`--duplicates-only`：重複だけを、手で片付けられる形に並べて出す。
+
+    週次収集の手順に「重複検査」の工程を置くための道具である。完全重複（同じ uid）と
+    近似重複（uid は違うが同じ会場・会期・似たタイトル）を分けて出す——前者は
+    機械的に消してよく、後者は中身を見ないと決められない、という扱いの差があるため。
+    """
+    total_exact = 0
+    total_near = 0
+    for name, rows in loaded.items():
+        if name not in START_COL:
+            continue
+        exact = find_exact_duplicates(name, rows)
+        if exact:
+            print(f"\n=== {name}: 完全重複（同じ uid）{len(exact)}組 ===")
+            print("  タイトル・会場・開始日が同じ行です。1行だけ残してください。")
+            for u, items in exact:
+                lines = ", ".join(f"{i}行目(id={r.get('id')})" for i, r in items)
+                title = (items[0][1].get("title") or "")[:46]
+                place = (items[0][1].get(PLACE_COL.get(name, "venue")) or "")[:22]
+                print(f"  uid={u} {title} @ {place}")
+                print(f"      {lines}")
+            total_exact += len(exact)
+
+        rep = Report()
+        check_same_file_duplicates(name, rows, rep)
+        near = rep.warning_lines()
+        if near:
+            print(f"\n=== {name}: 重複の候補（uid は違う）{len(near)}件 ===")
+            print("  別企画の可能性があります。中身を見て判断してください。")
+            for w in near:
+                print(f"  {w}")
+            total_near += len(near)
+
+    print(f"\n合計: 完全重複 {total_exact}組 / 重複の候補 {total_near}件")
+    return 0
+
+
 def validate_master(name, rows, enums, rep):
     key = MASTER_KEY[name]
     seen = {}
@@ -813,6 +869,7 @@ def check_stray_csv(rep):
 
 def main():
     strict = "--strict" in sys.argv
+    dup_only = "--duplicates-only" in sys.argv
     enums = load_enums()
     rep = Report()
     loaded = {}
@@ -847,6 +904,9 @@ def main():
             validate_master(name, rows, enums, rep)
         loaded[name] = rows
         print(f"  {name}: {len(rows)}行")
+
+    if dup_only:
+        return report_duplicates_only(loaded)
 
     # ラインナップは lives.csv との突き合わせが検証の本体なので、両方読めてから行う
     if LINEUP_FILE in loaded and "lives.csv" in loaded:

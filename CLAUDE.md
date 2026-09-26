@@ -53,6 +53,7 @@ python3 tools/validate_data_test.py # 裸の数字の price と、同一CSV内�
 python3 tools/carry_audit_test.py  # 波が「前回CSVの言い換え」になっていないかの判定
 python3 tools/run_all_tests_test.py # 一括ランナーが「0件」や実行不能を成功と答えないこと
 python3 tools/investigate_routine_test.py # 自動調査の5つの関門（通しの検証を含む）
+python3 tools/append_rows_test.py   # upsert（既存uidは増やさず更新）と持ち越し
 ```
 
 上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。
