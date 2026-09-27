@@ -163,7 +163,12 @@ def validate_records(records, known):
         if not (r.get("artist") or "").strip():
             raise SystemExit(f"ERROR: {i}件目に artist がありません")
         # ここで落とすのが要点。表示されない行を静かに書き込むより、書く前に止める。
-        if known and lid not in known:
+        # **`known` が空でも止める。** 以前は `if known and ...` で、どの行も lineup_id を
+        # 持たないときは素通りしていた。前回分を調査の前に書き戻す工程順では、
+        # 書き戻しがフェス行の lineup_id を外すので、着手直後はまさにこの状態になる——
+        # 素通りすると、どこからも参照されない日割りが書かれる（同じフェスを --rows で
+        # 書き直すと二重になる。2026-09-28 のシミュレーションで33行が66行になった）。
+        if lid not in known:
             raise SystemExit(
                 f"ERROR: {i}件目の lineup_id={lid!r} は lives.csv のどの行も参照していません"
                 "（--rows を渡したなら、そちらの行の lineup_id 列も確認してください）。"

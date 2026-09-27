@@ -124,7 +124,7 @@ CLAUDE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # というのがこの分け方の理由である。Claude Code は文脈が埋まると会話を要約するので、
 # 冒頭で1度読んだだけの指示は終盤まで残る保証が無い（公式ドキュメント How Claude Code
 # works「instructions from early in the conversation can get lost」）。6時間・文脈再送
-# 25M〜40M を前提にした運用で、規則がいつ消えたか分からないのは割に合わない。
+# 45M〜60M を前提にした運用で、規則がいつ消えたか分からないのは割に合わない。
 #
 #   invariants.md  → --append-system-prompt-file で渡す。システムプロンプトは会話履歴では
 #                    ないので圧縮の対象外で、最後のターンまで必ず残る

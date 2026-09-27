@@ -48,7 +48,9 @@ import json
 import os
 import sys
 
-from prev_rows import CARRY_REST_CLEAR, load_dispositions, load_prev, prev_taken_at, resolve_dataset
+from append_rows import CARRY_ALWAYS
+from prev_rows import (CARRY_REST_CLEAR, load_dispositions, load_prev, load_unverified_pending,
+                       prev_taken_at, resolve_dataset)
 from rowkey import natural_key, norm, similarity, title_key
 from rowkey import uid as row_uid
 from validate_data import START_COL
@@ -176,6 +178,9 @@ def fuzzy_pairs(name, gone, added):
 # id・受付欄（carry-rest が空にする）・lineup_id（carry-rest が個別事情で空にする
 # ことがある。_build_carry_obj 参照）は、「触られたか」の判定材料にしない。
 _CARRY_COMPARE_IGNORE = {"id", "lineup_id"} | set(CARRY_REST_CLEAR)
+# 書き戻しのときに `append_rows.py` が空欄を埋める列（名簿・同じ会場の別行・前回値から）。
+# 前回が空で今回が埋まっているだけなら、書き戻しの副作用であって再確認の跡ではない。
+_CARRY_FILL_ONLY = set(CARRY_ALWAYS)
 
 
 def _still_carried_verbatim(prev_row, cur_row):
@@ -191,13 +196,23 @@ def _still_carried_verbatim(prev_row, cur_row):
 
     id・受付欄・lineup_id を除く全列が prev の値と完全一致するかで判定する。
     1列でも変わっていれば、その回に誰かが能動的に触ったとみなして対象から外す。
+
+    ただし `CARRY_ALWAYS` の列が「前回は空・今回は値あり」なのは一致とみなす。書き戻しの
+    ときに `append_rows.py` が名簿や同じ会場の別行から座標・最寄り駅などを埋めるためで、
+    これを「触った」と数えると、その会場の行だけ改名の候補からも持ち越しの集計からも
+    漏れる（2026-09-28 のシミュレーションで、lat/lng が埋まった1行のために空回りの
+    検査が素通りした）。値が**変わった**・**消えた**場合は従来どおり「触った」とみなす。
     """
     keys = set(prev_row) | set(cur_row)
     for col in keys:
         if col in _CARRY_COMPARE_IGNORE:
             continue
-        if (prev_row.get(col) or "").strip() != (cur_row.get(col) or "").strip():
-            return False
+        a, b = (prev_row.get(col) or "").strip(), (cur_row.get(col) or "").strip()
+        if a == b:
+            continue
+        if col in _CARRY_FILL_ONLY and not a:
+            continue
+        return False
     return True
 
 
@@ -208,7 +223,7 @@ def diff_one(name):
         "dataset": name, "prev_source": source,
         "prev_count": len(prev_rows), "current_count": len(cur_rows),
         "added": [], "gone": [], "changed": [], "rename_candidates": [],
-        "unexplained": [],
+        "unexplained": [], "carried_unverified": [],
     }
     if not prev_rows:
         result["note"] = "前回データなし（初回実行）"
@@ -272,9 +287,18 @@ def diff_one(name):
         if not d and u not in renames:
             result["unexplained"].append(entry)
 
+    # 今回 `--carry-rest` / `--dispose notfound` が前回値のまま書き戻し、その後どの工程でも
+    # 書き直していない行。受付欄（CARRY_REST_CLEAR）を空にしただけなので、[変更] に出すと
+    # 「受付が次の段階に進んだ」ように読める——前回分を調査の前に書き戻す工程順では、これが
+    # 受付を持つ全行に出る。空回りの検査（is_noop）も、この見かけの変更で素通りしてしまう。
+    # 書き直した行は pending から外れているので、ここに来るのは本当に触っていない行だけである。
+    pending = load_unverified_pending(name)
     for u, new in cur.items():
         old = prev.get(u)
         if not old:
+            continue
+        if u in pending and _still_carried_verbatim(old, new):
+            result["carried_unverified"].append(u)
             continue
         fields, quiet = {}, []
         for col in WATCH:
@@ -328,6 +352,10 @@ def print_human(res):
         if c["also_changed"]:
             print(f"        （{', '.join(c['also_changed'])} も変更）")
 
+    if res.get("carried_unverified"):
+        print(f"\n  [前回値のまま持ち越し・未確認] {len(res['carried_unverified'])}件"
+              "（受付欄は空にしてある。受付が進んだのではない。来週の棚卸しで優先度が補正される）")
+
     print(f"\n  [消滅] {len(res['gone'])}件")
     for g in res["gone"]:
         label = g["disposition"] or "説明なし"
@@ -365,6 +393,10 @@ def is_noop(res, today):
     ——空回りを見つけるために作った検査が、実際に空回りしている週にだけ効かない
     という本末転倒になる。`expired` は調査の成果ではなく日付の比較結果なので、
     「何か産んだか」の判定には数えない。
+
+    同じ理由で、前回値のまま書き戻しただけの行（`carried_unverified`）も `changed` に
+    入れていない（`diff_one()` の説明）。受付欄を空にしたことで生じる見かけの変更を
+    数えると、前回分を調査の前に書き戻す工程順では、何も調べなかった回でも必ず素通りする。
     """
     if res.get("note") or res.get("prev_count", 0) == 0:
         return False                     # 前回データが無い回（初回）は判定しない

@@ -67,8 +67,18 @@ def check_validate_rejects_missing_artist():
     return "artist が空でも通してしまった"
 
 
+def check_validate_rejects_when_nothing_references():
+    """lives.csv のどの行も lineup_id を持たない（＝前回分を書き戻した直後）ときも拒否する。"""
+    try:
+        al.validate_records([{"lineup_id": "fes-a", "artist": "TUBE"}], known=set())
+    except SystemExit:
+        return True
+    return "参照している行が1つも無いのに通してしまった（どこからも見えない日割りが書かれる）"
+
+
 UNIT_CHECKS = [
     ("既知の lineup_id は通す", check_validate_accepts_known),
+    ("どの行も lineup_id を持たないときも拒否する", check_validate_rejects_when_nothing_references),
     ("未知の lineup_id は拒否する", check_validate_rejects_unknown),
     ("lineup_id 欠落は拒否する", check_validate_rejects_missing_lineup_id),
     ("artist 欠落は拒否する", check_validate_rejects_missing_artist),

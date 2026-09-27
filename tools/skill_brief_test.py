@@ -122,6 +122,22 @@ def main():
                      if l.startswith("#") and kw in l and not l.startswith("# ")]
             check(f"{ds}: {kw!r} の節が抜粋から外れている", not heads, f"残っている見出し: {heads}")
 
+        # data/ に書くコマンドが、子の抜粋に「実行できる形」で残っていないこと。
+        # 「ステップ0：土台を作る」は名前が「ステップ」で始まるため、除外表に無いと
+        # 子の手順（CHILD_ONLY_SUB の「ステップ」）として残る——2026-09-27 の events の
+        # 抜粋に `--carry-rest --apply` が実行例のまま載っていた。文中で名前に触れるのは
+        # よい（品質チェック等）ので、行頭のコマンドだけを見る。
+        cmd_lines = [l for l in brief.split("\n")
+                     if re.match(r"^\s*(cat .*\| *)?python3 tools/prev_rows\.py \S+ (--carry-rest|--dispose)", l)]
+        check(f"{ds}: data/ に書く prev_rows コマンドが子の抜粋に無い", not cmd_lines,
+              f"残っている行: {cmd_lines[:3]}")
+        heads0 = [l for l in brief.split("\n")
+                  if l.startswith("#") and not l.startswith("# ") and "土台を作る" in l]
+        check(f"{ds}: 「土台を作る」の節が子の抜粋から外れている", not heads0, f"{heads0}")
+        # 子が確認結果を返す経路（中止の報告先）は、子の抜粋に残っていること
+        check(f"{ds}: 中止の報告先（temp/dispose-）が子の抜粋に残っている",
+              "temp/dispose-" in brief)
+
         # 外した節が、意図した「親の工程」だけであること
         kept, dropped, _full_len = sb.build(ds)
         stray = [h for h in dropped

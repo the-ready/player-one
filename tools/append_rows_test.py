@@ -350,6 +350,79 @@ def _():
         return not missing or f"消えた列: {missing}"
 
 
+def _send_ds(sandbox, name, current, records):
+    """events 以外のデータセットで、prepare_records → write_rows を通す。"""
+    hdr = EXPECTED_HEADERS[name]
+    path = os.path.join(sandbox.tmp, name)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, quoting=csv.QUOTE_ALL)
+        w.writerow(hdr)
+        for r in current:
+            w.writerow([r.get(h, "") for h in hdr])
+    headers, path, recs, filled, misses, regs, start_id = \
+        ar.prepare_records(name, [dict(r) for r in records])
+    ar.write_rows(path, headers, recs)
+    return _read_ds(path), misses
+
+
+def _read_ds(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+LIVE = dict(title="ツアー東京公演", venue="日本武道館", start_date="2026-11-01",
+            end_date="2026-11-01", pref="tokyo")
+LIVE_STABLE = dict(genre="rock", live_type="oneman", tour_id="tour-2026",
+                   apple_music_url="https://music.apple.com/jp/artist/x/1")
+
+
+@check("lives: genre / live_type / tour_id / apple_music_url は書き忘れで消えない")
+def _():
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "lives.csv", [dict(id="1", artists="A", **LIVE, **LIVE_STABLE)],
+                            [dict(price="9,800円", artists="A", **LIVE)])
+        missing = [c for c in LIVE_STABLE if (rows[0].get(c) or "") != LIVE_STABLE[c]]
+        return not missing or f"消えた列: {missing}"
+
+
+@check("lives: artists は自動では持ち越さない（出演者の追加を取りこぼさないため）")
+def _():
+    with Sandbox() as s:
+        rows, misses = _send_ds(s, "lives.csv", [dict(id="1", artists="A|B", **LIVE, **LIVE_STABLE)],
+                                [dict(price="9,800円", **LIVE)])
+        return rows[0].get("artists", "") == "" or f"artists が自動で埋まった: {rows[0].get('artists')!r}"
+
+
+@check("lives: _no_carry で apple_music_url を空に戻せる（前回値が誤りだったとき）")
+def _():
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "lives.csv", [dict(id="1", **LIVE, **LIVE_STABLE)],
+                            [dict(LIVE, _no_carry="apple_music_url")])
+        return rows[0].get("apple_music_url", "") == "" or "前回値が残った"
+
+
+@check("lives: 新しい値を書けば、持ち越しより優先される")
+def _():
+    new = "https://music.apple.com/jp/artist/y/2"
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "lives.csv", [dict(id="1", **LIVE, **LIVE_STABLE)],
+                            [dict(LIVE, apple_music_url=new)])
+        return rows[0].get("apple_music_url") == new or f"上書きされない: {rows[0].get('apple_music_url')!r}"
+
+
+@check("movies: genre / series_id は書き忘れで消えない（screening_type は uid の材料なので対象外）")
+def _():
+    if "screening_type" in ar.CARRY_ALWAYS:
+        return "screening_type が CARRY_ALWAYS に入っている（空欄の行は別 uid になり意味が無い）"
+    mv = dict(title="特集上映", release_date="2026-11-01", end_date="2026-11-14",
+              screening_type="revival", theater="新文芸坐", pref="tokyo")
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "movies.csv", [dict(id="1", genre="drama", series_id="s-x", **mv)],
+                            [dict(price="一般1,500円", **mv)])
+        missing = [c for c in ("genre", "series_id") if not (rows[0].get(c) or "").strip()]
+        return (len(rows) == 1 and not missing) or f"rows={len(rows)} 消えた列: {missing}"
+
+
 @check("更新で値のあった列が空になったら警告する（note など中間の列）")
 def _():
     import contextlib, io

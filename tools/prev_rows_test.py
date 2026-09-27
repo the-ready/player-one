@@ -83,10 +83,16 @@ def _stub_subprocess_run(captured, returncode=0):
     「何を書き戻そうとしたか」はここで検証できる——実際に書けたかどうかまでは
     検証しない（それは `append_rows_test.py` 相当の領分）。
     """
-    def fake_run(cmd, input=None, text=None, cwd=None):
+    def fake_run(cmd, input=None, text=None, cwd=None, env=None):
         captured.append(input)
+        _STUB_ENVS.append(env)
         return _FakeCompleted(returncode)
     return fake_run
+
+
+# 書き戻しの子プロセスに渡された環境変数。`WRITEBACK_ENV` が立っていないと、
+# 本物の append_rows.py はその書き込みで pending を外してしまう。
+_STUB_ENVS = []
 
 
 def _carry_rest(prev, current, lineups=None, dispositions=None, today=TODAY):
@@ -335,40 +341,326 @@ def _():
         pr.DATA, pr.PREV = orig
 
 
-@check("持ち越した行は、翌週の棚卸しで tier A に戻る")
-def _():
-    # 受付欄を空にすると tier の根拠ごと消える。それを打ち消せているかを見る
-    # （打ち消せていないと、確認できなかった行が「確認しなくてよい行」に見える）
-    r = _row(title="持ち越した公演", start_date="2026-10-20", end_date="2026-10-20",
-             onsale_label="先着受付中", onsale_start="2026-08-01",
-             onsale_end="2026-09-10", price="7,700円", price_checked="2026-08-19")
-    carried, _d = _carry_rest(prev=[r], current=[])
-    if not carried:
-        return "持ち越していない"
-    tmp = tempfile.mkdtemp(prefix="prev_rows_test_")
-    prev_dir = os.path.join(tmp, ".prev")
-    os.makedirs(prev_dir, exist_ok=True)
-    orig = (pr.DATA, pr.PREV)
-    pr.DATA, pr.PREV = tmp, prev_dir
-    try:
-        _write_csv(os.path.join(prev_dir, "lives.csv"), HEADERS, [carried[0]])
-        with open(pr.unverified_path("lives.csv"), "w", encoding="utf-8") as f:
-            f.write(json.dumps({"uid": _uid(carried[0]), "title": "持ち越した公演"},
-                               ensure_ascii=False) + "\n")
+# ---------------------------------------------------------- 未確認の持ち越し記録
+#
+# 2つのファイル（pending＝今回が書く／unverified＝今回の棚卸しが読む）を、
+# 週をまたいだ実際の順序（carry-rest → 書き直し → 翌週の --init → 棚卸し）で
+# 通して確かめる。1つのファイルで読み書きしていたころ、2026-09-27 の events は
+# 「最初に全行を書き戻す」工程順のせいで棚卸しが A=337/B=0 になった。
+
+
+class _Weeks:
+    """`pr.DATA` / `pr.PREV` を一時ディレクトリへ差し替えて、週をまたぐ手順を回す。
+
+    書き戻しの子プロセスは起動しない（`_stub_subprocess_run`）。「書き戻した結果の
+    CSV」が要る場面では、`write_current()` でその内容を直接置く。
+    """
+
+    def __init__(self):
+        self.tmp = tempfile.mkdtemp(prefix="prev_rows_test_")
+        self.prev_dir = os.path.join(self.tmp, ".prev")
+        os.makedirs(self.prev_dir, exist_ok=True)
+        self.csv = os.path.join(self.tmp, "lives.csv")
+
+    def __enter__(self):
+        self.orig = (pr.DATA, pr.PREV, pr.subprocess.run)
+        pr.DATA, pr.PREV = self.tmp, self.prev_dir
+        self.payloads = []
+        pr.subprocess.run = _stub_subprocess_run(self.payloads)
+        return self
+
+    def __exit__(self, *exc):
+        pr.DATA, pr.PREV, pr.subprocess.run = self.orig
+        return False
+
+    def init(self, today, rows_now=None):
+        """`--init` 相当: いまのCSVを退避してからヘッダーだけにする。"""
+        if rows_now is not None:
+            self.write_current(rows_now)
+        kept = pr.take_snapshot("lives.csv", today=today)
+        _write_csv(self.csv, HEADERS, [])
+        with open(os.path.join(self.prev_dir, "lives.meta.json"), "w", encoding="utf-8") as f:
+            json.dump({"taken_at": today.isoformat(), "rows": kept}, f)
+        return kept
+
+    def write_current(self, rows):
+        _write_csv(self.csv, HEADERS, rows)
+
+    def carry_rest(self, today, apply=False):
         rows, _src = pr.load_prev("lives.csv")
         out = io.StringIO()
-        args = Args(today=date(2026, 9, 3))
-        with contextlib.redirect_stdout(out):
-            pr.cmd_worklist("lives.csv", rows, args)
-        line = [l for l in out.getvalue().splitlines() if "持ち越した公演" in l]
-    finally:
-        pr.DATA, pr.PREV = orig
-    if not line:
-        return "棚卸しに出ていない"
-    tier = line[0].split("\t")[1]
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            pr.cmd_carry_rest("lives.csv", rows, Args(today=today, apply=apply))
+        return [json.loads(l) for l in out.getvalue().splitlines() if l.strip()]
+
+    def worklist(self, today):
+        """`{title: (tier, 行全体)}` と内訳の行を返す。"""
+        rows, _src = pr.load_prev("lives.csv")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            pr.cmd_worklist("lives.csv", rows, Args(today=today))
+        got, total = {}, ""
+        for line in out.getvalue().splitlines():
+            cols = line.split("\t")
+            if len(cols) >= 4 and cols[1] in ("A", "B", "C"):
+                got[cols[3]] = (cols[1], line)
+            if line.startswith("# 内訳:"):
+                total = line
+        return got, total
+
+    def pending(self):
+        return pr._read_uid_jsonl(pr.unverified_pending_path("lives.csv"))
+
+    def unverified(self):
+        return pr._read_uid_jsonl(pr.unverified_path("lives.csv"))
+
+
+WEEK1 = date(2026, 8, 26)
+WEEK2 = date(2026, 9, 3)
+
+
+def _near_deadline_row(title="締切が近い公演"):
+    """受付欄があるうちは tier A（締切が21日以内）、空にすると tier B になる行。"""
+    return _row(title=title, start_date="2026-10-20", end_date="2026-10-20",
+                onsale_label="先着受付中", onsale_start="2026-08-01",
+                onsale_end="2026-09-10", price="7,700円", price_checked="2026-08-19")
+
+
+def _plain_row(title="何も急がない公演"):
+    """受付欄の有無にかかわらず tier B の行。"""
+    return _row(title=title, start_date="2026-11-20", end_date="2026-11-20")
+
+
+@check("持ち越した行は、翌週の棚卸しで受付欄を空にする前の tier（A）に戻る")
+def _():
+    # 受付欄を空にすると tier の根拠ごと消える。それを打ち消せているかを見る
+    # （打ち消せていないと、確認できなかった行が「確認しなくてよい行」に見える）。
+    # 実際の順序（carry-rest → 翌週の --init → 棚卸し）で通す。
+    r = _near_deadline_row("持ち越した公演")
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        carried = w.carry_rest(WEEK1)
+        if not carried:
+            return "持ち越していない"
+        if carried[0].get("onsale_end"):
+            return f"受付欄が空になっていない: {carried[0]}"
+        w.init(WEEK2, rows_now=carried)          # 今週の最終CSV＝書き戻した行
+        got, _t = w.worklist(WEEK2)
+    if "持ち越した公演" not in got:
+        return f"棚卸しに出ていない: {got}"
+    tier, line = got["持ち越した公演"]
     if tier != "A":
-        return f"tier={tier}（受付欄を空にした副作用で優先度が落ちている）"
-    return "前回は未確認のまま持ち越し" in line[0] or "理由が書かれていない"
+        return f"tier={tier}（受付欄を空にした副作用で優先度が落ちている）: {line}"
+    if "前回は未確認のまま持ち越し" not in line:
+        return f"理由が書かれていない: {line}"
+    return "締切2026-09-10" in line or f"空にする前の根拠が出ていない: {line}"
+
+
+@check("最初に全行を書き戻しても、棚卸しが全行 tier A にならない（2026-09-27 の再発防止）")
+def _():
+    # carry-rest を工程の最初に打つと、調べる前の全行が pending に入る。
+    # 同じ実行の棚卸しがそれを読んではいけないし、翌週も「空にする前の tier」
+    # 以上には上げない。無条件に A にしていたころは A=337/B=0 になった。
+    rows = [_near_deadline_row()] + [_plain_row(f"急がない公演{i}") for i in range(4)]
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=rows)
+        carried = w.carry_rest(WEEK1, apply=False)
+        w.write_current(carried)                  # ステップ0で全行が書き戻された状態
+        same_week, total_same = w.worklist(WEEK1)
+        w.init(WEEK2, rows_now=carried)
+        next_week, total_next = w.worklist(WEEK2)
+    a_same = sum(1 for t, _l in same_week.values() if t == "A")
+    if a_same != 1:
+        return f"同じ実行の棚卸しが step0 の記録を読んでいる: A={a_same} {total_same}"
+    a_next = sum(1 for t, _l in next_week.values() if t == "A")
+    b_next = sum(1 for t, _l in next_week.values() if t == "B")
+    if (a_next, b_next) != (1, 4):
+        return f"翌週の tier が膨らんでいる: A={a_next} B={b_next} {total_next}"
+    return next_week["締切が近い公演"][0] == "A" or f"締切の近い行が A でない: {next_week}"
+
+
+@check("同じ実行の中で書き直した行は、未確認の記録から外れる")
+def _():
+    import append_rows as ar
+    near, plain = _near_deadline_row(), _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[near, plain])
+        carried = w.carry_rest(WEEK1)
+        w.write_current(carried)
+        if set(w.pending()) != {_uid(near), _uid(plain)}:
+            return f"step0 の記録が全行になっていない: {sorted(w.pending())}"
+        # 波が「締切が近い公演」を確認して書き直した（本物の write_rows を通す）
+        os.environ.pop(pr.WRITEBACK_ENV, None)
+        ar.write_rows(w.csv, HEADERS, [dict(near, onsale_end="2026-09-12")])
+        left = set(w.pending())
+        if left != {_uid(plain)}:
+            return f"書き直した行が外れていない: {sorted(left)}"
+        w.init(WEEK2, rows_now=[dict(near, onsale_end="2026-09-12"),
+                                [c for c in carried if c["title"] == plain["title"]][0]])
+        unv = w.unverified()
+    return set(unv) == {_uid(plain)} or f"翌週の記録が合わない: {sorted(unv)}"
+
+
+@check("書き戻しの印が立っている書き込みは、未確認の記録から外さない")
+def _():
+    import append_rows as ar
+    r = _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        carried = w.carry_rest(WEEK1)
+        before = set(w.pending())
+        os.environ[pr.WRITEBACK_ENV] = "1"
+        try:
+            ar.write_rows(w.csv, HEADERS, carried)
+        finally:
+            os.environ.pop(pr.WRITEBACK_ENV, None)
+        after = set(w.pending())
+    return (before == after == {_uid(r)}) or f"before={before} after={after}"
+
+
+@check("carry-rest --apply と notfound の書き戻しは、子プロセスに書き戻しの印を渡す")
+def _():
+    r = _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        del _STUB_ENVS[:]
+        w.carry_rest(WEEK1, apply=True)
+    if not _STUB_ENVS or not (_STUB_ENVS[-1] or {}).get(pr.WRITEBACK_ENV):
+        return f"carry-rest が印を渡していない: {_STUB_ENVS}"
+    del _STUB_ENVS[:]
+    code, _o, err = _dispose(prev=[r], stdin_lines=[
+        {"uid": _uid(r), "status": "notfound", "note": "確認できず"}], today=WEEK1)
+    if code != 0:
+        return f"notfound が通らない: {err}"
+    return bool(_STUB_ENVS and (_STUB_ENVS[-1] or {}).get(pr.WRITEBACK_ENV)) \
+        or f"notfound が印を渡していない: {_STUB_ENVS}"
+
+
+@check("notfound は翌週、受付欄の有無にかかわらず tier A になる")
+def _():
+    r = _plain_row("確認できなかった公演")
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        rows, _src = pr.load_prev("lives.csv")
+        sys_stdin = sys.stdin
+        sys.stdin = io.StringIO(json.dumps(
+            {"uid": _uid(r), "status": "notfound", "note": "確認できず"},
+            ensure_ascii=False) + "\n")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                pr.cmd_dispose("lives.csv", rows, Args(today=WEEK1))
+        finally:
+            sys.stdin = sys_stdin
+        if _uid(r) not in w.pending():
+            return f"pending に記録されていない: {w.pending()}"
+        w.init(WEEK2, rows_now=[r])
+        got, _t = w.worklist(WEEK2)
+    tier, line = got.get("確認できなかった公演", ("-", ""))
+    return tier == "A" or f"notfound が tier A になっていない: tier={tier} {line}"
+
+
+@check("もうCSVに無い行の記録は、翌週の --init で捨てられる（溜まり続けない）")
+def _():
+    gone, alive = _plain_row("消えた公演"), _plain_row("残った公演")
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[gone, alive])
+        w.carry_rest(WEEK1)
+        w.init(WEEK2, rows_now=[alive])          # 「消えた公演」はその週のうちに処分された
+        unv = w.unverified()
+        pend_exists = os.path.exists(pr.unverified_pending_path("lives.csv"))
+    if pend_exists:
+        return "入れ替えのあとも pending が残っている"
+    return set(unv) == {_uid(alive)} or f"消えた行が残っている: {sorted(unv)}"
+
+
+@check("旧形式の記録（tier なし）は1度だけ移行され、無条件に A にしない")
+def _():
+    near, plain, gone = _near_deadline_row(), _plain_row(), _plain_row("消えた公演")
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[near, plain])
+        carried = w.carry_rest(WEEK1)
+        # 旧実装の状態を作る: pending は無く、読む側に tier の無い記録が溜まっている
+        os.remove(pr.unverified_pending_path("lives.csv"))
+        with open(pr.unverified_path("lives.csv"), "w", encoding="utf-8") as f:
+            for r in (near, plain, gone):
+                f.write(json.dumps({"uid": _uid(r), "title": r["title"]}, ensure_ascii=False) + "\n")
+        w.init(WEEK2, rows_now=carried)
+        unv = w.unverified()
+        got, _t = w.worklist(WEEK2)
+    if set(unv) != {_uid(near), _uid(plain)}:
+        return f"移行後の記録が合わない: {sorted(unv)}"
+    if any("tier" not in o for o in unv.values()):
+        return f"新形式になっていない: {unv}"
+    if got["締切が近い公演"][0] != "A" or got["何も急がない公演"][0] != "B":
+        return f"移行後の tier が合わない: {got}"
+    return "前回は未確認のまま持ち越し" in got["何も急がない公演"][1] or "理由が出ていない"
+
+
+@check("pending が無く読む側が新形式なら、翌週の記録は空になる")
+def _():
+    r = _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        with open(pr.unverified_path("lives.csv"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"uid": _uid(r), "title": "x", "tier": "A", "reasons": []},
+                               ensure_ascii=False) + "\n")
+        w.init(WEEK2, rows_now=[r])              # この週は何も持ち越さなかった
+        exists = os.path.exists(pr.unverified_path("lives.csv"))
+    return not exists or "先週の記録が残っている"
+
+
+@check("--init をCSVが空のまま打ち直しても、pending は入れ替わらない")
+def _():
+    r = _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        w.carry_rest(WEEK1)
+        kept = pr.take_snapshot("lives.csv", today=WEEK1)   # CSVは空（--init の直後）
+        still = set(w.pending())
+    if kept != -1:
+        return f"空のCSVを退避している: {kept}"
+    return still == {_uid(r)} or f"pending が失われた: {still}"
+
+
+@check("処分記録が壊れていても、退避そのものは止めない")
+def _():
+    r = _plain_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        w.carry_rest(WEEK1)
+        with open(pr.disposition_path("lives.csv"), "a", encoding="utf-8") as f:
+            f.write("{壊れた行\n")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            kept = w.init(WEEK2, rows_now=[r])
+        snap = open(pr.snapshot_path("lives.csv"), encoding="utf-8").read()
+    if kept != 1:
+        return f"退避が止まった: kept={kept}"
+    if "何も急がない公演" not in snap:
+        return "スナップショットが更新されていない"
+    return "入れ替えられませんでした" in err.getvalue() or f"警告が出ていない: {err.getvalue()!r}"
+
+
+@check("記録された tier は tier を上げるだけで、下げない")
+def _():
+    r = _near_deadline_row()
+    with _Weeks() as w:
+        w.init(WEEK1, rows_now=[r])
+        with open(pr.unverified_path("lives.csv"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"uid": _uid(r), "title": "x", "tier": "C", "reasons": ["古い"]},
+                               ensure_ascii=False) + "\n")
+        got, _t = w.worklist(WEEK1)
+    return got["締切が近い公演"][0] == "A" or f"記録が tier を下げた: {got}"
+
+
+@check("append_rows の書き込みは、pending が無いときにファイルを作らない")
+def _():
+    import append_rows as ar
+    with _Weeks() as w:
+        w.write_current([])
+        os.environ.pop(pr.WRITEBACK_ENV, None)
+        ar.write_rows(w.csv, HEADERS, [_plain_row()])
+        exists = os.path.exists(pr.unverified_pending_path("lives.csv"))
+    return not exists or "pending を新しく作ってしまった"
 
 
 @check("--worklist は終了日を過ぎた行を出さない")
@@ -504,7 +796,7 @@ def _():
     return True
 
 
-@check("notfound は unverified.jsonl に記録され、来週 tier A に上がる")
+@check("notfound は pending に記録される（読む側は翌週の --init まで触らない）")
 def _():
     r = _row(title="要再確認の公演", start_date="2026-10-01", end_date="2026-10-20")
     paths = {}
@@ -513,12 +805,14 @@ def _():
     ], today=date(2026, 8, 29), paths_out=paths)
     if code != 0:
         return f"通らなかった: {err}"
-    unv_path = os.path.join(paths["prev_dir"], "lives.unverified.jsonl")
-    if not os.path.exists(unv_path):
-        return "unverified.jsonl が作られていない"
-    with open(unv_path, encoding="utf-8") as f:
+    pend = os.path.join(paths["prev_dir"], "lives.unverified.pending.jsonl")
+    if not os.path.exists(pend):
+        return "unverified.pending.jsonl が作られていない"
+    if os.path.exists(os.path.join(paths["prev_dir"], "lives.unverified.jsonl")):
+        return "同じ実行の棚卸しが読む側に書き込んでいる"
+    with open(pend, encoding="utf-8") as f:
         unv = {json.loads(l)["uid"] for l in f if l.strip()}
-    return _uid(r) in unv or f"unverified.jsonl に記録されていない: {unv}"
+    return _uid(r) in unv or f"pending に記録されていない: {unv}"
 
 
 @check("似た定型文が並ぶと警告が出る（ブロックはしない）")

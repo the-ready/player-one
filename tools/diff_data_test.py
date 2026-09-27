@@ -17,6 +17,7 @@
 
 import contextlib
 import csv
+import json
 import io
 import os
 import sys
@@ -249,6 +250,114 @@ def _():
         sb.put_current("events.csv", EVENTS_HEADERS, [new])   # 旧行は物理的に無い
         res, _ = dd.diff_one("events.csv")
     return len(res["rename_candidates"]) == 1 or f"物理消失の改名検知が壊れた: {res['rename_candidates']}"
+
+
+# ------------------------------------------------ 書き戻しただけの行を [変更] に出さない
+#
+# 前回分を調査の前に書き戻す工程順では、受付欄を持つ行は全部「受付欄が空になった」
+# 見かけの変更を持つ。これを [変更] に出すと「受付が進んだ」と読め、空回りの検査
+# （is_noop）も素通りする。区別の手がかりは pending（書き戻して、まだ書き直していない行）。
+
+def _pending(sb, name, uids):
+    import prev_rows as pr
+    path = pr.unverified_pending_path(name)
+    with open(path, "w", encoding="utf-8") as f:
+        for u in uids:
+            f.write(json.dumps({"uid": u, "title": ""}, ensure_ascii=False) + "\n")
+
+
+_ONSALE_PREV = dict(id="1", title="公演A", venue="ホールX", start_date="2026-10-10",
+                    end_date="2026-10-10", pref="tokyo", onsale_label="先着受付中",
+                    onsale_end="2026-10-01", price="5,000円")
+
+
+def _carried(**kw):
+    r = dict(_ONSALE_PREV, id="7", onsale_label="", onsale_end="")
+    r.update(kw)
+    return r
+
+
+@check("書き戻しただけの行（pending にあり、受付欄が空になっただけ）は [変更] に出さない")
+def _():
+    import rowkey
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_ONSALE_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_carried()])
+        _pending(sb, "events.csv", [rowkey.uid("events.csv", _ONSALE_PREV)])
+        res, _ = dd.diff_one("events.csv")
+    if res["changed"]:
+        return f"見かけの変更が [変更] に出た: {res['changed']}"
+    return len(res["carried_unverified"]) == 1 or f"持ち越しとして数えられていない: {res}"
+
+
+@check("書き直した行（pending に無い）は、受付欄が空になっただけでも [変更] に出す（受付終了の事実）")
+def _():
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_ONSALE_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_carried()])
+        res, _ = dd.diff_one("events.csv")          # pending なし＝今回書き直した
+    fields = res["changed"][0]["fields"] if res["changed"] else {}
+    return ("onsale_label" in fields and not res["carried_unverified"]) or f"changed={res['changed']}"
+
+
+@check("pending にあっても、受付欄以外が変わっていれば [変更] に出す")
+def _():
+    import rowkey
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_ONSALE_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_carried(price="6,000円")])
+        _pending(sb, "events.csv", [rowkey.uid("events.csv", _ONSALE_PREV)])
+        res, _ = dd.diff_one("events.csv")
+    fields = res["changed"][0]["fields"] if res["changed"] else {}
+    return "price" in fields or f"実際の変更が隠れた: {res}"
+
+
+@check("書き戻しただけの回は、空回り（is_noop）として検出される")
+def _():
+    import rowkey
+    import prev_rows as pr
+    from datetime import date
+    today = date(2026, 10, 1)
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_ONSALE_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_carried()])
+        _pending(sb, "events.csv", [rowkey.uid("events.csv", _ONSALE_PREV)])
+        with open(pr.meta_path("events.csv"), "w", encoding="utf-8") as f:
+            json.dump({"taken_at": today.isoformat(), "rows": 1}, f)
+        res, _ = dd.diff_one("events.csv")
+        noop = dd.is_noop(res, today)
+    return noop or f"何も調べていない回が空回りと判定されない: {res}"
+
+
+@check("_still_carried_verbatim: 前回空だった自動補完列（lat 等）が埋まっただけなら「触られていない」")
+def _():
+    a = dict(title="A", venue="X", lat="", lng="", desc="説明")
+    b = dict(title="A", venue="X", lat="35.1", lng="139.7", desc="説明")
+    return dd._still_carried_verbatim(a, b) or "座標が埋まっただけで「触った」と判定した"
+
+
+@check("_still_carried_verbatim: 自動補完列でも、値が変わった・消えたなら「触られた」")
+def _():
+    changed = dd._still_carried_verbatim(dict(lat="35.1"), dict(lat="35.2"))
+    cleared = dd._still_carried_verbatim(dict(desc="説明"), dict(desc=""))
+    return (not changed and not cleared) or f"changed={changed} cleared={cleared}"
+
+
+@check("座標が埋まった書き戻し行も持ち越しに数え、空回りの検査を素通りさせない（2026-09-28）")
+def _():
+    import rowkey
+    import prev_rows as pr
+    from datetime import date
+    today = date(2026, 10, 1)
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_ONSALE_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_carried(lat="35.57", lng="140.11")])
+        _pending(sb, "events.csv", [rowkey.uid("events.csv", _ONSALE_PREV)])
+        with open(pr.meta_path("events.csv"), "w", encoding="utf-8") as f:
+            json.dump({"taken_at": today.isoformat(), "rows": 1}, f)
+        res, _ = dd.diff_one("events.csv")
+        noop = dd.is_noop(res, today)
+    return (not res["changed"] and noop) or f"changed={res['changed']} noop={noop}"
 
 
 def main():

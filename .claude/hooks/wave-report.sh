@@ -48,7 +48,7 @@ BODY="波を受け取りました。次の波を投げる前に、この数字�
 ${OUT}
 
   - 「最長の子」が60ターンを超えていたら、次の波は担当範囲をさらに割ること
-  - 線（25M／40M）に届いていないなら、波数をこなしたことを理由に畳まないこと"
+  - 線（45M／60M）に届いていないなら、波数をこなしたことを理由に畳まないこと"
 
 if command -v jq >/dev/null 2>&1; then
   printf '%s' "$BODY" | jq -Rs '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: .}}' && exit 0

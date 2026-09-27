@@ -164,7 +164,15 @@ def check_truncated_values(name, records):
 # upsert にしたことで、書き忘れは「疎な重複行が増える」ではなく「既存行の列が消える」
 # という壊れ方に変わった（2026-09-26 のシミュレーションで、cats/area/official_url が
 # 検証をすり抜けて失われることを確認した）。
-CARRY_ALWAYS = (["kana", "lineup_id", "desc", "cats", "area", "official_url"]
+# genre / live_type / tour_id / apple_music_url / series_id も同じ理由でここに入れている。
+# ジャンル・公演形態・ツアーのまとまり・アーティストのページ・シリーズのまとまりは、
+# 同じ行（＝同じ uid）である限り週をまたいで動かない。tour_id は「既存のツアーに
+# 公演が増えた」ことを追加公演として検知する材料でもあるので、書き忘れで消えると
+# その検知ごと失われる。**artists は入れない**——フェスの出演者は段階的に発表され、
+# 前回値で埋めると追加された出演者を取りこぼす。screening_type も入れない——映画の
+# uid の材料なので、空欄の行は別の uid になり、持ち越しの元がそもそも見つからない。
+CARRY_ALWAYS = (["kana", "lineup_id", "desc", "cats", "area", "official_url",
+                 "genre", "live_type", "tour_id", "apple_music_url", "series_id"]
                 + VENUE_FACTS)
 
 # 持ち越しを絶対に許さない列。日付・金額・受付は毎回確認するか、空欄にするかの二択。
@@ -322,6 +330,21 @@ def write_rows(path, headers, records):
         for row in rows:
             w.writerow([row.get(h, "") for h in headers])
     os.replace(tmp, path)
+
+    # 書き直した行は、この実行で確認した行である。「未確認のまま持ち越した」記録から
+    # 外す（prev_rows.py `unverified_path` の docstring）。`--carry-rest` / `--dispose
+    # notfound` の機械的な書き戻しは印を立てて呼ぶので外さない。記録の置き場は
+    # **いま書いたCSVの隣の `.prev/`**——固定の場所を使うと、一時ディレクトリへ
+    # 書く検証が実リポジトリの記録を書き換える。書き込み自体は終わっているので、
+    # ここでの失敗は警告に留める。
+    if not os.environ.get(prevmod.WRITEBACK_ENV):
+        try:
+            prevmod.forget_unverified(
+                name, {row_uid(name, {h: r.get(h, "") for h in headers}) for r in records},
+                prev_dir=os.path.join(os.path.dirname(os.path.abspath(path)), ".prev"))
+        except (OSError, ValueError) as e:
+            print(f"WARNING: 未確認の持ち越し記録を更新できませんでした（書き込みは完了しています）: {e}",
+                  file=sys.stderr)
     return inserted, updated, dup_uids
 
 

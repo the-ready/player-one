@@ -207,8 +207,12 @@ def load_prev(name):
     return [], None
 
 
-def take_snapshot(name):
+def take_snapshot(name, today=None):
     """現在のCSVを `.prev/` に退避する。append_rows.py --init から呼ばれる。
+
+    退避の直前に、未確認のまま持ち越した行の記録を「翌週の棚卸しが読む形」へ
+    入れ替える（`_rotate_unverified()`）。`today` はその tier 判定の基準日で、
+    検証のためだけに受け取る（既定は今日）。
 
     戻り値は「退避した行数」だが、**実際には退避しなかった**場合は負数で返す
     （呼び出し元がその旨を表示に使う）。
@@ -235,6 +239,14 @@ def take_snapshot(name):
     if not rows:
         return -1
     os.makedirs(PREV, exist_ok=True)
+    # 退避で `.prev/<name>` が上書きされる前に行う（受付欄を空にする前の値が要る）。
+    # 失敗しても退避は止めない——退避を失うと翌週の差分の基準ごと失われるが、
+    # こちらを失っても tier の補正が1週ぶん効かないだけである。
+    try:
+        _rotate_unverified(name, rows, today or date.today())
+    except (OSError, ValueError) as e:
+        print(f"WARNING: 未確認の持ち越し記録を入れ替えられませんでした（退避は続けます）: {e}",
+              file=sys.stderr)
     with open(src, encoding="utf-8") as f:
         raw = f.read()
     with open(snapshot_path(name), "w", encoding="utf-8") as f:
@@ -471,11 +483,21 @@ def cmd_worklist(name, rows, args):
             continue
         tier, reasons = tier_of(name, r, today)
         # 前回 `--carry-rest` または `--dispose notfound` が未確認のまま
-        # 書き戻した行は、無条件に最優先へ。受付欄を空にした副作用で tier が
-        # 下がるのを、ここで打ち消している（`unverified_path` の説明）。
-        if row_uid(name, r) in unverified:
-            tier = "A"
-            reasons = ["前回は未確認のまま持ち越し"] + reasons
+        # 書き戻した行は、受付欄を空にする前の tier（notfound は A）に戻す。
+        # 受付欄を空にした副作用で tier が下がるのを、ここで打ち消している
+        # （`unverified_path` の説明）。**上げるだけで、下げることはない。**
+        # tier を持たない記録（旧形式）は、理由の表示だけに使う——無条件に A に
+        # すると、全行を書き戻す工程順で優先順位が消える。
+        info = unverified.get(row_uid(name, r))
+        if info is not None:
+            kept = info.get("tier")
+            if kept in ("A", "B", "C") and kept < tier:
+                tier = kept
+            kept_reasons = info.get("reasons")
+            if not isinstance(kept_reasons, list):
+                kept_reasons = []
+            extra = [x for x in kept_reasons if isinstance(x, str) and x not in reasons]
+            reasons = ["前回は未確認のまま持ち越し"] + extra + reasons
         counts[tier] += 1
         if args.tier and tier not in args.tier:
             continue
@@ -507,7 +529,7 @@ def cmd_worklist(name, rows, args):
     print(f"\n# 内訳: A={counts['A']} B={counts['B']} C={counts['C']}")
     if ended:
         print(f"# 終了日を過ぎた{ended}件は一覧から除いてあります"
-              "（終了工程の tools/prev_rows.py <ds> --carry-rest --apply が "
+              "（tools/prev_rows.py <ds> --carry-rest --apply が "
               "expired として処分します。調査の対象にしないこと）")
 
 
@@ -584,40 +606,70 @@ def unverified_path(name):
     になる。**確認できなかった行が、確認しなくてよい行に見える。**
     これはこのプロジェクトが最も避けている「静かな欠落」の作られ方そのものである。
 
-    そこで、持ち越した uid をここに残す。`--worklist` はこれを読んで、
-    該当する行を無条件に tier A へ上げる。受付欄を空にしたまま、
-    「今週こそ確かめる」という情報だけを別に持ち越す形にしてある。
+    そこで、持ち越した行を記録し、翌週の `--worklist` で tier を補正する。
 
-    書き手は2つある——`--carry-rest`（まとめて片付けた残り）と
-    `--dispose notfound`（個別に確認できなかった行）。どちらも同じ「今週、
-    確認できずに前回値のまま持ち越した」という事実を記す。だから片方が
-    書いたあとにもう片方が呼ばれても、互いの記録を消してはいけない。
+    ## 記録は2つのファイルに分けてある
 
-    2026-08-29 に見つかった事故を踏まえ、書き込みは `_record_unverified()`
-    に一本化してある——**空で上書きしない・既存分と合流する**。以前は
-    `"w"` で無条件に開き直しており、対象0件の呼び出し（`claude-routine.sh`
-    が終了時に3データセットへ保険で打つ再実行がこれに当たる）が、
-    セッション中に正しく書けていた記録ごと0バイトへ切り詰めていた。
+      - `<name>.unverified.pending.jsonl`（**今回の実行が書く**）
+        書き手は `--carry-rest`（まとめて片付けた残り）と `--dispose notfound`
+        （個別に確認できなかった行）。同じ実行の中でその行が `append_rows.py`
+        で書き直されたら、書き直した時点で外す（`forget_unverified()`）。
+      - `<name>.unverified.jsonl`（**今回の `--worklist` が読む**）
+        次の `--init`（`take_snapshot()`）が、pending を tier 付きの形に
+        変換してここへ置き換える（`_rotate_unverified()`）。
 
-    週をまたいだ蓄積は起きない——`take_snapshot()`（`--init`）はこのファイルに
-    触れないので、`--worklist` が読むのは常に「前回このファイルへ書かれた、
-    まだ解決していない行」だけである。ある uid がその後（今回）ちゃんと
-    書き直されれば、その uid はもう `carried`/`notfound` の計算対象に出て
-    こないので、次にこの関数が呼ばれたときに自然に引き継がれなくなる。
+    1つのファイルで読み書きしていたときは、2つの事故が起きた。
+
+    **同じ実行の書き込みを、同じ実行の棚卸しが読んだ。** 収集の工程順を
+    「`--carry-rest` を最初に打つ」形に変えると（`docs/DESIGN.md` 第9.3.4.1節）、
+    調べ始める前に前回の全行が書き戻され、全行がここに記録される。その直後の
+    `--worklist` がそれを読んで全行を tier A に上げた——2026-09-27 の events は
+    本来 A=106/B=231 のところが A=337/B=0 になり、優先順位が無くなった。
+
+    **一度記録された uid が消えなかった。** 書き込みは既存分との合流だけで、
+    取り除く経路が無かった。翌週ちゃんと確認された行も、とっくに消えた行も
+    残り続けた（2026-09-27 時点で events 380件のうち66件、lives 42件のうち4件、
+    movies 98件のうち3件が、もうCSVに無い行だった）。
+
+    ## notfound と carry-rest で、補正の仕方が違う
+
+    `notfound` は「調べたが分からなかった」を行ごとに判断した記録なので、
+    翌週は**無条件に tier A** にする（各SKILL.mdの約束）。
+
+    `--carry-rest` は「まだ調べていない行」の機械的な書き戻しで、工程順によっては
+    全行が対象になる。これを無条件に A にすると優先順位が消えるので、
+    **受付欄を空にする前の値で判定した tier を復元する**——このファイルを
+    作った本来の目的は、空にした副作用で tier が下がるのを打ち消すことだった。
+    空にする前の値は、`--init` の時点でまだ `.prev/` に残っている
+    （`--carry-rest` が書き戻しの元にした、まさにそのスナップショット）。
+
+    2026-08-29 に見つかった事故（対象0件の呼び出しが記録を0バイトに切り詰めた）を
+    踏まえ、pending への書き込みは今も**空で上書きしない・既存分と合流する**。
     """
     return os.path.join(PREV, name.replace(".csv", ".unverified.jsonl"))
 
 
-def _record_unverified(name, pairs):
-    """`(uid, title)` の一覧を、既存の unverified.jsonl に合流させる（追記ではなく合流）。
+def unverified_pending_path(name, prev_dir=None):
+    """今回の実行が書く側の記録（`unverified_path` の docstring を参照）。
 
-    合流にする理由は上の `unverified_path` の docstring を参照。空なら書かない
-    ——対象0件の呼び出しで既存の記録を消さないため。
+    `prev_dir` は `append_rows.py` が、**自分が書いたCSVの隣の `.prev/`** を
+    指すために渡す。`PREV` を固定で使うと、一時ディレクトリのCSVに書く検証から
+    実リポジトリの記録を書き換えてしまう（2026-08-29・2026-09-26 に、同じ形の
+    取り違えで実データへ書き込む事故が起きている）。
     """
-    if not pairs:
-        return
-    path = unverified_path(name)
-    existing = {}
+    base = prev_dir if prev_dir is not None else PREV
+    return os.path.join(base, name.replace(".csv", ".unverified.pending.jsonl"))
+
+
+# `--carry-rest` / `--dispose notfound` が `append_rows.py` を子プロセスで呼ぶときに
+# 立てる印。この書き込みは「確認した」のではなく「前回値を機械的に戻した」ので、
+# pending から外してはいけない（`forget_unverified()` を参照）。
+WRITEBACK_ENV = "PREV_ROWS_WRITEBACK"
+
+
+def _read_uid_jsonl(path):
+    """uid を持つ JSONL を `{uid: obj}` で読む（後の行が勝つ）。無ければ空。"""
+    out = {}
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:
@@ -628,41 +680,133 @@ def _record_unverified(name, pairs):
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if obj.get("uid"):
-                    existing[obj["uid"]] = obj
+                if isinstance(obj, dict) and obj.get("uid"):
+                    out[obj["uid"]] = obj
     except OSError:
         pass
+    return out
+
+
+def _write_uid_jsonl(path, objs):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        for obj in objs:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    os.replace(tmp, path)
+
+
+def _record_unverified(name, pairs):
+    """`(uid, title)` の一覧を pending に合流させる（追記ではなく合流）。
+
+    合流にする理由は `unverified_path` の docstring を参照。空なら書かない
+    ——対象0件の呼び出しで既存の記録を消さないため。
+    """
+    if not pairs:
+        return
+    path = unverified_pending_path(name)
+    existing = _read_uid_jsonl(path)
     for u, title in pairs:
         existing[u] = {"uid": u, "title": title}
     try:
-        os.makedirs(PREV, exist_ok=True)
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            for obj in existing.values():
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-        os.replace(tmp, path)
+        _write_uid_jsonl(path, existing.values())
     except OSError as e:
         print(f"WARNING: 持ち越しの記録に失敗しました（書き戻し自体は続けます）: {e}",
               file=sys.stderr)
 
 
+def forget_unverified(name, uids, prev_dir=None):
+    """今回あらためて書き直された行を pending から外す。`append_rows.py` が呼ぶ。
+
+    書き直された行は、その実行が情報源に当たって確認した行である。これを外さないと
+    「最初に全行を書き戻す」工程順では、調べ終えた行まで翌週「未確認」として扱われる。
+
+    `--carry-rest` / `--dispose notfound` 自身の書き戻しはここを通らない
+    （`WRITEBACK_ENV` を立てて呼ぶので `append_rows.py` が呼ばない）。
+    pending が無ければ何もしない——ファイルを新しく作ることは無い。
+    戻り値は外した件数。
+    """
+    path = unverified_pending_path(name, prev_dir)
+    if not os.path.exists(path):
+        return 0
+    existing = _read_uid_jsonl(path)
+    drop = {u for u in uids if u in existing}
+    if not drop:
+        return 0
+    _write_uid_jsonl(path, (o for u, o in existing.items() if u not in drop))
+    return len(drop)
+
+
 def load_unverified(name):
-    path = unverified_path(name)
-    out = set()
-    try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if obj.get("uid"):
-                    out.add(obj["uid"])
-    except OSError:
-        pass
-    return out
+    """`--worklist` が読む側の記録を `{uid: {"tier", "reasons", ...}}` で返す。"""
+    return _read_uid_jsonl(unverified_path(name))
+
+
+def load_unverified_pending(name):
+    """今回の実行が「前回値のまま書き戻し、まだ書き直していない」行の uid の集合。
+
+    `diff_data.py` が、書き戻しで受付欄が空になっただけの行を「変更」から外すのに使う。
+    """
+    return set(_read_uid_jsonl(unverified_pending_path(name)))
+
+
+def _rotate_unverified(name, new_rows, today):
+    """pending を、翌週の `--worklist` が読む形に変換して置き換える。`take_snapshot()` が呼ぶ。
+
+    **`.prev/` のスナップショットを上書きする前に呼ぶこと。** carry-rest の行の
+    tier は、受付欄を空にする前の値（＝いまの `.prev/` にある行）で判定する。
+
+    `new_rows` はこれから退避するCSV（＝終わったばかりの実行の最終結果）。
+    ここに無い uid（処分された・期限切れで消えた行）は捨てる——記録が
+    消えずに溜まり続けた事故への対処（`unverified_path` の docstring）。
+
+    pending が無いときは2通りある。
+      - 読む側が既に新形式（`tier` を持つ）→ その実行では持ち越しが無かった。空にする
+      - 読む側が旧形式（`tier` を持たない）→ この仕組みへの切り替え直後。
+        旧形式の記録を pending の代わりに1度だけ使う（中身は carry-rest と同じ扱い）
+
+    検証に落ちて `claude-routine.sh` が `data/` を巻き戻した回の直後は、`.prev/` だけが
+    その回のまま残る（gitignore 対象のため）。次の入れ替えでは、その回の pending を
+    巻き戻したCSVに当てることになり、1週ぶん補正が粗くなる。ただし tier は
+    「いまの行」と同じ行から判定されるので、**膨らむ方向には崩れない**。
+    """
+    pending_path = unverified_pending_path(name)
+    read_path = unverified_path(name)
+    if os.path.exists(pending_path):
+        cands = _read_uid_jsonl(pending_path)
+    else:
+        current = _read_uid_jsonl(read_path)
+        cands = current if any("tier" not in o for o in current.values()) else {}
+
+    new_by_uid = {row_uid(name, r): r for r in new_rows}
+    # `load_prev()` は使わない。スナップショットが無いと git の HEAD を読みに行くが、
+    # ここで欲しいのは「carry-rest が書き戻しの元にした行」で、それは `.prev/` にしか
+    # 無い。無ければ持ち越しも起きていないので、いまの行で判定すれば足りる。
+    old_by_uid = {}
+    if os.path.exists(snapshot_path(name)):
+        with open(snapshot_path(name), newline="", encoding="utf-8") as f:
+            old_by_uid = {row_uid(name, r): r for r in csv.DictReader(f)}
+    disp = load_dispositions(name)
+
+    out = []
+    for u, obj in cands.items():
+        row = new_by_uid.get(u)
+        if row is None:
+            continue
+        if (disp.get(u) or {}).get("status") == "notfound":
+            tier, reasons = "A", ["前回は確認できず（notfound）"]
+        else:
+            tier, reasons = tier_of(name, old_by_uid.get(u) or row, today)
+        out.append({"uid": u, "title": obj.get("title") or row.get("title", ""),
+                    "tier": tier, "reasons": reasons})
+
+    if out:
+        _write_uid_jsonl(read_path, out)
+    elif os.path.exists(read_path):
+        os.remove(read_path)
+    if os.path.exists(pending_path):
+        os.remove(pending_path)
+    return len(out)
 
 
 def _current_uids(name):
@@ -773,7 +917,9 @@ def cmd_carry_rest(name, rows, args):
 
     records = [_build_carry_obj(r, lineups) for u, r in carried]
 
-    # 書き戻した uid を残す。翌週の `--worklist` がこれを読んで tier A に上げる。
+    # 書き戻した uid を pending に残す。次の `--init` が、受付欄を空にする前の
+    # tier に変換して翌週の `--worklist` へ渡す（`unverified_path` の docstring）。
+    # この後でその行が今回書き直されれば、`append_rows.py` が pending から外す。
     # `--apply` を付けない下見でも書くのは、下見と本番で記録がずれないようにするため
     # （どちらも「今回どれが未確認で残ったか」という同じ事実を表している）。
     # 空で上書きしない・既存分（`--dispose notfound` が書いた分を含む）と
@@ -797,6 +943,9 @@ def cmd_carry_rest(name, rows, args):
     proc = subprocess.run(
         [sys.executable, os.path.join(ROOT, "tools", "append_rows.py"), args.dataset],
         input=payload, text=True, cwd=ROOT,
+        # 機械的な書き戻しであって確認ではない。これが無いと、直前に記録した
+        # pending を append_rows.py がこの書き込みで外してしまう。
+        env={**os.environ, WRITEBACK_ENV: "1"},
     )
     return proc.returncode
 
@@ -1027,6 +1176,7 @@ def cmd_dispose(name, rows, args):
         proc = subprocess.run(
             [sys.executable, os.path.join(ROOT, "tools", "append_rows.py"), args.dataset],
             input=payload, text=True, cwd=ROOT,
+            env={**os.environ, WRITEBACK_ENV: "1"},     # cmd_carry_rest と同じ理由
         )
         if proc.returncode != 0:
             raise SystemExit(
