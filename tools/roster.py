@@ -164,6 +164,55 @@ def find(rows, key, name):
     return None
 
 
+# 名簿の名前のすぐ後ろにこれが来たら、その施設の中の会場とみなす
+# （`東京国立博物館 平成館`・`国立競技場（MUFGスタジアム）`）。区切りを必須にするのは、
+# `東京ミッドタウン` が `東京ミッドタウン日比谷` の収穫を横取りしないためである。
+_SUBVENUE_SEP = re.compile(r"[\s（(【\[・/／:：]")
+# 複数の施設にまたがる表記（`東京ディズニーランド／東京ディズニーシー`）の区切り。
+_MULTI_SPLIT = re.compile(r"[／/]")
+
+
+def _nfkc(s):
+    return unicodedata.normalize("NFKC", (s or "")).strip().casefold()
+
+
+def match_venue(rows, key, venue):
+    """行の会場表記から、収穫を記録すべき名簿の行を返す（複数会場なら複数）。
+
+    ## なぜ完全一致だけでは足りないのか
+
+    収穫の記録は `append_rows.py` が行の `venue` から機械的に付ける。完全一致だけで
+    引いていたころは、館内の会場まで書いた行（`東京国立博物館 平成館`）や、2施設に
+    またがる催し（`東京ディズニーランド／東京ディズニーシー`）の収穫が名簿に付かず、
+    実際には催しが載り続けている施設が「収穫ゼロ」に見えていた（2026-09-28 時点で
+    東京ディズニーランド・ディズニーシーとも実績0件）。収穫ゼロが続くと `--gc` が
+    降格・退役させるので、見えない取りこぼしが名簿を痩せさせる。
+
+    まず完全一致（`find()` と同じ正規化）で引き、無ければ「名簿の名前＋区切り」で
+    始まる表記を、いちばん長い名前で引く。`／` で区切られた表記は、区切った各部分も
+    同じ規則で引く。
+    """
+    parts = [venue]
+    if _MULTI_SPLIT.search(venue or ""):
+        parts += [p for p in _MULTI_SPLIT.split(venue) if p.strip()]
+    out, seen = [], set()
+    for part in parts:
+        r = find(rows, key, part)
+        if r is None:
+            nv = _nfkc(part)
+            best = None
+            for x in rows:
+                n = _nfkc(x.get(key))
+                if n and len(nv) > len(n) and nv.startswith(n) and _SUBVENUE_SEP.match(nv[len(n)]):
+                    if best is None or len(n) > len(_nfkc(best.get(key))):
+                        best = x
+            r = best
+        if r is not None and id(r) not in seen:
+            seen.add(id(r))
+            out.append(r)
+    return out
+
+
 def _int(v):
     try:
         return int((v or "0").strip() or 0)
@@ -233,8 +282,7 @@ def record_hits(kind, names, today=None):
     wanted = [n for n in dict.fromkeys(names) if n and n.strip() and n.strip() != "-"]
     hits, misses = [], []
     for name in wanted:
-        r = find(rows, key, name)
-        targets = [r] if r else []
+        targets = match_venue(rows, key, name)
         # theaters.csv だけは名簿が二役（チェーンの店舗ディレクトリ＋名画座の名簿）
         # である。新作行の theater はチェーン名なので、店舗名では引けない。
         # チェーン名で当たったときは、その傘下の店舗をまとめて収穫ありとする

@@ -60,25 +60,25 @@ TeNQ 宇宙ミュージアム,science,tokyo,東京都・文京区,35.7056,139.75
 東京ビッグサイト,hall,tokyo,東京都・江東区,35.6300,139.7930,https://www.bigsight.jp/,active,,2026-08-02,2026-09-16,8,
 東京国際フォーラム,hall,tokyo,東京都・千代田区,35.6754,139.7631,https://www.t-i-forum.co.jp/,active,,2026-08-02,,0,
 東京ドーム,hall,tokyo,東京都・文京区,35.7056,139.7519,https://www.tokyo-dome.co.jp/dome/,active,,2026-08-02,2026-08-22,2,
-日本武道館,hall,tokyo,東京都・千代田区,35.6938,139.7503,https://www.nipponbudokan.or.jp/,active,,2026-08-02,,0,
+日本武道館,hall,tokyo,東京都・千代田区,35.6938,139.7503,https://www.nipponbudokan.or.jp/,retired,,2026-08-02,,0,主にコンサート会場(ライブの名簿 venues.csv で観測)。2026-08-02以降イベントの収穫なし
 有明アリーナ,hall,tokyo,東京都・江東区,35.6434,139.7942,https://ariake-arena.tokyo/,active,,2026-08-02,2026-08-22,1,
-東京ガーデンシアター,hall,tokyo,東京都・江東区,35.6378,139.7921,https://www.bellesalle.co.jp/shisetsu/ariake/garden_theater/,active,,2026-08-02,,0,
+東京ガーデンシアター,hall,tokyo,東京都・江東区,35.6378,139.7921,https://www.bellesalle.co.jp/shisetsu/ariake/garden_theater/,retired,,2026-08-02,,0,主にコンサート会場(ライブの名簿 venues.csv で観測)。2026-08-02以降イベントの収穫なし
 国立競技場,hall,tokyo,東京都・新宿区,35.6779,139.7150,https://jns-e.com/,active,,2026-08-02,,0,
 東京体育館,hall,tokyo,東京都・渋谷区,35.6833,139.7147,https://www.tef.or.jp/tmg/,active,,2026-08-02,,0,
 両国国技館,hall,tokyo,東京都・墨田区,35.6969,139.7930,https://www.sumo.or.jp/kokugikan/,active,,2026-08-02,2026-09-27,12,
 代々木第一体育館,hall,tokyo,東京都・渋谷区,35.6702,139.6967,https://www.jpnsport.go.jp/yoyogi/,active,,2026-08-02,,0,
 TOKYO DREAM PARK,hall,tokyo,東京都・江東区,35.6329,139.7929,https://tdp.tv-asahi.co.jp/,active,,2026-08-02,2026-09-27,12,
 CREVIA BASE Tokyo,hall,tokyo,東京都・江東区,35.6479,139.7902,https://itochu-sumai.com/cb-tokyo/,active,,2026-08-02,,0,2025年3月開業（旧IHIステージアラウンド東京跡地）
-東京ビッグサイト南展示棟,hall,tokyo,東京都・江東区,35.6283,139.7902,https://www.bigsight.jp/organizer/facilities/south.html,active,,2026-08-02,,0,
+東京ビッグサイト南展示棟,hall,tokyo,東京都・江東区,35.6283,139.7902,https://www.bigsight.jp/organizer/facilities/south.html,retired,,2026-08-02,,0,東京ビッグサイトの一部。URLは主催者向け施設案内で、催しの一覧ではない
 東京芸術劇場,theater,tokyo,東京都・豊島区,35.7295,139.7108,https://www.geigeki.jp/,active,,2026-08-02,2026-08-22,2,
 新国立劇場,theater,tokyo,東京都・渋谷区,35.6835,139.6857,https://www.nntt.jac.go.jp/,active,,2026-08-02,,0,
-帝国劇場,theater,tokyo,東京都・千代田区,35.6772,139.7614,https://teigeki.tohostage.com/,active,,2026-08-02,,0,2025年2月より建替工事のため休館中（2030年度再開予定）
+帝国劇場,theater,tokyo,東京都・千代田区,35.6772,139.7614,https://teigeki.tohostage.com/,active,2030-04-01,2026-08-02,,0,建替工事のため2025年2月から休館(2030年度再開予定)
 明治座,theater,tokyo,東京都・中央区,35.6869,139.7887,https://www.meijiza.co.jp/,active,,2026-08-02,2026-09-27,13,
 歌舞伎座,theater,tokyo,東京都・中央区,35.6693,139.7671,https://www.kabuki-za.co.jp/,active,,2026-08-02,2026-09-27,13,
 東急シアターオーブ,theater,tokyo,東京都・渋谷区,35.6590,139.7038,https://theatre-orb.com/,active,,2026-08-02,2026-08-30,4,
 日生劇場,theater,tokyo,東京都・千代田区,35.6745,139.7599,https://www.nissaytheatre.or.jp/,active,,2026-08-02,2026-09-27,13,
 新橋演舞場,theater,tokyo,東京都・中央区,35.6685,139.7654,https://www.shinbashi-enbujo.co.jp/,active,,2026-08-02,2026-09-22,10,
-池袋PARCO,theater,tokyo,東京都・豊島区,35.7293,139.7136,https://ikebukuro.parco.jp/,active,,2026-08-02,2026-09-06,7,
+池袋PARCO,mall,tokyo,東京都・豊島区,35.7293,139.7136,https://ikebukuro.parco.jp/,active,,2026-08-02,2026-09-06,7,
 IHIステージアラウンド東京,theater,tokyo,東京都・江東区,35.6479,139.7902,,retired,,2026-08-02,,0,2023年12月31日閉館。跡地はCREVIA BASE Tokyoとして2025年3月に再開
 東京ミッドタウン,mall,tokyo,東京都・港区,35.6641,139.7311,https://www.tokyo-midtown.com/,active,,2026-08-02,2026-08-30,4,
 六本木ヒルズ,mall,tokyo,東京都・港区,35.6605,139.7292,https://www.roppongihills.com/,active,,2026-08-02,2026-08-22,2,
@@ -90,7 +90,7 @@ IHIステージアラウンド東京,theater,tokyo,東京都・江東区,35.6479
 お台場ダイバーシティ東京,mall,tokyo,東京都・江東区,35.6255,139.7756,https://mitsui-shopping-park.com/divercity-tokyo/,active,,2026-08-02,2026-09-27,13,
 豊洲千客万来,mall,tokyo,東京都・江東区,35.6462,139.7936,https://www.toyosu-senkyakubanrai.jp/,active,,2026-08-02,2026-08-22,2,
 二子玉川ライズ,mall,tokyo,東京都・世田谷区,35.6115,139.6273,https://www.rise.sc/,active,,2026-08-02,2026-09-23,11,
-西武渋谷店,mall,tokyo,東京都・渋谷区,35.6613,139.6989,https://www.sogo-seibu.jp/shibuya/,active,,2026-08-02,2026-09-27,12,2026年9月30日閉店予定（ロフト館・モヴィーダ館は単館として営業継続）
+西武渋谷店,mall,tokyo,東京都・渋谷区,35.6613,139.6989,https://www.sogo-seibu.jp/shibuya/,retired,,2026-08-02,2026-09-27,12,2026年9月30日閉店(ロフト館・モヴィーダ館は単館で営業継続)
 松屋銀座,mall,tokyo,東京都・中央区,35.6717,139.7659,https://www.matsuya.com/ginza/,active,,2026-08-02,,0,
 日本橋三越本店,mall,tokyo,東京都・中央区,35.6858,139.7735,https://www.mistore.jp/store/nihombashi.html,active,,2026-08-02,,0,
 東京タワー,mall,tokyo,東京都・港区,35.6586,139.7454,https://www.tokyotower.co.jp/,active,,2026-08-02,,0,
@@ -105,9 +105,9 @@ IHIステージアラウンド東京,theater,tokyo,東京都・江東区,35.6479
 神宮外苑,park,tokyo,東京都・新宿区,35.6740,139.7178,,active,,2026-08-02,2026-08-30,1,公式サイト確認できず
 よこはまコスモワールド,themepark,kanagawa,神奈川県・横浜市中区,35.4551,139.6369,https://cosmoworld.jp/,active,,2026-08-02,,0,
 横浜・八景島シーパラダイス,themepark,kanagawa,神奈川県・横浜市,35.3336,139.6459,https://www.seaparadise.co.jp/,active,,2026-08-02,2026-08-22,2,
-相模湖プレジャーフォレスト,themepark,kanagawa,神奈川県・相模原市緑区,35.6070,139.1470,https://www.sagamiko-resort.jp/,active,,2026-08-02,,0,
+相模湖プレジャーフォレスト,themepark,kanagawa,神奈川県・相模原市緑区,35.6070,139.1470,https://www.sagamiko-resort.jp/,retired,,2026-08-02,,0,さがみ湖リゾート MORI MORI と同じ施設(旧称で重複登録)
 箱根小涌園ユネッサン,themepark,kanagawa,神奈川県・箱根町,35.2361,139.0392,https://www.yunessun.com/,active,,2026-08-02,2026-09-27,13,
-川崎水族館カワスイ,themepark,kanagawa,神奈川県・川崎市川崎区,35.5294,139.6971,https://kawa-sui.com/,active,,2026-08-02,,0,
+カワスイ 川崎水族館,aquazoo,kanagawa,神奈川県・川崎市川崎区,35.5294,139.6971,https://kawa-sui.com/,active,,2026-08-02,,0,
 新江ノ島水族館,aquazoo,kanagawa,神奈川県・藤沢市,35.3098,139.4798,https://www.enosui.com/,active,,2026-08-02,2026-09-27,13,
 よこはま動物園ズーラシア,aquazoo,kanagawa,神奈川県・横浜市,35.5194,139.5223,https://www.hama-midorinokyokai.or.jp/zoo/zoorasia/,active,,2026-08-02,2026-09-27,13,
 野毛山動物園,aquazoo,kanagawa,神奈川県・横浜市西区,35.4470,139.6223,https://www.hama-midorinokyokai.or.jp/zoo/nogeyama/,active,,2026-08-02,2026-09-27,13,
@@ -128,23 +128,23 @@ IHIステージアラウンド東京,theater,tokyo,東京都・江東区,35.6479
 カップヌードルミュージアム横浜,museum,kanagawa,神奈川県・横浜市中区,35.4534,139.6398,https://www.cupnoodles-museum.jp/ja/yokohama/,active,,2026-08-02,,0,
 新横浜ラーメン博物館,museum,kanagawa,神奈川県・横浜市港北区,35.5095,139.6187,https://www.raumen.co.jp/,active,,2026-08-02,2026-08-22,1,
 パシフィコ横浜,hall,kanagawa,神奈川県・横浜市西区,35.4564,139.6316,https://www.pacifico.co.jp/,active,,2026-08-02,,0,
-Kアリーナ横浜,hall,kanagawa,神奈川県・横浜市西区,35.4650,139.6289,https://k-arena.com/,active,,2026-08-02,,0,
+Kアリーナ横浜,hall,kanagawa,神奈川県・横浜市西区,35.4650,139.6289,https://k-arena.com/,retired,,2026-08-02,,0,主にコンサート会場(ライブの名簿 venues.csv で観測)。2026-08-02以降イベントの収穫なし
 横浜アリーナ,hall,kanagawa,神奈川県・横浜市港北区,35.5108,139.6172,https://www.yokohama-arena.co.jp/,active,,2026-08-02,2026-08-22,2,
-ぴあアリーナMM,hall,kanagawa,神奈川県・横浜市西区,35.4581,139.6329,https://pia-arena-mm.jp/,active,,2026-08-02,,0,
+ぴあアリーナMM,hall,kanagawa,神奈川県・横浜市西区,35.4581,139.6329,https://pia-arena-mm.jp/,retired,,2026-08-02,,0,主にコンサート会場(ライブの名簿 venues.csv で観測)。2026-08-02以降イベントの収穫なし
 日産スタジアム,hall,kanagawa,神奈川県・横浜市港北区,35.5121,139.6045,https://www.nissan-stadium.jp/,active,,2026-08-02,2026-09-27,12,
 横浜スタジアム,hall,kanagawa,神奈川県・横浜市中区,35.4433,139.6400,https://www.yokohama-stadium.co.jp/,active,,2026-08-02,2026-08-22,2,
-神奈川県民ホール,hall,kanagawa,神奈川県・横浜市中区,35.4444,139.6478,https://www.kanagawa-kenminhall.com/,active,,2026-08-02,,0,2025年3月31日から建替工事のため休館中（再開時期未定）
+神奈川県民ホール,hall,kanagawa,神奈川県・横浜市中区,35.4444,139.6478,https://www.kanagawa-kenminhall.com/,retired,,2026-08-02,,0,2025年3月31日から建替工事のため休館(再開時期未定)
 相模原ギオンアリーナ,hall,kanagawa,神奈川県・相模原市南区,35.5378,139.3710,https://sagamiharashi-sougoutaiikukan.jp/,active,,2026-08-02,,0,
 横浜赤レンガ倉庫,landmark,kanagawa,神奈川県・横浜市,35.4534,139.6425,https://www.yokohama-akarenga.jp/,active,,2026-08-02,2026-09-27,13,
-山下公園,landmark,kanagawa,神奈川県・横浜市中区,35.4456,139.6495,https://www.city.yokohama.lg.jp/kurashi/machizukuri-kankyo/midori-koen/koen/koen/daihyoteki/kouen008.html,active,,2026-08-02,,0,
+山下公園,park,kanagawa,神奈川県・横浜市中区,35.4456,139.6495,https://www.city.yokohama.lg.jp/kurashi/machizukuri-kankyo/midori-koen/koen/koen/daihyoteki/kouen008.html,active,,2026-08-02,,0,
 三溪園,landmark,kanagawa,神奈川県・横浜市,35.4132,139.6653,https://www.sankeien.or.jp/,active,,2026-08-02,2026-09-27,13,
 江の島,landmark,kanagawa,神奈川県・藤沢市,35.2989,139.4809,http://enoshimajinja.or.jp/,active,,2026-08-02,2026-09-23,11,
-箱根強羅公園,landmark,kanagawa,神奈川県・足柄下郡箱根町,35.2354,139.0452,https://www.hakone-tozan.co.jp/gorapark/,active,,2026-08-02,,0,
+箱根強羅公園,park,kanagawa,神奈川県・足柄下郡箱根町,35.2354,139.0452,https://www.hakone-tozan.co.jp/gorapark/,active,,2026-08-02,,0,
 大山阿夫利神社,landmark,kanagawa,神奈川県・伊勢原市,35.4372,139.2372,https://www.afuri.or.jp/,active,,2026-08-02,2026-09-27,13,
 東武動物公園,themepark,saitama,埼玉県・南埼玉郡宮代町,36.0249605,139.7265721,https://www.tobuzoo.com/,active,,2026-08-02,2026-09-27,13,
 ムーミンバレーパーク,themepark,saitama,埼玉県・飯能市,35.8719763,139.3258264,https://metsa-hanno.com/,active,,2026-08-02,2026-09-27,13,
-国営武蔵丘陵森林公園,themepark,saitama,埼玉県・比企郡滑川町,36.0912983,139.3682749,https://www.shinrinkoen.jp/,active,,2026-08-02,2026-09-27,3,
-巾着田,themepark,saitama,埼玉県・日高市,35.8834,139.3091,https://kinchakuda.com/,active,,2026-08-02,2026-09-27,13,
+国営武蔵丘陵森林公園,park,saitama,埼玉県・比企郡滑川町,36.0912983,139.3682749,https://www.shinrinkoen.jp/,active,,2026-08-02,2026-09-27,3,
+巾着田,park,saitama,埼玉県・日高市,35.8834,139.3091,https://kinchakuda.com/,active,,2026-08-02,2026-09-27,13,
 鉄道博物館,museum,saitama,埼玉県・さいたま市見沼区,35.9217287,139.617861,https://www.railway-museum.jp/,active,,2026-08-02,2026-09-27,13,
 角川武蔵野ミュージアム,museum,saitama,埼玉県・所沢市,35.797689,139.5078666,https://kadcul.com/,active,,2026-08-02,2026-09-27,13,
 埼玉県立近代美術館,museum,saitama,埼玉県・さいたま市浦和区,35.869598,139.643019,https://pref.spec.ed.jp/momas/,active,,2026-08-02,2026-09-27,13,
@@ -157,8 +157,8 @@ Kアリーナ横浜,hall,kanagawa,神奈川県・横浜市西区,35.4650,139.628
 埼玉県芸術劇場,hall,saitama,埼玉県・さいたま市中央区,35.8771,139.6219,http://www.saf.or.jp/arthall/,active,,2026-08-02,2026-09-27,13,
 大宮ソニックシティ,hall,saitama,埼玉県・さいたま市大宮区,35.9052,139.6197,http://www.sonic-city.or.jp/,active,,2026-08-02,,0,
 川越氷川神社,landmark,saitama,埼玉県・川越市,35.9271396,139.4887762,https://www.kawagoehikawa.jp/,active,,2026-08-02,2026-09-06,7,
-秩父ミューズパーク,landmark,saitama,埼玉県・秩父市,35.9824,139.0426,https://www.muse-park.com/,active,,2026-08-02,2026-08-30,3,
-羊山公園,landmark,saitama,埼玉県・秩父市,35.9820,139.0880,https://www.city.chichibu.lg.jp/1853.html,active,,2026-08-02,,0,
+秩父ミューズパーク,park,saitama,埼玉県・秩父市,35.9824,139.0426,https://www.muse-park.com/,active,,2026-08-02,2026-08-30,3,
+羊山公園,park,saitama,埼玉県・秩父市,35.9820,139.0880,https://www.city.chichibu.lg.jp/1853.html,active,,2026-08-02,,0,
 あしがくぼ,landmark,saitama,埼玉県・秩父郡横瀬町,35.9769,139.1356,https://michinoeki-ashigakubo.com/,active,,2026-08-02,,0,
 東京ディズニーランド,themepark,chiba,千葉県・浦安市,35.6329,139.8804,https://www.tokyodisneyresort.jp/tdl/event.html,active,,2026-08-02,,0,
 東京ディズニーシー,themepark,chiba,千葉県・浦安市,35.6257,139.8842,https://www.tokyodisneyresort.jp/tds/,active,,2026-08-02,,0,
@@ -200,7 +200,61 @@ JAXA筑波宇宙センター,museum,ibaraki,茨城県・つくば市,36.0684,140
 鹿島神宮,landmark,ibaraki,茨城県・鹿嶋市,35.9675,140.6455,https://kashimajingu.jp/,active,,2026-08-02,2026-09-06,8,
 大洗磯前神社,landmark,ibaraki,茨城県・大洗町,36.3128,140.5878,https://www.oarai-isosakijinja.net/,active,,2026-08-02,2026-08-23,1,
 笠間稲荷神社,landmark,ibaraki,茨城県・笠間市,36.3815,140.2916,http://www.kasama.or.jp/,active,,2026-08-02,2026-09-27,14,
-森アーツセンターギャラリー,hall,tokyo,東京都・港区,35.6604,139.7292,https://www.mori.art.museum/,active,,2026-08-22,2026-09-12,7,六本木ヒルズ森タワー52階、企画展専用ギャラリー
+森アーツセンターギャラリー,museum,tokyo,東京都・港区,35.6604,139.7292,https://macg.roppongihills.com/jp/exhibitions/,active,,2026-08-22,2026-09-12,7,六本木ヒルズ森タワー52階、企画展専用ギャラリー
 東京シティビュー,landmark,tokyo,東京都・港区,35.6604,139.7292,https://www.roppongihills.com/,active,,2026-08-22,2026-09-27,12,六本木ヒルズ森タワー52階、展望台・コラボ企画の会場
-麻布台ヒルズギャラリー,hall,tokyo,東京都・港区,35.6616,139.7409,https://www.azabudai-hills.com/azabudaihillsgallery/index.html,active,,2026-08-22,2026-09-27,12,麻布台ヒルズ内の企画展専用ギャラリー
+麻布台ヒルズギャラリー,museum,tokyo,東京都・港区,35.6616,139.7409,https://www.azabudai-hills.com/azabudaihillsgallery/index.html,active,,2026-08-22,2026-09-27,12,麻布台ヒルズ内の企画展専用ギャラリー
 さがみ湖リゾート MORI MORI(相模湖プレジャーフォレスト),themepark,kanagawa,神奈川県・相模原市,35.6049,139.2061,https://www.sagamiko-resort.jp/,active,,2026-08-22,2026-09-06,6,旧・相模湖プレジャーフォレスト、遊園地・水遊びエリア
+明治神宮,landmark,tokyo,東京都・渋谷区,35.6699,139.7023,https://www.meijijingu.or.jp/,candidate,,2026-09-29,2026-09-29,1,例祭・秋の大祭・奉納行事など年間行事
+浅草寺,landmark,tokyo,東京都・台東区,35.7129,139.7966,https://www.senso-ji.jp/annual_event/,candidate,,2026-09-29,2026-09-29,1,年中行事(ほおずき市・羽子板市・節分会など)
+神田明神,landmark,tokyo,東京都・千代田区,35.7015,139.7675,https://www.kandamyoujin.or.jp/,candidate,,2026-09-29,2026-09-29,1,神田祭・アニメコラボ等
+亀戸天神社,landmark,tokyo,東京都・江東区,35.7021,139.8204,https://kameidotenjin-sha.jp/,candidate,,2026-09-29,2026-09-29,1,梅まつり・藤まつり・菊まつり
+大國魂神社,landmark,tokyo,東京都・府中市,35.6691,139.4794,https://www.ookunitamajinja.or.jp/,candidate,,2026-09-29,2026-09-29,1,くらやみ祭など
+高尾山薬王院,landmark,tokyo,東京都・八王子市,35.6256,139.2473,https://www.takaosan.or.jp/,candidate,,2026-09-29,2026-09-29,1,火渡り祭・紅葉まつり等
+日比谷公園,park,tokyo,東京都・千代田区,35.6728,139.7541,https://tokyofesta.com/tag/hibiya-park/,candidate,,2026-09-29,2026-09-29,1,フードフェス等の会場。公式に催しの一覧が無いためイベント一覧(東京フェスタ)を見る
+駒沢オリンピック公園,park,tokyo,東京都・世田谷区,35.6261,139.6575,https://www.tef.or.jp/kopgp/,candidate,,2026-09-29,2026-09-29,1,中央広場のフードフェス等(公式に催しの予定あり)
+上野恩賜公園,park,tokyo,東京都・台東区,35.7143,139.7735,https://www.kensetsu.metro.tokyo.lg.jp/jimusho/toubuk/ueno/,candidate,,2026-09-29,2026-09-29,1,噴水広場・竹の台広場の催し
+大久保公園,park,tokyo,東京都・新宿区,35.6974,139.7013,https://tokyofesta.com/tag/okubo-park/,candidate,,2026-09-29,2026-09-29,1,新宿区立。フードフェス常設会場。公式に催しの一覧が無いためイベント一覧(東京フェスタ)を見る
+味の素スタジアム,hall,tokyo,東京都・調布市,35.6637,139.5289,https://www.ajinomotostadium.com/schedule/,candidate,,2026-09-29,2026-09-29,1,サッカー・ラグビー等の観戦とスタジアムイベント
+東京競馬場,hall,tokyo,東京都・府中市,35.6635,139.4854,https://www.jra.go.jp/facilities/race/tokyo/,candidate,,2026-09-29,2026-09-29,1,JRA。ふれあいイベント・フードフェス等
+科学技術館,science,tokyo,東京都・千代田区,35.6918,139.7530,https://www.jsf.or.jp/,candidate,,2026-09-29,2026-09-29,1,実験ショー・工作教室・サイエンスホールの催し
+キッザニア東京,science,tokyo,東京都・江東区,35.6563,139.7929,https://www.kidzania.jp/tokyo/news/event,candidate,,2026-09-29,2026-09-29,1,職業体験。期間限定イベント
+神代植物公園,park,tokyo,東京都・調布市,35.6707,139.5492,https://www.tokyo-park.or.jp/park/jindai/index.html,candidate,,2026-09-29,2026-09-29,1,バラフェスタ・梅まつり等
+川崎大師,landmark,kanagawa,神奈川県・川崎市川崎区,35.5341,139.7294,https://www.kawasakidaishi.com/,candidate,,2026-09-29,2026-09-29,1,平間寺。風鈴市・縁日等
+横浜ハンマーヘッド,mall,kanagawa,神奈川県・横浜市中区,35.4551,139.6386,https://www.hammerhead.co.jp/,candidate,,2026-09-29,2026-09-29,1,食をテーマにした複合施設の催し
+横浜ベイクォーター,mall,kanagawa,神奈川県・横浜市神奈川区,35.4669,139.6266,https://www.yokohama-bayquarter.com/event/,candidate,,2026-09-29,2026-09-29,1,ランタンナイト等の季節イベント
+日本丸メモリアルパーク,park,kanagawa,神奈川県・横浜市西区,35.4546,139.6334,https://www.nippon-maru.or.jp/,candidate,,2026-09-29,2026-09-29,1,帆船日本丸。総帆展帆・広場の催し
+横浜アンパンマンこどもミュージアム,themepark,kanagawa,神奈川県・横浜市西区,35.4646,139.6314,https://www.yokohama-anpanman.jp/,candidate,,2026-09-29,2026-09-29,1,季節イベント
+はまぎん こども宇宙科学館,science,kanagawa,神奈川県・横浜市磯子区,35.3771,139.5946,https://www.yokohama-kagakukan.jp/,candidate,,2026-09-29,2026-09-29,1,横浜こども科学館。月ごとのイベント
+かわさき宙と緑の科学館,science,kanagawa,神奈川県・川崎市多摩区,35.6108,139.5620,https://www.nature-kawasaki.jp/class.html,candidate,,2026-09-29,2026-09-29,1,川崎市青少年科学館。生田緑地内。観察会・プラネタリウム
+Uvanceとどろきスタジアム by Fujitsu,hall,kanagawa,神奈川県・川崎市中原区,35.5868,139.6489,https://www.frontale.co.jp/,candidate,,2026-09-29,2026-09-29,1,等々力陸上競技場。川崎フロンターレの試合・スタジアムイベント
+川崎競馬場,hall,kanagawa,神奈川県・川崎市川崎区,35.5328,139.7107,https://www.kawasaki-keiba.jp/service/event/,candidate,,2026-09-29,2026-09-29,1,イベント・ファンサービス
+小田原城,landmark,kanagawa,神奈川県・小田原市,35.2513,139.1539,https://odawaracastle.com/event/,candidate,,2026-09-29,2026-09-29,1,小田原城址公園。北條五代祭り・菊花展等
+メッツァビレッジ,themepark,saitama,埼玉県・飯能市,35.8709,139.3292,https://metsa-hanno.com/metsa/,candidate,,2026-09-29,2026-09-29,1,ムーミンバレーパークと同じ敷地の入場無料エリア。北欧花火等
+さいたま新都心けやきひろば,park,saitama,埼玉県・さいたま市中央区,35.8929,139.6313,https://www.saitama-shintoshin.com/,candidate,,2026-09-29,2026-09-29,1,ビール祭り等のフードフェス会場。公式に催しの一覧が無いためイベント情報サイトを見る
+埼玉スタジアム2002,hall,saitama,埼玉県・さいたま市緑区,35.9025,139.7140,https://www.stadium2002.com/,candidate,,2026-09-29,2026-09-29,1,浦和レッズ・代表戦の観戦、スタジアムツアー・展示会
+埼玉県こども動物自然公園,aquazoo,saitama,埼玉県・東松山市,35.9965,139.3733,https://www.parks.or.jp/sczoo/,candidate,,2026-09-29,2026-09-29,1,動物イベント・体験
+さいたま市青少年宇宙科学館,science,saitama,埼玉県・さいたま市浦和区,35.8721,139.6648,https://www.city.saitama.lg.jp/kagakukan/,candidate,,2026-09-29,2026-09-29,1,土日祝のワークショップ・サイエンスショー
+所沢航空記念公園,park,saitama,埼玉県・所沢市,35.7983,139.4691,https://www.parks.or.jp/tokorozawa-kokuu/event/,candidate,,2026-09-29,2026-09-29,1,県営。お祭り・フリマ・展示
+川口市立美術館,museum,saitama,埼玉県・川口市,35.8010,139.7165,https://kawaguchi-moa.jp/,candidate,,2026-09-29,2026-09-29,1,2026年9月開館
+秩父神社,landmark,saitama,埼玉県・秩父市,35.9977,139.0849,https://www.chichibu-jinja.or.jp/,candidate,,2026-09-29,2026-09-29,1,秩父夜祭(12月2・3日)
+大宮ロフト,mall,saitama,埼玉県・さいたま市大宮区,35.9048,139.6221,https://www.loft.co.jp/shop_list/detail.php?shop_id=245,candidate,,2026-09-29,2026-09-29,1,そごう大宮店8階。アニメ物販催事等
+千葉市科学館,science,chiba,千葉県・千葉市中央区,35.6075,140.1223,https://www.kagakukanq.com/event/,candidate,,2026-09-29,2026-09-29,1,きぼーる7〜10階。プラネタリウム・イベント
+稲毛海浜公園,park,chiba,千葉県・千葉市美浜区,35.6201,140.0595,https://sunsetbeachpark.jp/event/,candidate,,2026-09-29,2026-09-29,1,いなげの浜。花火・野外イベント
+幕張海浜公園,park,chiba,千葉県・千葉市美浜区,35.6430,140.0393,https://www.seibu-la.co.jp/makuhari/event/,candidate,,2026-09-29,2026-09-29,1,県立。野外フェス・花火会場
+中山競馬場,hall,chiba,千葉県・船橋市,35.7249,139.9628,https://www.jra.go.jp/facilities/race/nakayama/,candidate,,2026-09-29,2026-09-29,1,JRA。ふれあいイベント・キッズイベント
+千葉県文化会館,theater,chiba,千葉県・千葉市中央区,35.6033,140.1268,https://www.cbs.or.jp/chiba/schedule,candidate,,2026-09-29,2026-09-29,1,公演・催しのスケジュール
+市川市動植物園,aquazoo,chiba,千葉県・市川市,35.7643,139.9642,https://www.city.ichikawa.lg.jp/site/zoo/list96.html,candidate,,2026-09-29,2026-09-29,1,イベント一覧
+成田ゆめ牧場,themepark,chiba,千葉県・成田市,35.8682,140.3957,https://www.yumebokujo.com/,candidate,,2026-09-29,2026-09-29,1,観光牧場。季節イベント・花畑
+房総のむら,museum,chiba,千葉県・印旛郡栄町,35.8292,140.2705,https://www.chiba-muse.or.jp/MURA/event/,candidate,,2026-09-29,2026-09-29,1,千葉県立の体験博物館。年間約460種の実演・体験
+清水公園,park,chiba,千葉県・野田市,35.9601,139.8508,https://www.shimizu-kouen.com/,candidate,,2026-09-29,2026-09-29,1,フィールドアスレチック・花ファンタジア・もりのゆうえんち
+ららぽーとTOKYO-BAY,mall,chiba,千葉県・船橋市,35.6862,139.9902,https://mitsui-shopping-park.com/lalaport/tokyo-bay/event/,candidate,,2026-09-29,2026-09-29,1,イベント・キャンペーン
+香取神宮,landmark,chiba,千葉県・香取市,35.8863,140.5277,https://katori-jingu.or.jp/event/,candidate,,2026-09-29,2026-09-29,1,祭典と催し
+いばらきフラワーパーク,park,ibaraki,茨城県・石岡市,36.2123,140.1702,https://www.flowerpark.or.jp/,candidate,,2026-09-29,2026-09-29,1,茨城県フラワーパーク。バラ・イルミネーション
+笠間芸術の森公園,park,ibaraki,茨城県・笠間市,36.3724,140.2616,https://www.city.kasama.lg.jp/page/page000122.html,candidate,,2026-09-29,2026-09-29,1,笠間の陶炎祭(GW)の会場
+那珂湊おさかな市場,landmark,ibaraki,茨城県・ひたちなか市,36.3396,140.5946,https://www.nakaminato-osakanaichiba.jp/,candidate,,2026-09-29,2026-09-29,1,マグロ解体ショー等の催し
+茨城県陶芸美術館,museum,ibaraki,茨城県・笠間市,36.3724,140.2616,https://www.tougei.museum.ibk.ed.jp/viewer/genre.html?id=2,candidate,,2026-09-29,2026-09-29,1,笠間芸術の森公園内。企画展年4回
+県立カシマサッカースタジアム,hall,ibaraki,茨城県・鹿嶋市,,,https://www.antlers.co.jp/,candidate,,2026-09-29,2026-09-29,1,愛称メルカリスタジアム。鹿島アントラーズの試合・バックステージツアー
+アダストリアみとアリーナ,hall,ibaraki,茨城県・水戸市,36.3811,140.4486,https://www.city.mito.lg.jp/page/1015.html,candidate,,2026-09-29,2026-09-29,1,東町運動公園体育館。Bリーグ・催事
+つくば国際会議場,hall,ibaraki,茨城県・つくば市,36.0760,140.1169,https://www.tsukuba-icc.com/,candidate,,2026-09-29,2026-09-29,1,エポカルつくば。学会・展示・科学イベント
+あみプレミアム・アウトレット,mall,ibaraki,茨城県・稲敷郡阿見町,35.9836,140.2379,https://www.premiumoutlets.co.jp/ami/calendar/,candidate,,2026-09-29,2026-09-29,1,イベントカレンダー
+筑波山神社,landmark,ibaraki,茨城県・つくば市,36.2207,140.1052,https://tsukubasanjinja.jp/,candidate,,2026-09-29,2026-09-29,1,御座替祭・年越祭・筑波山の紅葉
