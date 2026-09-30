@@ -157,6 +157,79 @@ FRESH_MIN_LEN = {
 # 新規が数件しかない週まで判定すると、1件の空欄で下限を割る。数えるに足りる分だけ見る。
 FRESH_MIN_SAMPLE = 10
 
+# `--allow-thin` の承知を、同じ回のうちは覚えておく。
+#
+# 終了前フック（`verify-data.sh`）は `--check-fresh` を**固定の引数で**呼ぶので、
+# モデルが `--check --allow-thin price` で承知しても、フックの判定には届かなかった。
+# フックの案内文は「埋めるか `--allow-thin` で承知するまで止める」と書いていたのに、
+# 後者は実際には効かない——2026-09-25 の lives はこの食い違いで終了工程に72ターン・
+# 実際の文脈再送16.2M（その回の53%）を使い、2026-09-30 の events は抜け道として
+# 親が自分でページを取得している（docs/skill-feedback.md 2026-09-30）。
+#
+# そこで承知した列を `data/.run/allow-thin.json` に書き、`--check-fresh` も読む。
+# 有効なのは**この回が始まってから**の承知だけにする（`data/.run/budget.json` の
+# `started_at`。先週の承知で今週の薄さを通さないため）。
+ALLOW_THIN_TTL_SEC = 12 * 60 * 60
+
+
+def _allow_thin_path():
+    return os.path.join(DATA, ".run", "allow-thin.json")
+
+
+def _run_started_at():
+    try:
+        with open(os.path.join(DATA, ".run", "budget.json"), encoding="utf-8") as f:
+            v = json.load(f).get("started_at")
+        return v if isinstance(v, (int, float)) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def load_allow_thin(names):
+    """この回のうちに承知した列（データセットごと）。読めなければ空。"""
+    import time
+    try:
+        with open(_allow_thin_path(), encoding="utf-8") as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(st, dict):
+        return {}
+    since = _run_started_at()
+    if since is None:
+        since = time.time() - ALLOW_THIN_TTL_SEC
+    out = {}
+    for n in names:
+        e = st.get(n)
+        if isinstance(e, dict) and isinstance(e.get("at"), (int, float)) and e["at"] >= since:
+            out[n] = set(e.get("cols") or [])
+    return out
+
+
+def save_allow_thin(names, cols):
+    """承知した列を記録する。**失敗しても判定は変えない**（記録は付随物）。"""
+    import time
+    path = _allow_thin_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            with open(path, encoding="utf-8") as f:
+                st = json.load(f)
+            if not isinstance(st, dict):
+                st = {}
+        except (OSError, ValueError):
+            st = {}
+        prev = load_allow_thin(names)
+        for n in names:
+            st[n] = {"cols": sorted(prev.get(n, set()) | set(cols)), "at": time.time()}
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
 PREFS = ["tokyo", "kanagawa", "saitama", "chiba", "ibaraki", "tochigi", "gunma", "other"]
 # イベントだけ対象地域が1都4県（栃木・群馬は対象外）。「都県ごとに floor 件
 # 以上」のバランスチェックをここだけ絞らないと、栃木・群馬が常に0件のまま
@@ -352,7 +425,8 @@ def main():
                         "（都県の網羅性は見ない。終了前フック用）")
     p.add_argument("--allow-thin", action="append", default=[],
                    help="この列は今週の新規行で薄くてよいと承知している"
-                        "（--check 用。列名を指定。複数指定可・カンマ区切り可）")
+                        "（--check / --check-fresh 用。列名を指定。複数指定可・カンマ区切り可）。"
+                        "承知はこの回のあいだ記録され、終了前フックの --check-fresh にも効く")
     p.add_argument("--allow-short", action="append", default=[],
                    help="この都県は今回件数が少ない／0件でよいと承知している"
                         "（--check 用。複数指定可・カンマ区切り可。隣接5県が多すぎる警告は "
@@ -382,6 +456,9 @@ def main():
     allowed_thin = set()
     for a in args.allow_thin:
         allowed_thin.update(v.strip() for v in a.split(",") if v.strip())
+    if allowed_thin:
+        save_allow_thin(names, allowed_thin)
+    remembered = load_allow_thin(names)
 
     rc = 0
 
@@ -401,10 +478,21 @@ def main():
         rc = 1
 
     thin = []
+    acked = []
     for r in results:
         for i in r["thin_issues"]:
-            if i["column"] not in allowed_thin:
-                thin.append((r["dataset"], i))
+            if i["column"] in allowed_thin:
+                continue
+            if i["column"] in remembered.get(r["dataset"], set()):
+                acked.append((r["dataset"], i))
+                continue
+            thin.append((r["dataset"], i))
+
+    # 覚えていた承知で通したものは黙って通さない。報告に理由を書く材料として出す。
+    for ds, i in acked:
+        print(f"\n（承知済み）{ds}: {i['column']} {i['filled']}/{i['count']}"
+              f"（{i['pct']}% < 下限{i['floor']}%）——この回のうちに --allow-thin {i['column']} "
+              "で承知されています。理由を報告に書くこと。")
 
     if thin:
         print("\n新規行の下限: 今週あらたに書いた行が、中核の列で下限を割っています")

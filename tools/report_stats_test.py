@@ -16,9 +16,11 @@ report_stats.py は「数字を出すだけで良し悪しは判定しない」�
 import contextlib
 import csv
 import io
+import json
 import os
 import sys
 import tempfile
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import prev_rows as pr                                        # noqa: E402
@@ -249,6 +251,49 @@ def _():
 def _():
     code, out, err = _run_events(_events_week(4), PREV20, ["events", "--check-fresh"])
     return code == 1 or f"薄いのに通った: code={code} {out}"
+
+
+@check("events: --check で承知した --allow-thin は、同じ回の --check-fresh（終了前フック）にも効く")
+def _():
+    """2026-09-25 lives / 2026-09-30 events の行き詰まり。フックは --check-fresh を
+    固定の引数で呼ぶので、承知が記録されていなければ永遠に止まり続ける。"""
+    with _isolated_events(_events_week(4), PREV20) as tmp:
+        os.makedirs(os.path.join(tmp, ".run"), exist_ok=True)
+        with open(os.path.join(tmp, ".run", "budget.json"), "w") as f:
+            json.dump({"started_at": time.time() - 60}, f)
+        orig_argv = sys.argv
+        codes = []
+        try:
+            for argv in (["events", "--check-fresh"],
+                         ["events", "--check", "--allow-thin", "price"],
+                         ["events", "--check-fresh"]):
+                sys.argv = ["report_stats.py"] + argv
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    codes.append(rs.main())
+        finally:
+            sys.argv = orig_argv
+        if codes != [1, 0, 0]:
+            return f"承知の前後で (1,0,0) のはずが {codes}"
+        return "承知済み" in out.getvalue() or f"承知で通したことを表示していない: {out.getvalue()}"
+
+
+@check("events: 前の回の承知は今回の --check-fresh に効かない")
+def _():
+    with _isolated_events(_events_week(4), PREV20) as tmp:
+        os.makedirs(os.path.join(tmp, ".run"), exist_ok=True)
+        with open(os.path.join(tmp, ".run", "allow-thin.json"), "w") as f:
+            json.dump({"events.csv": {"cols": ["price"], "at": time.time() - 3600}}, f)
+        with open(os.path.join(tmp, ".run", "budget.json"), "w") as f:
+            json.dump({"started_at": time.time() - 60}, f)   # 回はその後に始まった
+        orig_argv = sys.argv
+        try:
+            sys.argv = ["report_stats.py", "events", "--check-fresh"]
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = rs.main()
+        finally:
+            sys.argv = orig_argv
+        return code == 1 or "先週の承知で今週の薄さを通した"
 
 
 @check("events: --check を付けなければ薄くても終了コード0（既定の動作を変えない）")

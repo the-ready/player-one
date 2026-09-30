@@ -14,12 +14,13 @@ on:
   #   - 任意の曜日の手動実行（枠を落としたときの回収・シミュレーション）
   # 起動元をこの2つに絞っているのは、どちらも GITHUB_TOKEN 起点ではなく、完了が
   # workflow_run を確実に発火するためである（第13.2節・第13.3節）。
-  # 自動実行は水木金だけで、`.claude/skills/weekly-routine/SKILL.md` の```schedule ブロックの
-  # `other` 行は手動実行したときの既定値として存在する。
+  # 自動実行は水木金だけである。**手動で起動するときは routine_skill を必ず選ぶ**——
+  # 定期実行の曜日以外に「(自動選択)」で起動すると、claude-routine.sh が起動時に止める
+  # （2026-09-26・27 の手動起動が `other` 行＝events に落ちた。docs/DESIGN.md 第13.3節）。
   workflow_dispatch:
     inputs:
       routine_skill:
-        description: "実行するスキルを固定する（(自動選択)なら曜日から選ぶ）"
+        description: "実行するスキル。手動起動では必ず選ぶ（(自動選択)は水木金の定期実行用。それ以外の曜日は起動時に止まる）"
         required: false
         type: choice
         options:

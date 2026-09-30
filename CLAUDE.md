@@ -40,7 +40,8 @@ python3 tools/purge_ended_test.py  # 終了日の判定と書き換え
 python3 tools/fetch_page_test.py   # JSON-LD / sitemap / ICS / 日程行の抽出規則
 python3 tools/prev_rows_test.py    # 打ち切られた回の後始末（--carry-rest）と棚卸し
 python3 tools/wave_gate_test.py    # 波の結果がCSVに入ったかの判定（止めすぎ・止めなさすぎ）
-python3 tools/budget_test.py       # 残量の線を越えた波・取得の拒否（判定できないときは通す）
+python3 tools/budget_test.py       # 利用率・残量の線を越えた波・取得の拒否（判定できないときは通す）と、記録の重複を除いた数え方
+python3 tools/close_run_test.py    # 終了工程の一括実行（写しの上で回す。落ちたものを落ちたと返すか）
 python3 tools/run_gate_test.py     # 調べていない回（検索0・取得0／`--init` 未実行）の判定
 python3 tools/append_lineup_test.py # 日割りと公演行の合成書き込み（片方だけ書けた状態を作らない）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか

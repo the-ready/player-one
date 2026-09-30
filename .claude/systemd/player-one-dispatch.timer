@@ -1,7 +1,8 @@
 # 水木金 02:30 JST に weekly-collect.yml を起動する（docs/DESIGN.md 第13.3節）。
-# 曜日は .claude/skills/weekly-routine/SKILL.md の ```schedule ブロック（水木金）と、
-# 時刻は .github/workflows/collect-fallback.yml の予備起動（UTC 火水木）と揃えること
-# （tools/collect_fallback_test.mjs が3か所のずれを検出する）。
+# 曜日は .claude/skills/weekly-routine/SKILL.md の ```schedule ブロック（水木金）と揃えること。
+# 時刻（02:30 JST）は tools/budget.py の SCHEDULE_HOUR / SCHEDULE_MINUTE（7日枠の線を
+# 決めるときに「リセットまでに残る定期実行の回数」を数える）と揃えること。
+# 予備起動（collect-fallback.yml）は 2026-09-25 に廃止した（docs/DESIGN.md 第13.3節）。
 
 [Unit]
 Description=週次データ収集を水木金 02:30 JST に起動する
@@ -10,8 +11,8 @@ Description=週次データ収集を水木金 02:30 JST に起動する
 # Pi の時刻帯設定に依らないよう、時刻帯を明示する
 OnCalendar=Wed..Fri *-*-* 02:30:00 Asia/Tokyo
 AccuracySec=1s
-# 停止中に過ぎた回を起動後に取り戻さない。その回は collect-fallback.yml が既に
-# 起動を依頼しており（ジョブは Pi の復帰を待って走る）、取り戻すと収集が2回走るため。
+# 停止中に過ぎた回を起動後に取り戻さない。復帰した時点の曜日でスキルが選ばれるため、
+# 取り戻すと本来の曜日と違うスキルが走る（docs/DESIGN.md 第13.3節）。
 Persistent=false
 Unit=player-one-dispatch.service
 

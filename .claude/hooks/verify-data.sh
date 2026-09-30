@@ -183,6 +183,9 @@ fi # stop_active による「壊れていないか」検証4本のスキップ�
 # 悪い結果になる。ここで止めれば、捨てずにその場で集め直せる。
 # stop_active でもスキップしない（上のコメント参照）ので、実際に埋めるか
 # `--allow-thin` で承知するまで、ターンを終えようとするたびに繰り返し止める。
+# 承知は `report_stats.py` が data/.run/allow-thin.json に記録し、ここで呼ぶ
+# `--check-fresh` もそれを読む（固定の引数で呼んでも承知が届く。2026-09-25 lives と
+# 2026-09-30 events はここが届かず、終了工程が行き詰まった）。
 case "${ROUTINE_SKILL:-}" in
   kanto-event-collector) FRESH_DS="events" ;;
   kanto-live-collector)  FRESH_DS="lives" ;;
@@ -224,7 +227,7 @@ build_reason() {
     cat <<'SOFT'
 **この門はコミットを止めません。** 検証（validate_data.py / diff_data.py）が通っていれば、今週の収集はそのまま保存されます。ただし、ここは埋めるか `--allow-thin` で承知するまで、ターンを終えようとするたびに繰り返し止めます。
 **だからこそ、推測で埋めて通さないこと。** 確認していない料金を書くのは、このスキルが最も強く禁じている行為です（空欄のほうが正しい）。予算が残っているなら、会場の料金ページを開いて実際に集めてください——残りは `python3 tools/budget.py --report` で確認できます。
-本当に確認できないものばかりだったなら、`report_stats.py` に `--allow-thin <列名>` を付けて承知したことにし、**その理由を報告に書いてください**。
+本当に確認できないものばかりだったなら、`python3 tools/report_stats.py <events|lives|movies> --check-fresh --allow-thin <列名>` を1回実行して承知したことにし、**その理由を報告に書いてください**。承知はこの回のあいだ `data/.run/allow-thin.json` に記録され、このフックの判定にもそのまま効きます（フックのソースを読んで抜け道を探す必要はありません）。
 SOFT
   fi
 }

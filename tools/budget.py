@@ -59,11 +59,18 @@ lives 収集は、開始50分でアカウントの利用上限（`You've hit you
 `CACHE_READ_NO_NEW_WAVE` / `CACHE_READ_RETREAT` は上限ではなく**警告線**である。
 「ここを超えたら、いつ殺されてもおかしくない」という意味しか持たない。
 
-2026-09-22〜27の6回（すべて深夜の無人実行で、対話セッションとの取り合いが無い）は、
-最終値が30.8M〜52.9Mに達しても一度も打ち切られていない。8月の事故は対話セッションとの
-競合を含む観測だったのに対し、無人実行だけで見た実測はこれより高いところまで安全に
-使えることを示している。そこで両方の線を、この6週の実測の上に引き直した
-（`CACHE_READ_NO_NEW_WAVE`=45M・`CACHE_READ_RETREAT`=60M）。
+**ここまでの数字（48M・59M など）は、応答1回をブロックの数だけ重ねて数えていた頃の
+値で、実際の1.85〜2.36倍である**（`_scan()` の docstring）。重複を除いた実際の値では、
+2026-09-22〜30 の7回は16.7M〜30.8Mで、一度も打ち切られていない。
+
+線は2026-09-28に `CACHE_READ_NO_NEW_WAVE`=45M・`CACHE_READ_RETREAT`=60M へ引き上げたが、
+その値は水増しされた数え方の上で決めたもので、実際には約24M・32Mで止めていた
+（2026-09-30 は300分の枠の29分目で新しい波を止めている）。重複を除いた今は、
+同じ45M・60Mが実際の値として効く。
+
+**そして判定の主役は、もうこの線ではない。** 実際の利用率（5時間枠・7日枠）が
+読めるときはそちらで判定し（「実際の利用率」の節）、この線は利用率が読めない
+ときの代わりとしてだけ使う。
 
 線を2つに分けたのは、1つでは間に合わなかったからである。2026-08-27 の実行は
 40M の警告を受け取った**3分16秒後**に殺された。しかもその時点で親は波の帰りを
@@ -131,12 +138,11 @@ ROUTINE_TIMEOUT_DEFAULT_SEC = 21600
 #   NO_NEW_WAVE (45M) : 探索をやめる。動いている波は受け取って書き切る
 #   RETREAT     (60M) : 撤退の手順へ。終了工程だけを通す
 #
-# 2026-08 の事故（48M・57Mで打ち切り）は対話セッションとの競合を含む観測だった。
-# 無人実行だけの実測（2026-09-22〜27、6回）は30.8M〜52.9Mまで一度も打ち切られておらず、
-# 安全に使える範囲がそれより高いことを示している。そこで両方の線をこの実測の
-# 上に引き直した。ギャップ（NO_NEW_WAVE→RETREAT）は15Mを保っている——単独の波1つが
-# 一気に増やす実測の最大値が14.6M（2026-09-22）なので、「新しい波を止めた直後に
-# ちょうど1波分跳ねても撤退線を割らない」幅としてこれを下回らないようにした。
+# **利用率（`meter()`）が読めるときは使わない。** 読めないときの代わりである。
+# 値は実際の（重複を除いた）文脈再送で数える。無人実行の実測（2026-09-22〜30、7回）は
+# 16.7M〜30.8Mで一度も打ち切られていない。ギャップ（NO_NEW_WAVE→RETREAT）の15Mは、
+# 単独の波1つが一気に増やす実測の最大値（重複除去前14.6M・除去後およそ7.5M）を
+# 余裕で上回る幅として保っている。
 CACHE_READ_NO_NEW_WAVE = 45_000_000
 CACHE_READ_RETREAT = 60_000_000
 
@@ -344,13 +350,30 @@ def transcript_files():
     return parent, subs
 
 
-def _tally(path):
-    """1つの記録の usage を合計する。`context` だけは合計ではなく**最後の値**。
+def _scan(path):
+    """1つの記録の usage を合計し、応答の回数（ターン数）と一緒に返す。
 
-    「現在の文脈」は積み上げるものではなく、直近の応答が実際に受け取った入力の
-    合計である。これが次の1回のツール呼び出しの値段になる。
+    `context` だけは合計ではなく**最後の値**。「現在の文脈」は積み上げるものでは
+    なく、直近の応答が実際に受け取った入力の合計である。これが次の1回のツール
+    呼び出しの値段になる。
+
+    ## 応答1回を1回として数える（`message.id` で重複を除く）
+
+    記録は応答1回を**内容のブロック（思考・本文・ツール呼び出し）ごとに1行ずつ**
+    書き、どの行にも同じ応答の `usage` を丸ごと載せる。行を素朴に足すと、1回の
+    応答がブロックの数だけ計上される。2026-09-22〜30 の7回はこれで
+    **実際の1.85〜2.36倍**を数えていた（09-30 は表示56.3M・実際29.7M）。
+    ターン数も同じ壊れ方をし、`maxTurns: 60` で止まった子が「109〜119ターン」と
+    表示されて「maxTurns が効いていない」と誤診されている（docs/skill-feedback.md
+    2026-09-30）。線（`CACHE_READ_*`）もその水増しされた数字の上で引かれていた。
+
+    同じ `message.id` の行は `usage` が一致することを実測で確かめてあるので、
+    最初の1行だけを採る。`id` の無い行（打ち切られた応答など）は重複の判定が
+    できないので、1行を1回として数える。
     """
     t = {"cache_read": 0, "cache_write": 0, "output": 0, "context": 0}
+    turns = 0
+    seen = set()
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -360,12 +383,19 @@ def _tally(path):
                 if '"usage"' not in line:
                     continue
                 try:
-                    msg = json.loads(line).get("message")
+                    rec = json.loads(line)
                 except ValueError:
                     continue
+                msg = rec.get("message") if isinstance(rec, dict) else None
                 u = msg.get("usage") if isinstance(msg, dict) else None
                 if not isinstance(u, dict):
                     continue
+                key = msg.get("id") or rec.get("requestId")
+                if key:
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                turns += 1
                 cr = u.get("cache_read_input_tokens") or 0
                 cw = u.get("cache_creation_input_tokens") or 0
                 t["cache_read"] += cr
@@ -379,20 +409,16 @@ def _tally(path):
                     t["context"] = ctx
     except OSError:
         pass
-    return t
+    return t, turns
+
+
+def _tally(path):
+    return _scan(path)[0]
 
 
 def _turns(path):
     """その記録に何回の応答があったか。1つの文脈で回ったターン数にあたる。"""
-    n = 0
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if '"usage"' in line:
-                    n += 1
-    except OSError:
-        pass
-    return n
+    return _scan(path)[1]
 
 
 def token_usage():
@@ -410,11 +436,10 @@ def token_usage():
         subs = dict(empty)
         worst = {"turns": 0, "cache_read": 0}
         for sp in sub_paths:
-            one = _tally(sp)
+            one, t = _scan(sp)
             for k in ("cache_read", "cache_write", "output"):
                 subs[k] += one[k]
             subs["context"] = max(subs["context"], one["context"])
-            t = _turns(sp)
             if t > worst["turns"]:
                 worst = {"turns": t, "cache_read": one["cache_read"]}
         total = {k: parent[k] + subs[k] for k in ("cache_read", "cache_write", "output")}
@@ -504,6 +529,14 @@ def summary_line(st):
 
 def report(st, verbose):
     print(summary_line(st))
+    sample = meter()
+    if sample:
+        print("  " + meter_line(sample))
+        level, why = meter_verdict(sample)
+        if level >= 2:
+            print("  " + "、".join(why) + "。**撤退の手順に入ってください。**")
+        elif level == 1:
+            print("  " + "、".join(why) + "。**新しい波を投げないでください。**")
     if verbose and st["phases"]:
         print("  工程別:")
         for name, c in st["phases"].items():
@@ -517,7 +550,7 @@ def report(st, verbose):
         return
     cr = tk["total"]["cache_read"]
     rate = burn_rate(cr)
-    if rate:
+    if rate and not sample:
         # 撤退の線までの見込みを添える。上限は観測できないので
         # 「あと何分か」ではなく「実測に基づく警告線まで何分か」と書く。
         left = (CACHE_READ_RETREAT - cr) / rate
@@ -536,11 +569,11 @@ def report(st, verbose):
             left_retreat = (CACHE_READ_RETREAT - cr) / rate
             print(f"  {_m(CACHE_READ_RETREAT)}（撤退の手順）まで約{left_retreat:.0f}分。新しい波は投げず、"
                   "動いている波の帰りを待って終了工程へ進む。")
-    if cr >= CACHE_READ_RETREAT:
+    if sample:
+        pass      # 判定は上の利用率で出した。文脈再送の線は利用率が読めないときの代わり
+    elif cr >= CACHE_READ_RETREAT:
         print(f"  文脈再送が {_m(cr)}。**撤退の手順に入ってください。**"
-              "2026年8月の事故（対話セッションとの競合下）の実測は 48M と 57M でしたが、"
-              "無人実行だけの実測（2026-09-22〜27）は52.9Mまで安全に完走しており、"
-              "この線はそれに基づいて引き直しています。"
+              "（利用率が読めないため、代わりに文脈再送の線で判定しています。）"
               "新しい調査はやめ、終了工程（追記・処分・検証）だけを通します。")
     elif cr >= CACHE_READ_NO_NEW_WAVE:
         print(f"  文脈再送が {_m(cr)}。**新しい波を投げないでください。**"
@@ -550,12 +583,355 @@ def report(st, verbose):
         print("  親の文脈再送が子より多くなっています。親が自分でページを開いている"
               "兆候です（取得はサブエージェントに出し、親は棚卸し・分割・追記・検証だけを行う）。")
     worst = tk.get("worst_subagent") or {}
-    if worst.get("turns", 0) > SUBAGENT_TURN_WARN:
+    if worst.get("turns", 0) >= SUBAGENT_TURN_WARN:
         print(f"  1体のサブエージェントが {worst['turns']}ターン回っています"
-              f"（{_m(worst['cache_read'])}）。1つの文脈でN回呼ぶと入力はNの2乗で増えるので、"
-              f"次の波からは担当範囲を分けて**1体 {SUBAGENT_TURN_WARN}ターン以下**に収めてください。")
+              f"（{_m(worst['cache_read'])}）。`maxTurns: {SUBAGENT_TURN_WARN}` に達した子は"
+              "**担当の途中で打ち切られています**（返ってきた行が担当の全部ではない）。"
+              "1つの文脈でN回呼ぶと入力はNの2乗で増えるので、次の波からは担当範囲を小さく分けて"
+              f"**1体 {SUBAGENT_TURN_WARN}ターン未満**で書き切れる大きさにしてください。")
 
 
+
+
+# ---------------------------------------------------------------- 実際の利用率
+#
+# 文脈再送（cache_read）は**代わりの数字**でしかない。上限そのものが観測できない
+# から、その手前に警告線を引いて代用してきた（docstring「上限そのものは
+# 分からない」）。ところが `claude -p --output-format stream-json` は
+# `rate_limit_event` として**サブスクリプションの実際の利用率**を出している
+# （5時間枠と7日枠。2026-09-30 に実測で確認）。見えるものは直接見る。
+#
+#   {"type":"rate_limit_event","rate_limit_info":{"status":"allowed",
+#     "unifiedWindows":{"five_hour":{"utilization":0.7,"resetsAt":1790770200},
+#                       "seven_day":{"utilization":0.63,"resetsAt":1791061200}}}}
+#
+# 標本は2つの経路で `data/.run/ratelimit.json` に入る。
+#   1. `claude-routine.sh` が本体の出力ストリームに流れてきたイベントを
+#      `--record-ratelimit` で書く（セッション開始時に1回出る）
+#   2. `--probe` が最小の `claude -p`（haiku・ツール無し・設定無し・記録無し）を
+#      起動して、その開始時のイベントを読む。1回およそ $0.01・6秒。
+#      `claude-routine.sh` が実行中に数分おきに回すほか、`gate()` も古ければ回す
+#
+# **標本が読めない・古いときは、従来どおり文脈再送の線で判定する。** 計器が
+# 壊れたことを理由に収集を止めない（他のゲートと同じ倒し方）。
+RATELIMIT = os.path.join(STATE_DIR, "ratelimit.json")
+RATELIMIT_RUN = os.path.join(STATE_DIR, "ratelimit-run.json")
+RATELIMIT_HISTORY = os.path.join(STATE_DIR, "ratelimit-history.jsonl")
+PROBE_LOCK = os.path.join(STATE_DIR, "ratelimit-probe.lock")
+
+# これより古い標本は判定に使わない（`claude-routine.sh` の測り直しの間隔は4分）
+METER_MAX_AGE_SEC = 15 * 60
+# `gate()`（次の波を投げる瞬間）は、これより古ければその場で測り直す
+GATE_PROBE_AGE_SEC = 5 * 60
+PROBE_TIMEOUT_SEC = 45
+
+# 5時間枠の線。100%で `status: rejected` になり、実行はその場で殺される。
+# 新しい波を止めてから撤退までに、動いている波1つ（実測で最大7.5M、
+# 重複除去後）と終了工程が走り切る幅を残す。
+FIVE_HOUR_NO_NEW_WAVE = 0.80
+FIVE_HOUR_RETREAT = 0.92
+
+# 7日枠は同じ週の**後の回と分け合う**。水曜の回が使い切ると、木金の回は
+# 最初の波すら投げられない（2026-09-30 の時点で水曜の夜に既に63%だった）。
+# そこで「リセットまでに残っている予定の回数 × 1回ぶん」を残す位置に線を引く。
+# 1回ぶんは `ratelimit-history.jsonl`（各回の開始と終了の標本）の実測から取り、
+# 実測が無いうちは既定値を使う。
+SEVEN_DAY_CEILING = 0.92
+SEVEN_DAY_RETREAT = 0.96
+SEVEN_DAY_RESERVE_DEFAULT = 0.10
+SEVEN_DAY_RESERVE_MIN = 0.03
+SEVEN_DAY_RESERVE_MAX = 0.20
+
+# 定期起動の時刻（`.claude/systemd/player-one-dispatch.timer` の OnCalendar）。
+# 曜日は weekly-routine/SKILL.md の ```schedule ブロックから読む。
+SCHEDULE_FILE = os.path.join(ROOT, ".claude", "skills", "weekly-routine", "SKILL.md")
+SCHEDULE_TZ = "Asia/Tokyo"
+SCHEDULE_HOUR, SCHEDULE_MINUTE = 2, 30
+
+
+def _window(info, name):
+    """`rate_limit_info` から1つの枠を {"u": 利用率, "reset": 秒} で取り出す。"""
+    w = (info.get("unifiedWindows") or {}).get(name)
+    if isinstance(w, dict) and isinstance(w.get("utilization"), (int, float)):
+        return {"u": float(w["utilization"]), "reset": w.get("resetsAt")}
+    # 古い形式: 最上位に「いちばん厳しい枠」だけが載る
+    if info.get("rateLimitType") == name and isinstance(info.get("utilization"), (int, float)):
+        return {"u": float(info["utilization"]), "reset": info.get("resetsAt")}
+    return None
+
+
+def parse_rate_limit_event(obj):
+    """ストリームの1イベントから標本を作る。対象外・形が違えば None。"""
+    if not isinstance(obj, dict) or obj.get("type") != "rate_limit_event":
+        return None
+    info = obj.get("rate_limit_info")
+    if not isinstance(info, dict):
+        return None
+    five, seven = _window(info, "five_hour"), _window(info, "seven_day")
+    if five is None and seven is None and info.get("status") != "rejected":
+        return None
+    return {"five_hour": five, "seven_day": seven, "status": info.get("status") or ""}
+
+
+def _write_json(path, obj):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+def record_sample(sample, source):
+    """標本を保存する。**何があっても例外を投げない。**"""
+    try:
+        _write_json(RATELIMIT, dict(sample, at=_now(), source=source))
+        return True
+    except Exception:                                    # noqa: BLE001
+        return False
+
+
+def record_stream(lines, source="stream"):
+    """ストリームの行（JSON）から `rate_limit_event` を拾って保存する。保存した件数を返す。"""
+    n = 0
+    for line in lines:
+        line = line.strip()
+        if '"rate_limit_event"' not in line:
+            continue
+        try:
+            sample = parse_rate_limit_event(json.loads(line))
+        except ValueError:
+            continue
+        if sample and record_sample(sample, source):
+            n += 1
+    return n
+
+
+def meter(max_age=METER_MAX_AGE_SEC):
+    """新しい標本を返す。無い・古い・壊れているなら None。"""
+    try:
+        with open(RATELIMIT, encoding="utf-8") as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(st, dict) or not isinstance(st.get("at"), (int, float)):
+        return None
+    if _now() - st["at"] > max_age:
+        return None
+    return st
+
+
+def _probe_env():
+    """測定用の `claude` に渡す環境。**このセッションの素性を持ち込まない。**
+
+    `CLAUDE_CODE_SESSION_ID` を継ぐと、測定用のセッションが本体の記録を自分のもの
+    だと名乗る（`claude-routine.sh` がこれを unset している理由と同じ）。
+    `CLAUDE_ROUTINE` を継ぐと、万一プロジェクトの設定が読まれたときにゲートが
+    測定用のセッションにまで効く。認証（`CLAUDE_CODE_OAUTH_TOKEN`）はそのまま渡す。
+    """
+    drop = {"CLAUDE_CODE_SESSION_ID", "CLAUDE_ROUTINE", "CLAUDE_INVESTIGATE",
+            "CLAUDE_PROJECT_DIR", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"}
+    return {k: v for k, v in os.environ.items() if k not in drop}
+
+
+def probe(timeout=PROBE_TIMEOUT_SEC):
+    """最小の `claude -p` を起動して利用率を測り、保存した標本を返す。取れなければ None。
+
+    ほかのプロセスが測っている最中なら待たずに None を返す（呼び出し側は既存の
+    標本を使う）。子が3体並行で取得している最中に、それぞれが測り直しに行って
+    6秒ずつ待たされる事態を作らないため。
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    claude = os.environ.get("CLAUDE_BIN") or shutil.which("claude")
+    if not claude:
+        return None
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        lockf = open(PROBE_LOCK, "w")
+    except OSError:
+        return None
+    try:
+        try:
+            fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return None
+        # 設定を1つも読ませない（`--setting-sources ""`）。フックもスキルも動かず、
+        # 記録も残らない（`--no-session-persistence`）ので、測定が計測対象に混ざらない。
+        # `--bare` は OAuth を読まないので使えない。
+        cmd = [claude, "-p", ".", "--setting-sources", "", "--no-session-persistence",
+               "--tools", "", "--strict-mcp-config", "--model", "haiku",
+               "--max-turns", "1", "--output-format", "stream-json", "--verbose"]
+        try:
+            r = subprocess.run(cmd, cwd=tempfile.gettempdir(), env=_probe_env(),
+                               stdin=subprocess.DEVNULL, capture_output=True,
+                               text=True, timeout=timeout)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if record_stream(r.stdout.splitlines(), source="probe"):
+            return meter()
+        return None
+    finally:
+        try:
+            fcntl.flock(lockf, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lockf.close()
+
+
+def _scheduled_days():
+    """```schedule ブロックに曜日番号（1〜7）で書かれた行の曜日。読めなければ空。"""
+    try:
+        text = open(SCHEDULE_FILE, encoding="utf-8").read()
+    except OSError:
+        return set()
+    days, inside = set(), False
+    for line in text.splitlines():
+        t = line.strip()
+        if t == "```schedule":
+            inside = True
+            continue
+        if inside and t.startswith("```"):
+            break
+        if inside and t and not t.startswith("#"):
+            head = t.split()[0]
+            if head.isdigit() and 1 <= int(head) <= 7:
+                days.add(int(head))
+    return days
+
+
+def remaining_runs(until, now=None):
+    """いまから `until`（秒）までに、定期起動が何回残っているか。"""
+    import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(SCHEDULE_TZ)
+    except Exception:                                    # noqa: BLE001
+        return 0
+    days = _scheduled_days()
+    if not days or not isinstance(until, (int, float)):
+        return 0
+    now = _now() if now is None else now
+    d = datetime.datetime.fromtimestamp(now, tz).date()
+    n = 0
+    for i in range(0, 9):
+        day = d + datetime.timedelta(days=i)
+        slot = datetime.datetime(day.year, day.month, day.day, SCHEDULE_HOUR,
+                                 SCHEDULE_MINUTE, tzinfo=tz).timestamp()
+        if now < slot < until and day.isoweekday() in days:
+            n += 1
+    return n
+
+
+def reserve_per_run():
+    """1回の実行が7日枠をどれだけ使うか（実測の中央値）。実測が無ければ既定値。"""
+    deltas = []
+    try:
+        with open(RATELIMIT_HISTORY, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    h = json.loads(line)
+                    a, b = h["start"]["seven_day"], h["end"]["seven_day"]
+                except (ValueError, KeyError, TypeError):
+                    continue
+                # 途中で枠がリセットされた回は差が負になり、1回ぶんを表さない
+                if a and b and a.get("reset") == b.get("reset") and b["u"] > a["u"]:
+                    deltas.append(b["u"] - a["u"])
+    except OSError:
+        pass
+    if not deltas:
+        return SEVEN_DAY_RESERVE_DEFAULT
+    recent = sorted(deltas[-6:])
+    mid = recent[len(recent) // 2]
+    return min(SEVEN_DAY_RESERVE_MAX, max(SEVEN_DAY_RESERVE_MIN, mid))
+
+
+def seven_day_line(sample, now=None):
+    """7日枠で「新しい波を投げない」線と、その根拠（残りの回数・1回ぶん）。"""
+    seven = sample.get("seven_day") or {}
+    left = remaining_runs(seven.get("reset"), now)
+    per = reserve_per_run()
+    return max(0.0, SEVEN_DAY_CEILING - per * left), left, per
+
+
+def meter_verdict(sample, now=None):
+    """標本から判定する。(水準, 理由の文) を返す。水準 0=投げてよい 1=新しい波を止める 2=撤退。"""
+    level, why = 0, []
+    five, seven = sample.get("five_hour"), sample.get("seven_day")
+    if sample.get("status") == "rejected":
+        level = 2
+        why.append("利用上限に達しています（status=rejected）")
+    if five:
+        if five["u"] >= FIVE_HOUR_RETREAT:
+            level = max(level, 2)
+            why.append(f"5時間枠が {five['u']:.0%}（撤退の線 {FIVE_HOUR_RETREAT:.0%}）")
+        elif five["u"] >= FIVE_HOUR_NO_NEW_WAVE:
+            level = max(level, 1)
+            why.append(f"5時間枠が {five['u']:.0%}（新しい波を投げない線 {FIVE_HOUR_NO_NEW_WAVE:.0%}）")
+    if seven:
+        line, left, per = seven_day_line(sample, now)
+        if seven["u"] >= SEVEN_DAY_RETREAT:
+            level = max(level, 2)
+            why.append(f"7日枠が {seven['u']:.0%}（撤退の線 {SEVEN_DAY_RETREAT:.0%}）")
+        elif seven["u"] >= line:
+            level = max(level, 1)
+            why.append(f"7日枠が {seven['u']:.0%}（新しい波を投げない線 {line:.0%}"
+                       f"＝リセットまでに残る定期実行{left}回×1回ぶん{per:.0%}を残す位置）")
+    return level, why
+
+
+def meter_line(sample, now=None):
+    """`--report` に載せる1行。"""
+    import datetime
+    parts = []
+    for name, label in (("five_hour", "5時間枠"), ("seven_day", "7日枠")):
+        w = sample.get(name)
+        if not w:
+            continue
+        reset = ""
+        if isinstance(w.get("reset"), (int, float)):
+            reset = datetime.datetime.fromtimestamp(w["reset"]).strftime("%m/%d %H:%M")
+            reset = f"・リセット {reset}"
+        parts.append(f"{label} {w['u']:.0%}{reset}")
+    age = (_now() - sample.get("at", _now())) / 60.0
+    line, left, per = seven_day_line(sample, now) if sample.get("seven_day") else (None, 0, 0)
+    tail = (f"。線: 5時間枠 {FIVE_HOUR_NO_NEW_WAVE:.0%}で新しい波を止め {FIVE_HOUR_RETREAT:.0%}で撤退"
+            + (f"・7日枠 {line:.0%}で新しい波を止める（残り{left}回×{per:.0%}を後の回に残す）"
+               if line is not None else ""))
+    return f"[利用率] {' / '.join(parts)}（{age:.0f}分前に測定）{tail}"
+
+
+def run_mark(which, skill=""):
+    """実行の開始・終了の利用率を記録する。終了時に1回ぶんの実測を履歴へ足す。
+
+    `claude-routine.sh` が本体の起動前と終了後に呼ぶ。**何があっても 0 を返す。**
+    """
+    try:
+        sample = probe() or meter(max_age=120)
+        if which == "start":
+            _write_json(RATELIMIT_RUN, {"start": sample, "skill": skill, "at": _now()})
+        else:
+            try:
+                with open(RATELIMIT_RUN, encoding="utf-8") as f:
+                    run = json.load(f)
+            except (OSError, ValueError):
+                run = {}
+            if isinstance(run, dict) and run.get("start") and sample:
+                import datetime
+                os.makedirs(STATE_DIR, exist_ok=True)
+                with open(RATELIMIT_HISTORY, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({
+                        "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "skill": run.get("skill") or skill,
+                        "start": run["start"], "end": sample,
+                    }, ensure_ascii=False) + "\n")
+        if sample:
+            print(meter_line(sample))
+        else:
+            print("[利用率] 測れませんでした（文脈再送の線で判定を続けます）")
+    except Exception as e:                               # noqa: BLE001
+        print(f"[利用率] 記録に失敗しました: {e}")
+    return 0
 
 
 def gate():
@@ -583,9 +959,28 @@ def gate():
     大きい（`wave_gate.py` と同じ倒し方。`fetch_gate.py` が逆に倒しているのは、あちらが
     外部への迷惑を見ているためである）。
     """
+    # 実際の利用率が読めるなら、それで決める（代わりの数字より優先する）。
+    sample = meter(max_age=GATE_PROBE_AGE_SEC) or probe()
+    if sample:
+        level, why = meter_verdict(sample)
+        if level == 0:
+            return 0
+        head = "、".join(why) + "。"
+        if level >= 2:
+            print(f"{head}**撤退の手順に入ってください。**\n\n"
+                  "新しい調査はやめ、終了工程（追記・処分・検証・報告）だけを通します。"
+                  "未処理の前回行は `tools/prev_rows.py <ds> --carry-rest --apply` で片付けられます"
+                  "（これから調べる予定の行が残っているうちは使わないこと）。", file=sys.stderr)
+        else:
+            print(f"{head}**この波は投げられません。**\n\n"
+                  "動いている波があれば受け取り、`append_rows.py` で書き切ってから終了工程へ進んでください。"
+                  "ここから波を投げると、上限に当たったときに動いている子へ割り込む手段がありません。",
+                  file=sys.stderr)
+        return 1
+
     tk = token_usage()
     if not tk:
-        print("# 文脈再送を読めませんでした（セッションの記録が見つからない）。判定を見送ります。",
+        print("# 利用率も文脈再送も読めませんでした。判定を見送ります。",
               file=sys.stderr)
         return 2
     cr = tk["total"]["cache_read"]
@@ -602,9 +997,7 @@ def gate():
         head = (f"文脈再送が {_m(cr)} で、新しい波を投げない線（{_m(CACHE_READ_NO_NEW_WAVE)}）を"
                 "越えています。**この波は投げられません。**")
         body = ("動いている波があれば受け取り、`append_rows.py` で書き切ってから終了工程へ進んでください。"
-                "2026年8月の事故（対話セッションとの競合下）の実測は 48M と 57M でしたが、"
-                "無人実行だけの実測（2026-09-22〜27）は52.9Mまで安全に完走しており、"
-                "この線はそれに基づいて引き直しています。ここから波を投げると、"
+                "（利用率が読めないため、代わりに文脈再送の線で判定しています。）ここから波を投げると、"
                 "打ち切られたときに動いている子へ割り込む手段がありません。")
     print(f"{head}\n\n{body}", file=sys.stderr)
     return 1
@@ -646,15 +1039,25 @@ def gate_fetch():
     **2 では止めない。** `gate()` と同じ理由で、計測できないことを理由に取得を
     止めると被害のほうが大きい。
     """
-    tk = token_usage()
-    if not tk:
-        print("# 文脈再送を読めませんでした（セッションの記録が見つからない）。判定を見送ります。",
-              file=sys.stderr)
-        return 2
-    cr = tk["total"]["cache_read"]
-    if cr < CACHE_READ_RETREAT:
-        return 0
-    print(f"文脈再送が {_m(cr)} で、撤退の線（{_m(CACHE_READ_RETREAT)}）を越えています。\n\n"
+    # ここでは測り直さない。取得のたびに呼ばれるので、6秒の測定を挟むと調査が
+    # 目に見えて遅くなる。標本は `claude-routine.sh` が数分おきに更新している。
+    sample = meter()
+    if sample:
+        level, why = meter_verdict(sample)
+        if level < 2:
+            return 0
+        head = "、".join(why) + "。"
+    else:
+        tk = token_usage()
+        if not tk:
+            print("# 利用率も文脈再送も読めませんでした。判定を見送ります。",
+                  file=sys.stderr)
+            return 2
+        cr = tk["total"]["cache_read"]
+        if cr < CACHE_READ_RETREAT:
+            return 0
+        head = f"文脈再送が {_m(cr)} で、撤退の線（{_m(CACHE_READ_RETREAT)}）を越えています。"
+    print(f"{head}\n\n"
           "**波の途中でも、これ以上は取得しないでください。** ここまでに調べた行を "
           "temp/rows-<波の名前>.jsonl に書き出し、返答にはパスと件数だけを書いてターンを終えてください。"
           "新しい波はもちろん、動いている波の中の取得もここで打ち切ります。", file=sys.stderr)
@@ -675,7 +1078,26 @@ def main():
                    help="新しい波を投げてよいかを終了コードで返す（フックが呼ぶ）")
     p.add_argument("--gate-fetch", action="store_true",
                    help="波の途中でも、この1回の取得をしてよいかを終了コードで返す（フックが呼ぶ）")
+    p.add_argument("--probe", action="store_true",
+                   help="最小の claude -p で実際の利用率を測って保存する（claude-routine.sh が呼ぶ）")
+    p.add_argument("--record-ratelimit", action="store_true",
+                   help="標準入力の stream-json から rate_limit_event を拾って保存する")
+    p.add_argument("--run-start", action="store_true", help="実行開始時の利用率を記録する")
+    p.add_argument("--run-end", action="store_true", help="実行終了時の利用率を記録し、1回ぶんを履歴に足す")
+    p.add_argument("--skill", default="", help="--run-start / --run-end に添えるスキル名")
     args = p.parse_args()
+
+    if args.record_ratelimit:
+        record_stream(sys.stdin)
+        return 0
+
+    if args.probe:
+        sample = probe()
+        print(meter_line(sample) if sample else "[利用率] 測れませんでした")
+        return 0 if sample else 1
+
+    if args.run_start or args.run_end:
+        return run_mark("start" if args.run_start else "end", args.skill)
 
     if args.reset:
         reset()
@@ -708,7 +1130,7 @@ def main():
 
     if args.as_json:
         json.dump({**st, "elapsed_min": round(elapsed_min(st), 1),
-                   "tokens": token_usage()},
+                   "tokens": token_usage(), "ratelimit": meter()},
                   sys.stdout, ensure_ascii=False, indent=2)
         print()
         return 0

@@ -203,8 +203,24 @@ acquire_lock() {
 }
 
 RUN_STATE=""
+PROBE_LOOP_PID=""
+
+# 実行中に数分おきに実際の利用率を測り直す（tools/budget.py --probe）。
+# `rate_limit_event` はセッション開始時に1回しか出ないので、本体のストリームだけでは
+# 実行中の利用率が分からない。標本は data/.run/ratelimit.json に入り、`--gate`
+# （次の波を投げる瞬間）と `--gate-fetch`（波の途中の取得）がそれを読む。
+stop_probe_loop() {
+  if [ -n "$PROBE_LOOP_PID" ]; then
+    # 待機中の sleep も一緒に止める（親の subshell だけ殺すと sleep が残る）
+    pkill -P "$PROBE_LOOP_PID" 2>/dev/null
+    kill "$PROBE_LOOP_PID" 2>/dev/null
+    wait "$PROBE_LOOP_PID" 2>/dev/null
+    PROBE_LOOP_PID=""
+  fi
+}
 
 cleanup() {
+  stop_probe_loop
   if [ "$LOCK_HELD" -eq 1 ]; then
     rm -f "$LOCK_DIR/pid"
     rmdir "$LOCK_DIR" 2>/dev/null
@@ -591,8 +607,12 @@ if [ -n "$ROUTINE_SKILL" ]; then
   [ -n "$ROW" ] || die "ROUTINE_SKILL=${ROUTINE_SKILL} が ${ROUTINE_SKILL_FILE} の対応表にありません。表に行を追加してください"
 else
   ROW="$(find_schedule_row 1 "$(date +%u)")"
-  [ -n "$ROW" ] || ROW="$(find_schedule_row 1 "other")"
-  [ -n "$ROW" ] || die "${ROUTINE_SKILL_FILE} の対応表に other 行（既定）がありません"
+  # 定期実行の曜日でないのに「(自動選択)」で起動された回は、`other` 行に落とさず止める。
+  # 手動起動は `routine_skill` を明示する運用としている——2026-09-26（土）・27（日）の
+  # 手動起動は「(自動選択)」のまま `other` 行（events）に落ち、意図しないイベント収集が
+  # 2回走った一方で、ライブは週1回しか動いていなかった。`other` 行は対話セッションで
+  # 手順を読むときの既定として残す（weekly-routine/SKILL.md）。
+  [ -n "$ROW" ] || die "今日（曜日番号 $(date +%u)）は定期実行の曜日ではありません。手動で起動するときは workflow_dispatch の routine_skill でスキルを選んでください（「(自動選択)」は定期実行の曜日だけで使えます）"
   ROUTINE_SKILL="$(awk '{print $2}' <<< "$ROW")"
 fi
 export ROUTINE_SKILL
@@ -746,6 +766,16 @@ PYCRED
   [ -n "$CRED_WARN" ] && log "WARNING: $CRED_WARN"
 fi
 
+# 実際の利用率（5時間枠・7日枠）を開始時に測り、終了時にもう一度測る。
+# 差が「この1回が7日枠をどれだけ使ったか」の実測になり、budget.py はそれを
+# 同じ週の後の回に残す分（7日枠の線）の計算に使う。**失敗しても止めない。**
+export CLAUDE_BIN
+log "$(python3 "$REPO_DIR/tools/budget.py" --run-start --skill "$ROUTINE_SKILL" 2>&1 | head -3)"
+( while sleep "${ROUTINE_PROBE_INTERVAL_SEC:-240}"; do
+    python3 "$REPO_DIR/tools/budget.py" --probe >/dev/null 2>&1
+  done ) &
+PROBE_LOOP_PID=$!
+
 log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
 
 "${CLAUDE_CMD[@]}" -p "$PROMPT" \
@@ -786,6 +816,12 @@ log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
             fi
           done
           ;;
+        rate_limit_event)
+          # 実際の利用率。budget.py の判定に使う標本として保存し、ログにも残す
+          printf '%s\n' "$line" | python3 "$REPO_DIR/tools/budget.py" --record-ratelimit >/dev/null 2>&1
+          rl=$(printf '%s' "$line" | jq -r '.rate_limit_info | "status=\(.status // "") 5h=\(.unifiedWindows.five_hour.utilization // .utilization // "?") 7d=\(.unifiedWindows.seven_day.utilization // "?")"' 2>/dev/null)
+          echo "[$ts] [RATELIMIT] ${rl}" >> "$LOG_FILE"
+          ;;
         result)
           result_subtype=$(printf '%s' "$line" | jq -r '.subtype // empty' 2>/dev/null)
           result_text=$(printf '%s' "$line" | jq -r '.result // empty' 2>/dev/null)
@@ -801,6 +837,9 @@ log "Claude Code を起動します（上限 ${ROUTINE_TIMEOUT_SEC} 秒）"
     done
 
 CLAUDE_EXIT=${PIPESTATUS[0]}
+
+stop_probe_loop
+log "$(python3 "$REPO_DIR/tools/budget.py" --run-end --skill "$ROUTINE_SKILL" 2>&1 | head -3)"
 
 RESULT_SUBTYPE=""
 IS_ERROR=""
