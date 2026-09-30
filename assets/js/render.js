@@ -510,9 +510,9 @@ const TAB_DATA_NOUNS = {
 /* 収集はタブごとに別の曜日に走らせているので、次の更新日もタブに合わせて出す。
    3タブぶんをまとめて「毎週◯曜日」と1つ書くと、必ず2タブぶんが嘘になる。 */
 const TAB_UPDATE_DAYS = {
-  live: "水曜日",
+  event: "水曜日",
   movie: "木曜日",
-  event: "金曜日",
+  live: "金曜日",
 };
 export function syncUpdatedLabel() {
   const day = document.getElementById("statUpdateDay");
