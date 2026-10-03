@@ -56,6 +56,7 @@ python3 tools/run_all_tests_test.py # 一括ランナーが「0件」や実行�
 python3 tools/investigate_routine_test.py # 自動調査の5つの関門（通しの検証を含む）
 python3 tools/append_rows_test.py   # upsert（既存uidは増やさず更新）と持ち越し
 python3 tools/roster_test.py        # 行の会場表記から名簿へ収穫を紐づける規則（横取り・取りこぼし）
+python3 tools/clean_workdirs_test.py # temp/・ログ・robots キャッシュの掃除（消してはいけないもの・ロック・routine への結線）
 ```
 
 上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。

@@ -701,17 +701,35 @@ else
   log "WARNING: 予算の数え直しに失敗しました（計測がずれるだけで、収集には影響しません）"
 fi
 
-# temp/ の残骸を片付ける。
+# temp/・ログ・robots キャッシュの古い残骸を片付ける（tools/clean_workdirs.py）。
 #
 # サブエージェントは temp/ に作業ファイルを置くが、誰も消していなかったため
 # 367ファイルまで溜まっていた。2026-08-27 の子は `ls temp/` を実行して、
 # **その全件を自分の文脈に取り込んでいる**。
 #
-# 2日より新しいものは残す。前回の実行が打ち切られたとき、temp/ の
+# 以前はここに `find temp -maxdepth 1 -type f -mtime +2 -delete` が直書きされていたが、
+# 直下のファイルしか消さず（サブエージェントの作ったディレクトリが残る）、ログと
+# robots キャッシュは対象外で、対話で調べた回の残骸も消せなかった。
+# 規則（何を・何日残すか）は clean_workdirs.py の RULES に一本化してあり、テストがある。
+# temp/ は従来どおり3日未満のものを残す：前回の実行が打ち切られたとき、temp/ の
 # `rows-*.jsonl` は**唯一残った調査結果**であり、人が拾い直せる必要がある。
-if [ -d "$REPO_DIR/temp" ]; then
-  removed="$(find "$REPO_DIR/temp" -maxdepth 1 -type f -mtime +2 -print -delete 2>/dev/null | wc -l)"
-  [ "${removed:-0}" -gt 0 ] && log "temp/ の2日より古いファイルを ${removed}件 片付けました"
+#
+# **失敗しても収集は止めない**（掃除は本業ではない）。--from-routine は「この呼び出しは
+# ロックを持っている本人」という宣言で、付けないと自分のロックを理由に断られる。
+# 出力は件数の行だけをログに残し、一覧は流さない（毎週ログが膨らむため）。
+if [ -f "$REPO_DIR/tools/clean_workdirs.py" ]; then
+  clean_out="$(python3 "$REPO_DIR/tools/clean_workdirs.py" --apply --from-routine 2>&1)"
+  clean_rc=$?
+  if [ "$clean_rc" -eq 0 ]; then
+    clean_summary="$(printf '%s\n' "$clean_out" | grep -E '^# [0-9]+件を消しました' | head -1)"
+    case "$clean_summary" in
+      "# 0件を消しました"*|"") ;;
+      *) log "作業ディレクトリの古い残骸を片付けました（${clean_summary#\# }）" ;;
+    esac
+  else
+    log "WARNING: 作業ディレクトリの掃除が終了コード ${clean_rc} で終わりました（収集には影響しません）"
+    log_output "$(printf '%s\n' "$clean_out" | tail -n 20)"
+  fi
 fi
 
 # 親向けの抜粋を先に作っておく。
