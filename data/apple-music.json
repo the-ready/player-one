@@ -44,6 +44,11 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/acidman/74565843"
     },
+    "AGGROKNUCKLE": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "AK-69": {
       "checked": "2026-08-27",
       "url": "",
@@ -151,6 +156,10 @@
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
+    "BAREBONES": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/barebones/213820571"
+    },
     "BE:FIRST": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/be-first/1579021180"
@@ -238,6 +247,10 @@
     "CORTIS": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/cortis/1831651635"
+    },
+    "COUNTRY YARD": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/country-yard/385689807"
     },
     "CRYSTAL WATERS": {
       "checked": "2026-08-13",
@@ -371,6 +384,10 @@
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/daichi-yamamoto/1261245016"
     },
+    "Dizzy Sunfist": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/dizzy-sunfist/704055702"
+    },
     "Dungeoneering": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/dungeoneering/1895907652"
@@ -394,6 +411,10 @@
     "EMNW": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/emnw/1775671229"
+    },
+    "ENDZWECK": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/endzweck/130707264"
     },
     "ENTH": {
       "checked": "2026-10-02",
@@ -429,6 +450,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/fomare/1471957870"
     },
+    "FRONTIER BACKYARD": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/frontier-backyard/83372819"
+    },
     "FRUITS ZIPPER": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/fruits-zipper/1617607581"
@@ -452,6 +477,10 @@
     "G-FREAK FACTORY": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/g-freak-factory/74583775"
+    },
+    "GARLICBOYS": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/garlicboys/285866431"
     },
     "GENERATIONS": {
       "checked": "2026-08-13",
@@ -493,10 +522,18 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/hanroro/1613668993"
     },
+    "HAWAIIAN6": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/hawaiian6/74504945"
+    },
     "HEAVEN'S GATE CREW": {
       "checked": "2026-08-29",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "HERO COMPLEX": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/hero-complex/1545862881"
     },
     "HEY-SMITH": {
       "checked": "2026-08-27",
@@ -666,6 +703,15 @@
       "checked": "2026-08-29",
       "url": "https://music.apple.com/jp/artist/katimi-ai/1625249622"
     },
+    "KiM": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "大小文字を無視すると候補が5件"
+    },
+    "KiNGONS": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/kingons/354106171"
+    },
     "KickFlip": {
       "checked": "2026-08-27",
       "url": "",
@@ -711,6 +757,11 @@
     "LOW IQ 01": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/low-iq-01/82425221"
+    },
+    "LOW IQ 01 &THE RHYTHM MAKERS": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
     },
     "Laughing Hick": {
       "checked": "2026-08-13",
@@ -768,6 +819,11 @@
     "MAZZEL": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/mazzel/1678109085"
+    },
+    "MEANING": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "同名の候補が4件（別アーティストの可能性）"
     },
     "METALVERSE": {
       "checked": "2026-08-13",
@@ -866,6 +922,11 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/nomelon-nolemon/1576692494"
     },
+    "NUMB": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "同名の候補が5件（別アーティストの可能性）"
+    },
     "NakamuraEmi": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/nakamuraemi/1064840924"
@@ -920,9 +981,17 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/oshikikeigo/1803068248"
     },
+    "OVER ARM THROW": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/over-arm-throw/126287156"
+    },
     "OddRe:": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/oddre/1816701537"
+    },
+    "PALM": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/palm/1433986296"
     },
     "PALOMA MORPHY": {
       "checked": "2026-08-13",
@@ -1036,6 +1105,11 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/sekou/1834141716"
     },
+    "SHADOWS": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
+    },
     "SHANK": {
       "checked": "2026-08-13",
       "url": "",
@@ -1077,6 +1151,11 @@
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
+    "STAB 4 REASON": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "STARGLOW": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/starglow/1838696637"
@@ -1085,6 +1164,19 @@
       "checked": "2026-08-13",
       "url": "",
       "why": "大小文字を無視すると候補が3件"
+    },
+    "STINKY": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/stinky/1537914392"
+    },
+    "STOMPIN'BIRD": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/stompin-bird/453628902"
+    },
+    "STOMPIN’ BIRD": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "表記ゆれを吸収しても候補が2件"
     },
     "STUTS": {
       "checked": "2026-08-13",
@@ -1136,6 +1228,10 @@
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
+    "THE NO EAR": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/the-no-ear/1283052447"
+    },
     "THE ORAL CIGARETTES": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/the-oral-cigarettes/684141729"
@@ -1169,6 +1265,10 @@
     "TOKYO No.1 SOUL SET(ACOUSTIC SET)": {
       "checked": "2026-08-29",
       "url": "https://music.apple.com/jp/artist/tokyo-no-1-soul-set/268542953"
+    },
+    "TOTALFAT": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/totalfat/157819625"
     },
     "TRACK15": {
       "checked": "2026-08-27",
@@ -1397,10 +1497,19 @@
       "url": "",
       "why": "同名の候補が8件（別アーティストの可能性）"
     },
+    "bacho": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "同名の候補が8件（別アーティストの可能性）"
+    },
     "coldrain": {
       "checked": "2026-08-13",
       "url": "",
       "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "dustbox": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/dustbox/74587536"
     },
     "ecec": {
       "checked": "2026-08-29",
@@ -1445,6 +1554,10 @@
     "jo0ji": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/jo0ji/1635676713"
+    },
+    "kamomekamome": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/kamomekamome/85438590"
     },
     "kurayamisaka": {
       "checked": "2026-08-13",
@@ -1497,6 +1610,10 @@
       "checked": "2026-08-29",
       "url": "",
       "why": "同名の候補が7件（別アーティストの可能性）"
+    },
+    "spike shoes": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/spike-shoes/1735471706"
     },
     "sumika": {
       "checked": "2026-08-13",
@@ -1560,6 +1677,10 @@
       "url": "",
       "why": "同名の候補が4件（別アーティストの可能性）"
     },
+    "しけもくロッカーズ": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/%E3%81%97%E3%81%91%E3%82%82%E3%81%8F%E3%83%AD%E3%83%83%E3%82%AB%E3%83%BC%E3%82%BA/1370716142"
+    },
     "すてぃぎもろく": {
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/%E3%81%99%E3%81%A6%E3%81%83%E3%81%8E%E3%82%82%E3%82%8D%E3%81%8F/1702983050"
@@ -1622,6 +1743,11 @@
     "オカモトレイジ(OKAMOTO'S)": {
       "checked": "2026-09-25",
       "url": "https://music.apple.com/jp/artist/%E3%82%AA%E3%82%AB%E3%83%A2%E3%83%88%E3%83%AC%E3%82%A4%E3%82%B8/569973471"
+    },
+    "オナニ渕剛": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
     },
     "キタニタツヤ": {
       "checked": "2026-08-13",
@@ -1792,6 +1918,11 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E4%B8%AD%E5%B7%9D%E6%95%AC/259230301"
     },
+    "九狼吽": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
     "僕が見たかった青空": {
       "checked": "2026-09-25",
       "url": "https://music.apple.com/jp/artist/%E5%83%95%E3%81%8C%E8%A6%8B%E3%81%9F%E3%81%8B%E3%81%A3%E3%81%9F%E9%9D%92%E7%A9%BA/1814542524"
@@ -1818,6 +1949,11 @@
     "四星球": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/%E5%9B%9B%E6%98%9F%E7%90%83/288352561"
+    },
+    "壬生狼": {
+      "checked": "2026-10-09",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
     },
     "多次元制御機構よだか": {
       "checked": "2026-08-27",
@@ -1849,6 +1985,10 @@
     "山内総一郎": {
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/%E5%B1%B1%E5%86%85%E7%B7%8F%E4%B8%80%E9%83%8E/193509516"
+    },
+    "山嵐": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/%E5%B1%B1%E5%B5%90/73441470"
     },
     "岬小次郎[RO JACK for ROCK IN JAPAN FESTIVAL 2026優勝アーティスト]": {
       "checked": "2026-08-13",
@@ -2077,6 +2217,10 @@
       "checked": "2026-09-25",
       "url": "",
       "why": "同名の候補が2件（別アーティストの可能性）"
+    },
+    "鐵槌": {
+      "checked": "2026-10-09",
+      "url": "https://music.apple.com/jp/artist/%E9%90%B5%E6%A7%8C/1481917027"
     },
     "阿部真央": {
       "checked": "2026-08-13",
