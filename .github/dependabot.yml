@@ -1,0 +1,24 @@
+# GitHub Actions の部品の更新を知らせる。
+#
+# 部品は、タグではなくコミットの SHA で固定してある（タグは後から差し替えられるため。
+# 部品の作者が乗っ取られても、固定した中身のまま動く）。weekly-collect・routine-investigate・
+# routine-repair は Pi（self-hosted runner）の上で、push 権のあるトークンを持って動くので、
+# 部品の中身が知らないうちに変わるのがいちばん困る。
+#
+# 固定したままだと更新が止まるので、Dependabot に新しい版の SHA へ書き換える PR を出させる。
+# PR の中身（差分と版の説明）を見てからマージする。どのワークフローも pull_request では
+# 起動しないので、Dependabot の PR が Pi の上で動くことはない。
+# 固定が崩れていないかは tools/workflow_pins_test.py が見る。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:00"
+      timezone: Asia/Tokyo
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
