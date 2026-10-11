@@ -2698,6 +2698,29 @@ self-hosted runner（ラベル `player-one-pi`）は `weekly-collect.yml` と `r
 7. **「Require approval for all outside collaborators」を有効化する**（Settings → Actions → General）。第13.6節の防御を、承認フローの側からも重ねる
 8. **`systemctl enable` されていることを確認する**（`svc.sh install` が通常はここまでやる）。これが無いと、Pi の再起動後に runner が自動で戻らない
 
+#### 13.7.1 runner を動かすユーザー（2026-10-11 から専用ユーザー）
+
+runner は、Pi の普段使いのユーザー（`fox`）ではなく、**専用ユーザー `p1-runner` で動かす**。`claude-routine.sh` は
+`bypassPermissions` で Claude を起こし、Claude は Web を読む。読んだページに命令が仕込まれていた場合に、
+普段使いのユーザーの持ち物（SSH の鍵・`gh` のトークン・Claude のログイン・同じ Pi の別プロジェクトの秘密）と
+sudo に届かせないためである。
+
+| 項目 | 内容 |
+|---|---|
+| ユーザー | `p1-runner`。パスワード無し・sudo 無し・ログイン不可（`/usr/sbin/nologin`）。追加のグループも無し |
+| runner の置き場 | `/home/p1-runner/actions-runner`（作業ツリーは `_work/player-one/player-one`） |
+| claude | 公式の導入方法で `~/.local/bin/claude` に入れる（`claude-routine.sh` の候補に入っている）。ほかのユーザーの nvm の中の claude は使わない |
+| node | `~/.local/node`（v24。nodejs.org の配布物をチェックサムで確かめて展開）。`*_test.mjs` と、整形のフックの `npx prettier` に要る。無いと `run_all_tests.py` が落ち、自動調査の push の関門を通らない |
+| PATH | runner の `.path` に `~/.local/bin` と `~/.local/node/bin` を入れる。**runner はジョブの PATH をここから取る**ので、別のユーザーのホームを指したままだと claude が見つからない |
+| Claude の設定 | `~/.claude/settings.json` に `{"effortLevel": "xhigh"}` だけを置く（以前は普段使いのユーザーの個人設定が効いていた。置かないと考える深さが変わる） |
+| systemd の守り | `…service.d/20-run-user.conf` に、`NoNewPrivileges`・`PrivateTmp`・`ProtectSystem=full` と、LAN への通信の遮断（`IPAddressDeny`。DNS のためルーターだけ許可）を置く |
+
+**localhost は遮断していない。** `dispatch_routine_test.py` と `investigate_routine_test.py` が localhost に偽の
+GitHub を立てて試すため、遮断するとこの2本が落ち、自動調査が push できなくなる（2026-10-11 に実測）。
+
+普段使いのユーザーからは、ログ（`_diag/` と作業ツリーの `.claude/logs/`）だけを読めるようにしてある（ACL）。
+入れ替えの手順と戻し方は、Pi の運用の手順書（trend-bento の `docs/security-runbook.md` の G）にある。
+
 登録後の動作確認は `weekly-collect.yml` を `workflow_dispatch`（`push: false`）で1回手動起動し、Actions の実行ログと `.claude/logs/routine_*.log` の両方を見比べるのが早い。
 
 **起動のタイマー（第13.3節）を入れる。** runner とは別の、一度きりの手作業である。
