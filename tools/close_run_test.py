@@ -51,7 +51,13 @@ def _run(tmp, *args):
 
 
 def _prepare_prev(tmp, ds):
-    """前回スナップショットを「いまのCSVそのもの」にする（差分が消滅0になる状態）。"""
+    """前回スナップショットを「いまのCSVそのもの」にする（差分が消滅0になる状態）。
+
+    close_run.py は差分の前に purge_ended.py で終了行を消す。写しの data/ に終了日を
+    過ぎた行が残っていると（実データは日が経てば必ずそうなる）、スナップショットとの間に
+    「消滅」が出てしまい、このテストが日付しだいで落ちる。そこで同じ片付けを先に済ませる。"""
+    subprocess.run([sys.executable, os.path.join(tmp, "tools", "purge_ended.py"), ds],
+                   cwd=tmp, capture_output=True, text=True, check=True)
     prev = os.path.join(tmp, "data", ".prev")
     os.makedirs(prev, exist_ok=True)
     shutil.copy(os.path.join(tmp, "data", f"{ds}.csv"), os.path.join(prev, f"{ds}.csv"))

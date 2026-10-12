@@ -3,7 +3,7 @@
    描画・絞り込み・地図・会場ピッカーの実装を1本に統一できるようにしている。
    タブに機能を足すときは、原則としてこのファイルの宣言だけを触る。 */
 
-import { txt, num, int, list, bool } from "./util.js";
+import { txt, num, int, list, bool, isFreePrice } from "./util.js";
 
 /* ---------- 共有の見た目テーブル ---------- */
 
@@ -373,6 +373,15 @@ const FLAG_DEALS = {
   label: () => "割引・クーポンがあるものだけ",
   test: (it) => !!(it.discountPct || it.couponNote),
 };
+/* 「割引・クーポン」と同じ「おトク」の行に並べる。ライブは入場無料が公演形態
+   （live_type=free）の軸として既にあり、チケットも定価固定なので持たない。 */
+const FLAG_FREE = {
+  id: "freeOnly",
+  group: "おトク",
+  cls: "free-chip",
+  label: () => "無料のものだけ",
+  test: (it) => isFreePrice(it.price),
+};
 const FLAG_FAV = {
   id: "favOnly",
   group: "保存",
@@ -458,6 +467,7 @@ export const TABS = {
     ],
     flags: [
       FLAG_DEALS,
+      FLAG_FREE,
       FLAG_NEW,
       FLAG_ONSALE,
       FLAG_BEFORE,
@@ -532,6 +542,7 @@ export const TABS = {
     ],
     flags: [
       FLAG_DEALS,
+      FLAG_FREE,
       FLAG_NEW,
       FLAG_ONSALE,
       FLAG_BEFORE,

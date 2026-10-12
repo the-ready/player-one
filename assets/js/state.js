@@ -171,6 +171,7 @@ const FACET_PARAM = {
 };
 const FLAG_PARAM = {
   dealsOnly: "deals",
+  freeOnly: "free",
   newOnly: "new",
   onsaleOnly: "onsale",
   beforeOnly: "before",
