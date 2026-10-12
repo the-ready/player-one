@@ -70,6 +70,7 @@ tools/                        収集タスク用のスクリプト
   update_holidays.py          data/holidays.csv を内閣府の祝日データから作り直す（人が随時実行。週次ルーチンには含めない）
   smoke_test.mjs              画面のスモークテスト（Playwright が要る）
   lineup_test.mjs             データの繋ぎ・検索・シートの検証（DOM不要）
+  free_filter_test.mjs        「無料のものだけ」の判定規則と配線の検証（DOM不要）
   caladd_test.mjs             カレンダーに追加する日付の初期値の検証（DOM不要）
 terms.html                    利用規約・免責事項（権利者向けの窓口・収集の方針）
 privacy.html                  プライバシーポリシー（端末内データと外部送信の一覧）
