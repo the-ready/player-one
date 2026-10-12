@@ -20,6 +20,7 @@ import {
   rememberTab,
   recalledTab,
   queryToState,
+  carryFilters,
   enableUrlSync,
   syncUrl,
 } from "./state.js";
@@ -65,6 +66,7 @@ import {
   updateSortUI,
   syncSearchForTab,
   resetFilters,
+  resetSharedFilters,
 } from "./ui-controls.js";
 
 /* ---------- タブ ---------- */
@@ -73,6 +75,10 @@ const tabBtn = (k) => document.getElementById(TABS[k].btnId);
 const tabPane = (k) => document.getElementById(TABS[k].paneId);
 
 export function setActiveTab(tab, opts = {}) {
+  /* 日程・エリア・特別チップは切替先へ持ち越す（設計書 第4.2.2節）。
+     戻る/進む（opts.carry === false）は URL から組み立てた状態が正なので、
+     出発側で上書きしない。起動時や同じタブの再選択は from === tab で何もしない。 */
+  const dropped = opts.carry === false ? [] : carryFilters(activeTab, tab);
   TAB_ORDER.forEach((k) => {
     const active = k === tab;
     tabBtn(k).setAttribute("aria-selected", String(active));
@@ -96,6 +102,11 @@ export function setActiveTab(tab, opts = {}) {
   syncUpdatedLabel();
   ensureTabData(tab);
   refreshNow({ push: opts.push !== false, url: opts.url !== false });
+  // 運べなかった条件があるときだけ知らせる。毎回出すとタブを移るたびにうるさい
+  if (dropped.length)
+    toast(
+      `${dropped.map((d) => `「${d}」`).join("")}は${TABS[tab].label}に無い条件のため、引き継げませんでした`,
+    );
 }
 
 function initTabs() {
@@ -177,6 +188,7 @@ async function boot() {
         onOpenLineup: openLineupSheet,
         onCalAdd: openCalAddSheet,
         onReset: resetFilters,
+        onResetShared: resetSharedFilters,
       });
   });
 
@@ -231,7 +243,7 @@ async function boot() {
 /* ---------- 戻る/進む ---------- */
 window.addEventListener("popstate", () => {
   const key = queryToState(location.search) || "event";
-  setActiveTab(key, { push: false, url: false });
+  setActiveTab(key, { push: false, url: false, carry: false });
 });
 
 /* ---------- 日付をまたいだとき ----------

@@ -26,6 +26,8 @@ import {
   curState,
   toggleFav,
   hasAnyFilter,
+  hasSharedFilter,
+  carryPlan,
   syncUrl,
 } from "./state.js";
 
@@ -89,10 +91,16 @@ export function renderList() {
     }
     // 行き止まりで押せる出口を必ず置く。文章で「解除してみてください」と
     // 言うだけでは、押せるものがどこにも無い画面になる。
+    // 他のタブから持ち越した日程やエリアが原因のことが多いので、検索語やこのタブ固有の
+    // 絞り込みを残したまま共通の条件だけ外せる出口を、全解除とは別に用意する。
+    const shared = hasSharedFilter(st, tab);
     listEl.innerHTML = `<div class="empty-state">
       <span class="big">${esc(tab.emptyTitle)}</span>
       <p>条件を減らすか、絞り込みをまとめて解除してください。</p>
-      ${hasAnyFilter() ? `<button type="button" class="empty-reset" data-act="reset">すべての絞り込みを解除</button>` : ""}
+      <div class="empty-actions">
+        ${shared ? `<button type="button" class="empty-reset" data-act="reset-shared">日程・エリアなど共通の条件をはずす</button>` : ""}
+        ${hasAnyFilter() ? `<button type="button" class="empty-reset" data-act="reset">すべての絞り込みを解除</button>` : ""}
+      </div>
     </div>`;
     return;
   }
@@ -118,7 +126,7 @@ function itemFromEl(el) {
 
 export function bindList(
   listEl,
-  { onOpenPlace, onOpenLineup, onCalAdd, onReset },
+  { onOpenPlace, onOpenLineup, onCalAdd, onReset, onResetShared },
 ) {
   listEl.addEventListener("click", (e) => {
     const toggle = e.target.closest(".detail-toggle");
@@ -153,6 +161,10 @@ export function bindList(
     const kind = act.dataset.act;
     if (kind === "reset") {
       onReset();
+      return;
+    }
+    if (kind === "reset-shared") {
+      onResetShared();
       return;
     }
     const item = itemFromEl(act);
@@ -470,19 +482,21 @@ export function renderAppliedBar() {
 }
 
 /* ---------- タブの件数バッジ ----------
-   検索語（q）は3タブで共有なので（state.js）、いま打った語が他のタブにも
-   当たりがあるかをタブを開き直さずに気づけるようにする。
-   matchesFilters にそのタブ自身の state を渡しているので、出る数字は
-   「いまこのタブに切り替えたら実際に見える枚数」と一致する
-   ——検索語だけを別ロジックで数えると、facet/日程で絞っている最中に
-   バッジと実際の枚数が食い違う。 */
+   検索語・日程・エリア・特別チップは切替先へ持ち越されるので（state.js の carryPlan）、
+   いまの条件のまま他のタブを開くと何件見えるかを、開き直さずに気づけるようにする。
+   0件のタブに入ってから理由を探すのを避けるための表示である。
+   他のタブの数字は「切り替えた後のそのタブの状態」（carryPlan の結果）で数えているので、
+   出る数字は切り替えたら実際に見える枚数と一致する
+   ——いまの state のまま数えると、持ち越される条件ぶん食い違う。 */
 const TAB_COUNT_IDS = {
   event: "tabEventCount",
   movie: "tabMovieCount",
   live: "tabLiveCount",
 };
 export function syncTabCounts() {
-  const show = !!curState().q; // 共有なのでどのタブの state から読んでも同じ
+  const cur = curState();
+  // 持ち越される条件が1つも無ければ、どのタブも件数を持ち越しで変えないので出さない
+  const show = !!cur.q || hasSharedFilter(cur, curTab());
   TAB_ORDER.forEach((k) => {
     const el = document.getElementById(TAB_COUNT_IDS[k]);
     if (!el) return;
@@ -493,9 +507,8 @@ export function syncTabCounts() {
       el.textContent = "";
       return;
     }
-    const n = ITEMS[k].filter((it) =>
-      matchesFilters(TABS[k], STATES[k], it),
-    ).length;
+    const st = k === activeTab ? STATES[k] : carryPlan(activeTab, k).next;
+    const n = ITEMS[k].filter((it) => matchesFilters(TABS[k], st, it)).length;
     el.hidden = false;
     el.textContent = String(n);
   });

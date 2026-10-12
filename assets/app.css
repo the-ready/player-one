@@ -237,8 +237,8 @@ h1.pop-title {
   background: var(--ink);
   color: #fff;
 }
-/* 検索中だけ出す件数バッジ。「押しても0件だった」の逆——他のタブにも
-   当たりがあることを、タブを開き直さずに気づけるようにする（設計書 第4.2節）。 */
+/* 持ち越される条件（検索語・日程・エリア・チップ）がある間だけ出す件数バッジ。「押しても0件だった」の逆——他のタブにも
+   当たりがあることを、タブを開き直さずに気づけるようにする（設計書 第4.2.2節）。 */
 .tab-count {
   display: inline-flex;
   align-items: center;
@@ -2129,6 +2129,12 @@ mark {
 .empty-state p {
   margin: 0.2rem 0 1rem;
   font-size: 13px;
+}
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
 }
 .empty-reset {
   min-height: 44px;

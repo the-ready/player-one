@@ -1,6 +1,12 @@
 /* 操作バー：検索窓・3つのボタン・適用中の絞り込み・リセット・スクロール時の縮小。 */
 
-import { curTab, curState, resetState, activeTab } from "./state.js";
+import {
+  curTab,
+  curState,
+  resetAllStates,
+  clearSharedFilters,
+  activeTab,
+} from "./state.js";
 import { refresh, refreshNow } from "./render.js";
 import { handleScrollForPopover } from "./ui-popover.js";
 import {
@@ -71,15 +77,28 @@ export function initControls() {
    同じ役割で並んでいた。同じ機能を2つ置くぶんだけ縦が伸び、狭い画面では
    カードの見える枚数が減るので、バー側の1つに寄せた。 */
 export function resetFilters() {
-  resetState(activeTab);
+  resetAllStates();
   el.q.value = "";
+  syncFilterViews();
+  refreshNow({ push: true });
+}
+
+/* 日程・都県・地図の範囲・特別チップだけを外す（検索語とタブ固有の絞り込みは残す）。
+   0件の画面から、持ち越された条件だけをすぐ手放せるようにする出口。 */
+export function resetSharedFilters() {
+  clearSharedFilters(activeTab);
+  syncFilterViews();
+  refreshNow({ push: true });
+}
+
+// 状態を映す表示（カレンダー・都県チップ・会場一覧・地図範囲・現在地メッセージ）を塗り直す
+function syncFilterViews() {
   resetCalendarCursor();
   renderCalendar();
   syncPrefChips();
   renderVenueList();
   updateMapAreaStatus();
   syncLocateMsg();
-  refreshNow({ push: true });
 }
 
 function removeFilter(type, facetId, key) {

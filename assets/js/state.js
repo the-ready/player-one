@@ -1,16 +1,17 @@
-/* 絞り込み状態。UIは3タブで共有し、状態はタブごとに分ける（設計書 第4.2節）。
+/* 絞り込み状態。UIは3タブで共有し、状態はタブごとに分けて持ち、
+   共通の条件だけ切替時に持ち越す（設計書 第4.2節・第4.2.2節）。
    加えて、いま見えている状態をURLに写す。共有・ブックマーク・戻るボタンが
    効かないと「この週末の横浜のイベント」を人に渡せないため。 */
 
-import { TABS, TAB_ORDER } from "./config.js";
+import { TABS, TAB_ORDER, PREFS } from "./config.js";
 
 /* ---------- タブごとの状態 ---------- */
 
 /* 検索語（q）だけは3タブで共有する。検索窓はDOM上に1つしかなく、
    「Vaundyで検索したのにタブを移ったら入力欄が空になった」という体験のほうが、
    「絞り込みが引き継がれて0件になる」より混乱を招くため。
-   ファセット・日程・エリアは引き続きタブごとに分ける（この2つは食い違うと
-   必ず0件になる組み合わせを作れてしまうが、検索語にその心配は無い）。
+   ファセット・日程・エリアはタブごとの state に持ち、切替時に carryFilters が
+   持ち越せるものだけ写す（行き先で選べない値を黙って持たないよう、毎回検証するため）。
 
    実体を1つの変数にし、各タブの state オブジェクトには同じ変数を指す
    getter/setter を生やす。呼び出し側（filters.js・render.js・ui-controls.js）は
@@ -82,6 +83,124 @@ export function resetState(tabKey) {
   const tab = TABS[tabKey];
   STATES[tabKey] = newState(tab);
   return STATES[tabKey];
+}
+
+/* ---------- タブをまたぐ引き継ぎ ----------
+   引き継ぐのは「どのタブでも同じ意味を持つ条件」だけ。
+     日程・地図の範囲・都県・並び順（と現在地）・特別チップ（flag の id が同じもの）
+   引き継がないのは、タブごとに選択肢そのものが違うもの。
+     カテゴリ／ジャンル／上映形態／公演形態／開催状況（ファセット）と会場。
+   後者は各タブの state にそのまま残るので、元のタブへ戻れば復元される。
+   開催状況を運ばないのは、言い回しがタブで違う（開催中／上映中）ためで、
+   「イベントで押した“発売中”を映画へ持ち込む」ような誤った対応づけを作らない。 */
+
+const prefKeysOf = (tab) => tab.prefKeys || PREFS.map((p) => p.key);
+
+/** 引き継ぎ対象の条件が立っているか（検索語・ファセット・会場・並び順は数えない）。 */
+export function hasSharedFilter(st, tab) {
+  return !!(
+    st.pref ||
+    st.mapArea ||
+    (st.rangeStart && st.rangeEnd) ||
+    tab.flags.some((f) => st.flags[f.id])
+  );
+}
+
+/** 引き継ぎ後の `toKey` の姿を、state を書き換えずに組み立てて返す。
+    dropped は「引き継ぎたかったが行き先に無くて落とした条件」のラベル。
+    会場やファセットのように最初から運ばないものは数えない（毎回の通知がうるさくなるため）。 */
+export function carryPlan(fromKey, toKey) {
+  const from = STATES[fromKey],
+    to = STATES[toKey];
+  const fromTab = TABS[fromKey],
+    toTab = TABS[toKey];
+  const dropped = [];
+  const next = {
+    ...to, // q は共有変数なので、ここで現在の値がそのまま入る
+    sets: to.sets,
+    flags: { ...to.flags },
+  };
+
+  next.rangeStart = from.rangeStart;
+  next.rangeEnd = from.rangeEnd;
+
+  /* 場所は「都県／地図の範囲」だけを運ぶ。会場は名簿がタブごとに違うので運ばず、
+     行き先が持っていた会場はそのまま残す。ただし運ぶ側が立つなら、会場とは排他
+     （setPlaceFilter の規則）なので、そのときだけ行き先の会場を外す。
+     行き先の都県・地図は常に出発側の値で置き換える（出発側が会場やなしなら空になる）。
+     共有の「場所」の最新値は出発側が持っているため。 */
+  next.pref = null;
+  next.mapArea = null;
+  if (from.pref) {
+    if (prefKeysOf(toTab).includes(from.pref)) {
+      next.pref = from.pref;
+    } else {
+      dropped.push(
+        (PREFS.find((p) => p.key === from.pref) || {}).label || from.pref,
+      );
+    }
+  } else if (from.mapArea) {
+    next.mapArea = { ...from.mapArea };
+  }
+  if (next.pref || next.mapArea) next.venue = null;
+
+  /* 現在地は条件ではなく端末の情報なので、出発側に無ければ行き先のものを残す。
+     「現在地順」だけが運ばれて現在地が無い、という並びの壊れ方は起こさない。 */
+  next.userLoc = from.userLoc || to.userLoc;
+  next.sortBy = from.sortBy;
+  if (next.sortBy === "location" && !next.userLoc) next.sortBy = "date";
+
+  /* 特別チップは id で対応づける（同じ id は3タブで同じ意味に宣言してある）。
+     出発側のオン・オフを行き先へ写し、行き先に無いチップが立っていたら落として知らせる。
+     行き先にだけあるチップ（ライブに無い割引など）は出発側が知らないので触らない。 */
+  fromTab.flags.forEach((f) => {
+    const on = !!from.flags[f.id];
+    if (f.id in next.flags) next.flags[f.id] = on;
+    else if (on) dropped.push(f.label(fromTab));
+  });
+
+  return { next, dropped };
+}
+
+/** タブを切り替えるときに呼ぶ。出発側の共通条件を行き先へ写し、落としたもののラベルを返す。 */
+export function carryFilters(fromKey, toKey) {
+  if (fromKey === toKey || !STATES[fromKey] || !STATES[toKey]) return [];
+  const { next, dropped } = carryPlan(fromKey, toKey);
+  const to = STATES[toKey];
+  [
+    "rangeStart",
+    "rangeEnd",
+    "sortBy",
+    "userLoc",
+    "pref",
+    "venue",
+    "mapArea",
+  ].forEach((k) => {
+    to[k] = next[k];
+  });
+  Object.assign(to.flags, next.flags);
+  return dropped;
+}
+
+/** 全タブの絞り込みと検索語を初期状態に戻す（「すべて解除」）。
+    他のタブに固有の絞り込みを残すと、見えない場所に条件が残って
+    次にそのタブを開いたときに驚くため、いまのタブだけでなく全部消す。 */
+export function resetAllStates() {
+  TAB_ORDER.forEach((k) => resetState(k));
+}
+
+/** 引き継ぎ対象の条件（日程・都県・地図の範囲・特別チップ）だけを外す。
+    検索語・ファセット・会場は残す。 */
+export function clearSharedFilters(tabKey = activeTab) {
+  const st = STATES[tabKey],
+    tab = TABS[tabKey];
+  st.rangeStart = null;
+  st.rangeEnd = null;
+  st.pref = null;
+  st.mapArea = null;
+  tab.flags.forEach((f) => {
+    st.flags[f.id] = false;
+  });
 }
 
 export function hasAnyFilter(tabKey = activeTab) {
