@@ -10,6 +10,8 @@
     1. purge_ended.py <ds>                 終了日を過ぎた行の片付け
     2. fill_apple_music.py                 （lives のみ）日割りの Apple Music リンク
     3. roster.py <名簿> --gc                名簿の整理
+    3.5 backfill_parking.py <ds> --apply   （events / lives）行の parking の文から、名簿の空の
+                                           parking（画面のPバッジの元）を、確実に読めるものだけ埋める
     4. diff_data.py <ds>                   差分の確定（出力は**切らずに全部**出す）
     5. validate_data.py                    検証（出力は全部出す）
     6. report_stats.py <ds> --check        充足率・網羅性の判定
@@ -89,6 +91,11 @@ def main():
     for r in ROSTERS[ds]:
         if _run(f"3 名簿 {r}", [t("roster.py"), r, "--gc"]) != 0:
             soft.append(f"roster.py {r} --gc")
+    # 駐車場の名簿は行の文から機械的に写せるので、収集が自分で名簿を書き直さなくてよい。
+    # 失敗しても検証は続ける（片付けであって判定ではない）。映画の行には parking の文が無い。
+    if ds in ("events", "lives") and _run(
+            "3.5 駐車場の名簿", [t("backfill_parking.py"), ds, "--apply"]) != 0:
+        soft.append(f"backfill_parking.py {ds} --apply")
 
     hard = []
     if _run("4 差分", [t("diff_data.py"), ds]) != 0:

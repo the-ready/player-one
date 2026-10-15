@@ -263,10 +263,10 @@ EOF
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url,lineup_id
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,event_parking,apple_music_url,lineup_id
 ```
 
-全42列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `apple_music_url` `lineup_id` が加わった）。
+全43列。列名・順序ともに厳守すること（`kana` が増え、`venue_url` の位置が `venue` の隣に移り、末尾に `parking` `nearest_station` `event_parking` `apple_music_url` `lineup_id` が加わった）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -307,6 +307,7 @@ id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_da
 | `note`              |      | 年齢制限・ドリンク代・全席指定/オールスタンディング・雨天決行・再入場可否・公式リセールの有無など                                                                                                                                                                                      |
 | `parking`           |      | 会場の駐車場情報（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                                               |
 | `nearest_station`   |      | 最寄り駅と徒歩時間（下記「駐車場・最寄り駅の書き方」参照）                                                                                                                                                                                                                             |
+| `event_parking`     |      | **その公演の日だけ**の駐車場の事情。`temp`=臨時駐車場あり / `closed`=当日は常設の駐車場を使えない / `temp_only`=当日は臨時のみ。**ほとんどの行は空欄**（下記「画面のP（駐車場）バッジの元になる2つの値」参照）。前回値は持ち越されない                                                 |
 | `apple_music_url`   |      | メインアーティストの Apple Music アーティストページ（下記「Apple Music アーティストリンク」参照）                                                                                                                                                                                      |
 | `lineup_id`         |      | **フェスだけ**。`data/lineups.csv` の日割りラインナップを引くキー。`luckyfes-2026` のような自分で決めるスラッグ（英小文字・数字・ハイフン）。**一度決めたら翌週以降も同じ値を使う**（`_carry` で自動的に持ち越される）。ラインナップを1件も書けないフェスは空欄にする                  |
 
@@ -1203,6 +1204,18 @@ tour_id ごとに、関東の全公演について
 
 **「たぶんあるだろう」という推測では書かない。** 公式サイトにアクセス情報が無い、または確認できなかった場合は、両方とも空欄のままにする。空欄の行は「くわしく」にこの2項目が出ないだけで、表示は壊れない（第3.5節の欠損耐性）。
 
+### 画面のP（駐車場）バッジの元になる2つの値
+
+一覧のタイトル末尾に出る **P** のバッジは、`parking`（上の文）ではなく、次の2つの値から組み立てる（`docs/DESIGN.md` 第5.11節）。**文は「くわしく」に出す詳細（台数・料金・場所）で、バッジの判定には使わない。**
+
+| 値                         | どこにあるか                                  | 意味                                                                                                       |
+| -------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 会場の `parking`           | **名簿**（`venues.csv` の `parking` 列）      | その会場の常設の駐車場。`yes`=あり / `nearby`=専用は無いが特定の近隣駐車場を案内 / `no`=なし / 空=未確認   |
+| その公演の `event_parking` | 公演の行（`lives.csv` の `event_parking` 列） | その公演の日だけの事情。`temp`=臨時駐車場あり / `closed`=当日は常設が使えない / `temp_only`=当日は臨時のみ |
+
+- **名簿の `parking`**: 空欄は「未確認」で、画面には何も出ない（「なし」と混ぜない）。行の `parking` の文を書いたら、**終了工程の `close_run.py` が文から確実なものだけを名簿へ写す**（`tools/backfill_parking.py`）。自分で名簿を書き直す必要はない。アクセスページで有無をはっきり確かめたのに写されないときだけ `python3 tools/roster.py venues --parking 会場名=yes`（`yes` / `nearby` / `no`）
+- **`event_parking`**: **毎回確かめ直す列**（前回値は持ち越されない）。書くのは、**公式がその公演のために**臨時駐車場を案内している・当日は常設の駐車場が使えない（フェスの臨時駐車場、ホールの貸切日など）と**明記している**ときだけ。書いたら `parking` の文に場所・台数・料金・予約の要否・シャトルバスを書く（文が空だと `validate_data.py` が WARNING を出す）。一般的な案内や満車時の予備は書かない。確かめられなかった週は空欄（バッジが消えるだけ）
+
 ---
 
 ## フェスの日割りラインナップ（`data/lineups.csv`）
@@ -1501,6 +1514,7 @@ APIを1回叩いて確かめる。こちらはツールの対象外である。
 
 - [ ] 全行の列数が揃っているか（`validate_data.py` がヘッダーの不一致を検出する。**列数をこのチェックリストに書き写さないこと**——列は増えるので、書き写した数字は必ず古くなる）
 - [ ] `parking`／`nearest_station` は会場公式サイトの「アクセス」ページ等で確認したものだけを書いているか（不明なら空欄）
+- [ ] `event_parking` は、公式が**その公演のために**臨時駐車場を案内している・当日の常設駐車場が使えない、と明記しているものだけに書いているか（会場の常設の有無は名簿の `parking`）。書いた行には、場所・台数・予約の要否を `parking` の文に書いているか
 - [ ] `apple_music_url` は iTunes Search API の `artistLinkUrl` で裏取りしたものだけを書いているか（同姓同名の別アーティストと取り違えていないか）
 - [ ] `id` が1から連番になっているか
 - [ ] `start_date` / `end_date` / `announced_date` / `onsale_start` / `onsale_end` が `YYYY-MM-DD` 形式か、または空欄か

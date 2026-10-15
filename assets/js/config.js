@@ -18,6 +18,10 @@ export const CATS = {
   tech: { label: "IT・カンファレンス", c: "var(--sky)" },
   sport: { label: "スポーツ", c: "var(--coral)" },
   fest: { label: "祭り・花火", c: "var(--teal)" },
+  /* 商業施設の一斉セール（三井アウトレットパーク・ららぽーと・ららテラスの全館セール、初売り・福袋、
+     会員優待日）。入っている店舗ごとのセールは載せない。既存の8色は使い切っているので、
+     値札を思わせる墨色にする（バッジの白い文字が読める濃さ）。 */
+  sale: { label: "バーゲン・セール", c: "var(--ink)" },
 };
 
 export const MOVIE_GENRES = {
@@ -69,6 +73,8 @@ export const EVENT_STATUS_STYLE = {
   開催中: { c: "#fff", bg: "var(--grape)" },
   本日は休み: { c: "var(--ink)", bg: "var(--sunny-tint)" },
   発売中: { c: "#fff", bg: "var(--sky)" },
+  // セール（CAT_WORDING.sale）が「まだ先」のときの呼び方。予約も発売も無いので「発売中」とは言わない。
+  開催予定: { c: "#fff", bg: "var(--sky)" },
   通年予約可: { c: "var(--ink)", bg: "#EFEFF2" },
   終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
@@ -141,6 +147,33 @@ export const STATUS_BY_PHASE = {
   },
 };
 
+/* カテゴリごとの言い回しと、描き方の違い。タブの宣言（TABS）は「予約して行く催し」を前提に
+   書いてあるので、予約も発売も無いカテゴリ（セール）はここで上書きする。タブごとではなく
+   カテゴリごとなのは、同じイベントタブの中に「予約するもの」と「行くだけのもの」が混ざるため。
+
+     status … STATUS_BY_PHASE の段階ごとの言い換え（schedule.js の statusOf が使う）
+     cta    … 主ボタンの文言（TABS の cta と同じ形）
+     merge  … 同じ series_id・同じ会期の行を、描くとき1枚にまとめる（filters.js の mergeKey）。
+              ららぽーとは施設ごとに会期が違うので1施設1行で持つが、アウトレットのように
+              関東5施設が同じ会期のものは、繁忙期にほぼ同じカードが並ぶのを避けるため。 */
+export const CAT_WORDING = {
+  sale: {
+    status: { far: "開催予定" },
+    cta: {
+      suffix: "でセール情報を見る",
+      fallback: "セール情報を見る",
+      ariaWith: "でセール情報を見る",
+      ariaWithout: "セール情報を見る",
+    },
+    merge: true,
+  },
+};
+/** その行に当てはまる言い回しの上書き（無ければ undefined）。cats の並びの先頭を優先する。 */
+export function catWording(it) {
+  const k = (it && it.cats ? it.cats : []).find((c) => CAT_WORDING[c]);
+  return k ? CAT_WORDING[k] : undefined;
+}
+
 // 「まもなく」と呼ぶ範囲。収集スキルの rank の定義（2週間以内）に合わせてある。
 export const SOON_DAYS = 14;
 
@@ -159,6 +192,35 @@ export const VENUE_KINDS = {
   hall: "ホール",
   livehouse: "ライブハウス",
   outdoor: "野外・フェス会場",
+};
+/* 駐車場（P）。名簿（spots/venues/theaters.csv）の `parking` 列は「場所の常設の駐車場」、
+   催しの行（events/lives.csv）の `event_parking` 列は「その催しの日だけの事情」を持つ。
+   2つに分けるのは、常設の駐車場は週をまたいでも変わらない場所の事実（一度確かめれば名簿に
+   残る）で、臨時駐車場や当日の閉鎖は催しごとに確かめ直す事実だから。
+   値の集合はここが正本で、tools/validate_data.py がここから読んで検証する。 */
+export const PARKING_KINDS = {
+  yes: { label: "あり", short: "P" },
+  nearby: { label: "近隣の駐車場を案内", short: "近隣" },
+  no: { label: "なし", short: "なし" },
+};
+export const EVENT_PARKING_KINDS = {
+  temp: { label: "臨時駐車場あり" },
+  closed: { label: "当日は常設の駐車場を使えない" },
+  temp_only: { label: "当日は臨時駐車場のみ" },
+};
+
+// イベント施設の名簿（data/spots.csv）の種別。スポットのシートに「どんな場所か」を出すだけで、
+// 絞り込みには使わない（種別で絞りたい需要はカテゴリのチップが受けている）。
+export const SPOT_KINDS = {
+  themepark: "テーマパーク・遊園地",
+  aquazoo: "水族館・動物園",
+  museum: "美術館・博物館",
+  science: "体験・科学館",
+  hall: "ホール・アリーナ・展示場",
+  theater: "劇場",
+  mall: "商業・複合施設",
+  park: "庭園・公園",
+  landmark: "寺社・名所・温泉",
 };
 // 映画の劇場ピッカー用。theaters.csv に載っているチェーンかどうかで二分する。
 export const THEATER_KINDS = {
@@ -275,6 +337,8 @@ const EVENT_COLUMNS = {
   // 会場マスターを持たないイベント固有の会場補足情報（第3.4.1節）。
   parking: ["parking", txt],
   nearestStation: ["nearest_station", txt],
+  // 臨時駐車場・当日の閉鎖（PARKING の注釈を参照）。常設の駐車場の有無は名簿が持つ。
+  eventParking: ["event_parking", txt],
 };
 
 const MOVIE_COLUMNS = {
@@ -300,6 +364,7 @@ const LIVE_COLUMNS = {
   seriesId: ["tour_id", txt],
   parking: ["parking", txt],
   nearestStation: ["nearest_station", txt],
+  eventParking: ["event_parking", txt],
   // メインアーティストの Apple Music アーティストページ（第12.11節）。
   appleMusicUrl: ["apple_music_url", txt],
   // data/lineups.csv の同じ値の行が、この公演の日割りラインナップになる（第12.12節）。
@@ -382,12 +447,34 @@ const FLAG_FREE = {
   label: () => "無料のものだけ",
   test: (it) => isFreePrice(it.price),
 };
+/* 駐車場（P）。常設の駐車場があるか、臨時駐車場が用意されるものだけ。未確認（名簿が空欄）は
+   「ある」とは言えないので含めない。当日に常設の駐車場が使えない催しも含めない。 */
+const FLAG_PARKING = {
+  id: "parkingOnly",
+  group: "アクセス",
+  cls: "parking-chip",
+  label: () => "駐車場があるものだけ",
+  test: (it, h) => h.hasParking(it),
+};
+/* ♡（催し1件ごとの「行きたい」）と★（場所ごとの「お気に入りスポット」）は別の機能。
+   名前が「お気に入り」で重なると、どちらで絞っているのか分からなくなるので、
+   ♡のほうは「行きたい」と呼ぶ。保存済みの♡はそのまま残る（キーは変えていない）。 */
 const FLAG_FAV = {
   id: "favOnly",
   group: "保存",
   cls: "fav-chip",
-  label: () => "お気に入りだけ",
+  label: () => "行きたいだけ",
   test: (it, h) => h.isFav(it),
+};
+/* 先頭に「まとめる」だけでなく「それだけに絞る」もできるようにする。
+   チェーン名でしか記録されていない映画の新作は、劇場単位では判定できないので
+   対象に含めない（先頭セクションのまとめ行が別に受ける。render.js）。 */
+const FLAG_FAV_SPOT = {
+  id: "favSpotOnly",
+  group: "保存",
+  cls: "favspot-chip",
+  label: () => "★お気に入りスポットだけ",
+  test: (it, h) => h.isFavSpotItem(it),
 };
 /* 終了した行は既定で一覧から隠す（filters.js の matchesEndedFlag）。
    「載っていない」と「終わった」の区別が付かなくなるのを避けるため、
@@ -472,7 +559,9 @@ export const TABS = {
       FLAG_ONSALE,
       FLAG_BEFORE,
       FLAG_LIMITED,
+      FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],
   },
@@ -547,7 +636,9 @@ export const TABS = {
       FLAG_ONSALE,
       FLAG_BEFORE,
       FLAG_LIMITED,
+      FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],
   },
@@ -618,7 +709,9 @@ export const TABS = {
       FLAG_ONSALE,
       FLAG_BEFORE,
       FLAG_LIMITED,
+      FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],
   },

@@ -6,6 +6,7 @@ import {
   loadTab,
   loadTheaters,
   loadVenues,
+  loadSpots,
   loadHolidays,
   loadSources,
   loadUpdatedManifest,
@@ -17,6 +18,11 @@ import {
   curTab,
   curState,
   loadFavorites,
+  loadFavSpots,
+  loadFavView,
+  pinFavSpots,
+  setPinFavSpots,
+  setPlaceFilter,
   rememberTab,
   recalledTab,
   queryToState,
@@ -34,7 +40,13 @@ import {
   syncTabCounts,
 } from "./render.js";
 import { initPopover, closePopover, isPopoverOpen } from "./ui-popover.js";
-import { initArea, syncAreaForTab, renderVenueList } from "./ui-area.js";
+import {
+  initArea,
+  syncAreaForTab,
+  renderVenueList,
+  syncPrefChips,
+  updateMapAreaStatus,
+} from "./ui-area.js";
 import {
   initCalendar,
   renderCalendar,
@@ -61,6 +73,14 @@ import {
   closeCalAddSheet,
   isCalAddSheetOpen,
 } from "./ui-caladd.js";
+import {
+  initFavSpots,
+  toggleSpot,
+  openFavSheet,
+  closeFavSheet,
+  isFavSheetOpen,
+  onFavReflow,
+} from "./ui-favspot.js";
 import {
   initControls,
   updateSortUI,
@@ -93,6 +113,7 @@ export function setActiveTab(tab, opts = {}) {
   if (isPlaceSheetOpen()) closePlaceSheet();
   if (isLineupSheetOpen()) closeLineupSheet();
   if (isCalAddSheetOpen()) closeCalAddSheet();
+  if (isFavSheetOpen()) closeFavSheet();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
   syncSearchForTab();
@@ -161,6 +182,12 @@ async function ensureTabData(tabKey) {
 
 async function boot() {
   loadFavorites();
+  loadFavSpots();
+  loadFavView();
+  /* 名簿は★・駐車場バッジ・先頭セクションの前提なので、最初の描画までに間に合わせる
+     （あとから読むと、カードの★だけが遅れて現れて見た目が跳ねる）。3つとも小さく、
+     表示中のタブのCSVと並行して取る。読めなくても各ローダーが握りつぶすので、待つだけでよい。 */
+  const rosters = Promise.all([loadSpots(), loadTheaters(), loadVenues()]);
   // カレンダーを開くまでに間に合えばよいので待たない（データが無くても支障はない）
   loadHolidays().then(() => renderCalendar());
 
@@ -176,6 +203,8 @@ async function boot() {
   initPlaceSheet();
   initLineupSheet();
   initCalAddSheet();
+  initFavSpots();
+  onFavReflow(renderVenueList);
   initControls();
   initTabs();
   onRefresh(updateSortUI);
@@ -189,6 +218,16 @@ async function boot() {
         onCalAdd: openCalAddSheet,
         onReset: resetFilters,
         onResetShared: resetSharedFilters,
+        onToggleSpot: (name) => toggleSpot(name),
+        onManageSpots: openFavSheet,
+        // 「この◯本でしぼる」は、会場シートの「この会場でしぼりこむ」と同じ操作
+        onChainFilter: (chain) => {
+          setPlaceFilter(curState(), "venue", chain);
+          syncPrefChips();
+          updateMapAreaStatus();
+          renderVenueList();
+          refreshNow({ push: true });
+        },
       });
   });
 
@@ -199,6 +238,12 @@ async function boot() {
     const tab = curTab(),
       st = curState();
     const key = chip.dataset.key;
+    // 先頭にまとめるかどうかは絞り込みではなく見え方の設定（state.js）。URLには載せない
+    if (key === "__pinFav") {
+      setPinFavSpots(!pinFavSpots());
+      refreshNow({ push: false, url: false });
+      return;
+    }
     const row = chip.closest("[data-facet]");
     if (row) {
       const set = st.sets[row.dataset.facet];
@@ -223,15 +268,14 @@ async function boot() {
   renderDirectories();
   loadUpdatedManifest().then(syncUpdatedLabel);
 
-  // 表示中のタブを先に、続いてマスターと残りのタブ
-  await ensureTabData(activeTab);
+  // 表示中のタブを先に（名簿も一緒に待つ）、続いて残りのタブ
+  await Promise.all([ensureTabData(activeTab), rosters]);
   setActiveTab(activeTab, { push: false, url: false });
   enableUrlSync();
   syncUrl(false);
 
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
   idle(async () => {
-    await Promise.all([loadTheaters(), loadVenues()]);
     for (const k of TAB_ORDER) {
       if (k !== activeTab) await ensureTabData(k);
     }

@@ -288,6 +288,52 @@ def _():
     return vd.find_exact_duplicates("events.csv", rows) == [] or "重複でないものを挙げた"
 
 
+# --- バーゲン（cats=sale）と駐車場（event_parking） ---------------------------
+
+@check("cats=sale は許可されている（config.js の CATS から読むので、追加しただけで通る）")
+def _():
+    msg = _messages([_row(title="三井アウトレットパーク BLACK FRIDAY", cats="sale", venue="三井アウトレットパーク 木更津",
+                          pref="chiba", start_date="2026-11-14", end_date="2026-11-30", series_id="mop-bf-2026")])
+    return "未知の値" not in msg or msg
+
+
+@check("cats=sale の行に料金の列が入っていたら警告する（無料の絞り込みへの混入・値引きとの取り違え）")
+def _():
+    msg = _messages([_row(title="三井アウトレットパーク BLACK FRIDAY", cats="sale", venue="三井アウトレットパーク 木更津",
+                          pref="chiba", start_date="2026-11-14", end_date="2026-11-30", price="無料")])
+    return ("料金の列が入っています" in msg and "price" in msg) or msg
+
+
+@check("cats=sale の行の料金が空なら、料金の警告は出ない")
+def _():
+    msg = _messages([_row(title="三井アウトレットパーク BLACK FRIDAY", cats="sale", venue="三井アウトレットパーク 木更津",
+                          pref="chiba", start_date="2026-11-14", end_date="2026-11-30")])
+    return "料金の列が入っています" not in msg or msg
+
+
+@check("sale 以外の行の price は、この警告の対象にしない")
+def _():
+    msg = _messages([_row(title="展覧会", cats="art", venue="美術館", pref="tokyo", price="一般1,200円",
+                          start_date="2026-11-14", end_date="2026-11-30")])
+    return "料金の列が入っています" not in msg or msg
+
+
+@check("event_parking は temp / closed / temp_only / 空だけ。未知の値は ERROR")
+def _():
+    ok = _messages([_row(title="花火大会", cats="fest", venue="河川敷", pref="tokyo", event_parking="temp",
+                         parking="臨時駐車場 約800台・要予約", start_date="2026-11-14", end_date="2026-11-14")])
+    bad = _messages([_row(title="花火大会", cats="fest", venue="河川敷", pref="tokyo", event_parking="あり",
+                          start_date="2026-11-14", end_date="2026-11-14")])
+    return ("event_parking に未知の値" not in ok and "event_parking に未知の値" in bad) or f"{ok!r} / {bad!r}"
+
+
+@check("event_parking を書いたのに parking の文が空なら警告する（バッジだけでは行き先を決められない）")
+def _():
+    msg = _messages([_row(title="花火大会", cats="fest", venue="河川敷", pref="tokyo", event_parking="temp",
+                          start_date="2026-11-14", end_date="2026-11-14")])
+    return "parking が空です" in msg or msg
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

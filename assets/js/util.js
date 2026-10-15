@@ -62,6 +62,22 @@ export const isFreePrice = (v) => {
   const s = txt(v);
   return !!s && FREE_HEAD.test(s) && !PAID_REQUIRED.test(s);
 };
+/* 会場名の照合用キー。お気に入りスポットの保存・名簿との突き合わせはすべてこれを通す。
+   名簿（spots/venues/theaters.csv）と各行の会場表記は書き手が別で、全角半角・大文字小文字・
+   空白の有無がゆれるため、同じ場所が別の場所に見えないよう NFKC・小文字化・空白除去でそろえる。
+   tools/roster.py の `_norm`（find の照合）と同じ規則。 */
+export const spotKey = (s) =>
+  String(s == null ? "" : s)
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+// 前方一致用。空白は残す（`東京国際フォーラム ホールE` の区切りを見分けるため。roster.py の `_nfkc`）。
+export const spotFold = (s) =>
+  String(s == null ? "" : s)
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase();
 export const list = (v) => {
   const s = txt(v);
   return s

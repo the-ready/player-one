@@ -8,17 +8,22 @@ import {
   fmtKm,
   searchTerms,
   debounce,
+  spotKey,
 } from "./util.js";
 import { TABS, TAB_ORDER, PREFS, venueNames } from "./config.js";
 import { ITEMS, LOAD, SOURCES, updatedFor, dataStatus } from "./data.js";
 import {
   matchesFilters,
+  matchesBaseFilters,
+  mergeSimultaneous,
+  hasEnded,
+  withinArea,
   withDistances,
   sortItems,
   facetCounts,
   flagCounts,
 } from "./filters.js";
-import { cardHtml, ICON as CAL_ICON } from "./cards.js";
+import { cardHtml, chainRowHtml, ICON as CAL_ICON } from "./cards.js";
 import {
   STATES,
   activeTab,
@@ -29,7 +34,21 @@ import {
   hasSharedFilter,
   carryPlan,
   syncUrl,
+  isFavSpot,
+  favSpotCount,
+  pinFavSpots,
+  isFavSecFolded,
+  setFavSecFolded,
+  isFavSecMoreOpen,
+  setFavSecMoreOpen,
 } from "./state.js";
+import {
+  isFavSpotItem,
+  spotsOfItem,
+  favChainGroups,
+  chainNamesOf,
+} from "./spots.js";
+import { schedulePhase } from "./schedule.js";
 
 /* ---------- 通知（共有のフォールバックなど） ---------- */
 export function toast(msg) {
@@ -54,6 +73,8 @@ function markEntering(listEl) {
 /* ---------- 一覧 ---------- */
 
 let lastVisible = []; // 直前に描いたカードの並び（カード内の操作から元データを引くのに使う）
+// 同時開催でまとめたカード（セール）の、代表の行のキー -> まとめた全行
+let lastMerged = new Map();
 
 export function visibleItems(tabKey = activeTab) {
   const tab = TABS[tabKey],
@@ -70,6 +91,18 @@ export function renderList() {
   const all = ITEMS[tab.key];
   const items = visibleItems(tab.key);
   lastVisible = items;
+  // 同じ series_id・同じ会期のセールは1枚にまとめる（filters.js の mergeSimultaneous）
+  const entries = mergeSimultaneous(items);
+  lastMerged = new Map(
+    entries
+      .filter((e) => e.members.length > 1)
+      .map((e) => [e.rep.key, e.members]),
+  );
+  // お気に入りスポットの先頭セクション／まとめ行を出す場面か（設定でまとめない人、
+  // 「★お気に入りスポットだけ」で絞っている人、お気に入りが空の人では出さない）。
+  const favBlocks =
+    favSpotCount() > 0 && (pinFavSpots() || st.flags.favSpotOnly);
+  const chainRows = favBlocks ? chainRowsFor(tab, st) : [];
 
   const countEl = document.getElementById("resultCount");
   if (countEl)
@@ -77,7 +110,7 @@ export function renderList() {
       ? `${all.length}件中 ${items.length}件を表示`
       : "";
 
-  if (!items.length) {
+  if (!items.length && !chainRows.length) {
     const load = LOAD[tab.key];
     if (load.state === "loading" || load.state === "idle") {
       listEl.innerHTML = `<div class="empty-state"><span class="big">読み込み中…</span></div>`;
@@ -107,7 +140,112 @@ export function renderList() {
 
   const terms = searchTerms(st.q);
   markEntering(listEl);
-  listEl.innerHTML = items.map((it) => cardHtml(tab, it, st, terms)).join("");
+  const card = (e) => cardHtml(tab, e.rep, st, terms, e.members);
+  listEl.innerHTML = favBlocks
+    ? favListHtml(tab, st, entries, chainRows, card)
+    : entries.map(card).join("");
+}
+
+/* ---------- お気に入りスポットの先頭セクション ----------
+   お気に入りスポットで開かれる催しを、見出し付きで一覧の先頭にまとめる。並べ替えるだけに
+   しない理由は、「なぜこの順なのか」が見出しで分かること（日付順のつもりで見た人が、
+   遠い日付のカードが先頭にあって混乱しない）。絞り込みはセクションの内外どちらにも効き、
+   並び順（日付・新着・現在地）もセクションの中でそのまま効く。 */
+
+const FAV_CAP = 6; // スマホで「そのほか」が遠くならない量。超えた分は「ほか◯件を表示」
+const NOW_PHASES = new Set(["opening", "ongoing", "last", "openrun"]);
+
+/* お気に入りの劇場が、いまのエリアの条件に入っているか。会場でしぼっているときは
+   一覧がすでにその会場に限られているので、チェーンのまとめ行は出さない（出すと
+   押した結果と同じものが重複する）。 */
+function spotInArea(st, e) {
+  if (st.mapArea) return withinArea(e, st.mapArea);
+  if (st.pref) return e.pref === st.pref;
+  return true;
+}
+
+function chainRowsFor(tab, st) {
+  if (st.venue) return [];
+  // 「★お気に入りスポットだけ」を立てていても、チェーンの新作は数えたい。
+  // 劇場単位では判定できない行なので、このフラグだけ外した状態で数える。
+  const base = { ...st, flags: { ...st.flags, favSpotOnly: false } };
+  const rows = [];
+  favChainGroups().forEach((g) => {
+    const theaters = g.theaters.filter((t) => spotInArea(st, t));
+    if (!theaters.length) return;
+    const hits = ITEMS[tab.key].filter(
+      (it) =>
+        chainNamesOf(it).includes(g.chain) && matchesBaseFilters(tab, base, it),
+    );
+    if (!hits.length) return;
+    rows.push({
+      group: { chain: g.chain, theaters },
+      count: hits.length,
+      now: hits.filter((it) => NOW_PHASES.has(schedulePhase(it))).length,
+    });
+  });
+  return rows;
+}
+
+function favListHtml(tab, st, entries, chainRows, card) {
+  const chainHtml = chainRows
+    .map((r) => chainRowHtml(r.group, r.count, r.now))
+    .join("");
+  if (st.flags.favSpotOnly) return chainHtml + entries.map(card).join("");
+
+  // まとめたカード（同時開催のセール）は、どれか1施設がお気に入りなら先頭側に出す
+  const fav = [];
+  const rest = [];
+  entries.forEach((e) => (e.members.some(isFavSpotItem) ? fav : rest).push(e));
+
+  // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
+  // 区別する。条件のせいなら一言添える（理由が無いと、設定が効いていないように見える）。
+  // そもそも予定が無い（別のタブの場所だけを登録している等）なら何も出さない。
+  let hidden = 0;
+  if (!fav.length && !chainRows.length && hasAnyFilter(tab.key))
+    hidden = ITEMS[tab.key].filter(
+      (it) => isFavSpotItem(it) && !hasEnded(it),
+    ).length;
+  if (!fav.length && !chainRows.length && !hidden)
+    return rest.map(card).join("");
+
+  const folded = isFavSecFolded(tab.key);
+  const more = isFavSecMoreOpen(tab.key);
+  const shown = more ? fav : fav.slice(0, FAV_CAP);
+  const spots = new Set();
+  fav.forEach((e) =>
+    e.members.forEach((it) =>
+      spotsOfItem(it).forEach((sp) => {
+        if (isFavSpot(sp.name)) spots.add(spotKey(sp.name));
+      }),
+    ),
+  );
+  chainRows.forEach((r) =>
+    r.group.theaters.forEach((t) => spots.add(spotKey(t.name))),
+  );
+  const chainTotal = chainRows.reduce((n, r) => n + r.count, 0);
+  const countText = hidden
+    ? "いまの絞り込みでは0件"
+    : `${spots.size}か所・${fav.length}件${chainTotal ? `＋新作${chainTotal}本` : ""}`;
+
+  const head = `<div class="fav-head" role="group" aria-label="お気に入りスポットの${esc(tab.noun)}">
+      <span class="fh-main"><span class="fh-title"><span class="fh-star" aria-hidden="true">★</span>お気に入りスポット</span><span class="fh-count">${esc(countText)}</span></span>
+      <span class="fh-acts"><button type="button" class="mini-btn" data-fav-act="manage">管理</button><button type="button" class="mini-btn" data-fav-act="fold" aria-expanded="${!folded}">${folded ? "ひらく" : "たたむ"}</button></span>
+    </div>`;
+
+  let body = "";
+  if (!folded) {
+    if (hidden)
+      body = `<p class="fav-note">お気に入りスポットの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
+    body += shown.map(card).join("");
+    if (fav.length > FAV_CAP)
+      body += `<div class="fav-more"><button type="button" class="mini-btn" data-fav-act="more" aria-expanded="${more}">${more ? "先頭の表示をへらす" : `ほか${fav.length - FAV_CAP}件を表示`}</button></div>`;
+    body += chainHtml;
+  }
+  const divider = rest.length
+    ? `<p class="list-divider"><span>そのほかの${esc(tab.noun)}</span><span class="n">${rest.length}件</span></p>`
+    : "";
+  return head + body + divider + rest.map(card).join("");
 }
 
 /** カード内の操作から元データを引く。 */
@@ -115,18 +253,37 @@ function itemFromEl(el) {
   const card = el.closest(".card");
   if (!card) return null;
   const key = card.dataset.key;
-  return (
-    lastVisible.find((it) => it.key === key) ||
-    ITEMS[activeTab].find((it) => it.key === key) ||
-    null
-  );
+  const it =
+    lastVisible.find((x) => x.key === key) ||
+    ITEMS[activeTab].find((x) => x.key === key) ||
+    null;
+  // まとめたカードの共有・カレンダー追加は、代表の施設だけでなく全施設を場所として渡す。
+  // 代表の行を写して venues だけ差し替える（uid・日程・題名は代表のままなので、♡も代表に付く）
+  const members = it && lastMerged.get(it.key);
+  if (members)
+    return Object.create(it, {
+      venues: {
+        value: members.map((m) => venueNames(m)[0]).filter(Boolean),
+        enumerable: true,
+      },
+    });
+  return it;
 }
 
 /* ---------- カード内の操作（委譲で1度だけ束ねる） ---------- */
 
 export function bindList(
   listEl,
-  { onOpenPlace, onOpenLineup, onCalAdd, onReset, onResetShared },
+  {
+    onOpenPlace,
+    onOpenLineup,
+    onCalAdd,
+    onReset,
+    onResetShared,
+    onToggleSpot,
+    onManageSpots,
+    onChainFilter,
+  },
 ) {
   listEl.addEventListener("click", (e) => {
     const toggle = e.target.closest(".detail-toggle");
@@ -142,6 +299,30 @@ export function bindList(
           : `${toggle.dataset.title}のくわしい説明を見る`,
       );
       toggle.textContent = open ? "とじる ▴" : "くわしく ▾";
+      return;
+    }
+    const star = e.target.closest("button[data-star]");
+    if (star) {
+      onToggleSpot(star.dataset.star);
+      return;
+    }
+    const favAct = e.target.closest("button[data-fav-act]");
+    if (favAct) {
+      const key = activeTab;
+      const act = favAct.dataset.favAct;
+      if (act === "manage") onManageSpots();
+      else if (act === "fold") {
+        setFavSecFolded(key, !isFavSecFolded(key));
+        refreshNow({ url: false });
+      } else if (act === "more") {
+        setFavSecMoreOpen(key, !isFavSecMoreOpen(key));
+        refreshNow({ url: false });
+      }
+      return;
+    }
+    const chainBtn = e.target.closest("button[data-chain-filter]");
+    if (chainBtn) {
+      onChainFilter(chainBtn.dataset.chainFilter);
       return;
     }
     const place = e.target.closest("button.place-link[data-place]");
@@ -342,6 +523,12 @@ function chipButton({ key, text, count, pressed, color, textColor, cls }) {
     >${esc(text)}<span class="chip-count" aria-hidden="true">${count}</span><span class="sr-only">（${count}件）</span></button>`;
 }
 
+/* 先頭にまとめるかどうかは「絞り込み」ではなく見え方の設定なので、件数も URL も持たない
+   （state.js の pinFav）。他の特別チップと同じ並びに置くのは、探す場所を1つにするため。 */
+function pinChipHtml() {
+  return `<button type="button" class="chip flag-chip favspot-chip" data-key="__pinFav" aria-pressed="${pinFavSpots()}">お気に入りスポットを先頭にまとめる</button>`;
+}
+
 export function renderFilterChips() {
   const tab = curTab(),
     st = curState();
@@ -377,7 +564,7 @@ export function renderFilterChips() {
             cls: `flag-chip ${f.cls}`,
           }),
         )
-        .join("")}
+        .join("")}${g.name === "表示" ? pinChipHtml() : ""}
     </div>`,
     )
     .join("");

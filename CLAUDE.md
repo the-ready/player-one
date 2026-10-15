@@ -57,6 +57,7 @@ python3 tools/investigate_routine_test.py # 自動調査の5つの関門（通�
 python3 tools/append_rows_test.py   # upsert（既存uidは増やさず更新）と持ち越し
 python3 tools/roster_test.py        # 行の会場表記から名簿へ収穫を紐づける規則（横取り・取りこぼし）
 python3 tools/clean_workdirs_test.py # temp/・ログ・robots キャッシュの掃除（消してはいけないもの・ロック・routine への結線）
+python3 tools/backfill_parking_test.py # 駐車場の列の追加と、名簿の parking を文から埋める規則（確実なものだけ・上書きしない）
 ```
 
 上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。
@@ -119,6 +120,9 @@ node tools/lineup_test.mjs                  # データの繋ぎ・検索・シ�
 node tools/tab_carry_test.mjs               # タブ切替での絞り込みの持ち越し（DOM不要）
 node tools/free_filter_test.mjs             # 「無料のものだけ」の判定規則と配線（DOM不要）
 node tools/caladd_test.mjs                  # カレンダー追加の初期日付の分岐（DOM不要）
+node tools/fav_spots_test.mjs               # お気に入りスポット（★）の名寄せ・保存・先頭セクション（DOM不要）
+node tools/parking_badge_test.mjs           # 駐車場（P）バッジの組み合わせ表と絞り込み（DOM不要）
+node tools/sale_group_test.mjs              # バーゲンの同時開催カードと言い回し（DOM不要）
 python3 -m http.server 8000 &
 node tools/smoke_test.mjs                   # 画面全体（要 playwright）
 ```

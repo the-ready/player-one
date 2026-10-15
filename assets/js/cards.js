@@ -13,7 +13,13 @@ import {
   fold,
   haversineKm,
 } from "./util.js";
-import { LINEUP_VISIBLE, tableMeta, statusMeta, venueNames } from "./config.js";
+import {
+  LINEUP_VISIBLE,
+  tableMeta,
+  statusMeta,
+  venueNames,
+  catWording,
+} from "./config.js";
 import {
   venueMeta,
   isKnownChain,
@@ -29,12 +35,14 @@ import {
   seriesHighlights,
 } from "./filters.js";
 import { schedulePhase, nextOpenDay } from "./schedule.js";
-import { isFav } from "./state.js";
+import { isFav, isFavSpot } from "./state.js";
+import { matchSpots, parkingState } from "./spots.js";
 
 /* ---------- 小さな部品 ---------- */
 
 export const ICON = {
   heart: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.6-7-9.4A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.6C19 15.4 12 20 12 20z"/></svg>`,
+  star: `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8L3.6 9.6l5.8-.8z"/></svg>`,
   share: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 13v6h14v-6"/></svg>`,
   device: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/></svg>`,
   google: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 9h17.6M3.2 15h17.6"/><path d="M12 3a15 15 0 0 0 0 18a15 15 0 0 0 0-18z"/></svg>`,
@@ -145,6 +153,81 @@ function artistLineHtml(it, terms) {
   return `<p class="lineup-line">出演：${shown.map((n) => highlight(n, terms)).join("・")}${more}</p>`;
 }
 
+/* ---------- お気に入りスポットの★ ----------
+   押せる範囲は見た目より広く取る（CSSの .star-btn::after）。会場名のリンクのすぐ隣に
+   あり、指で押し間違えやすいため。ラベルは状態で変えず aria-pressed に任せる
+   （「追加する」「外す」を言い換えると、読み上げが二重に状態を告げる）。 */
+export function starBtnHtml(name, { big = false } = {}) {
+  const on = isFavSpot(name);
+  const label = `${name}をお気に入りスポットにする`;
+  if (big)
+    return `<button type="button" class="star-big" data-star="${esc(name)}" aria-pressed="${on}" aria-label="${esc(label)}">${ICON.star}<span data-star-text>${on ? "お気に入りスポット（登録済み）" : "お気に入りスポットにする"}</span></button>`;
+  return `<button type="button" class="star-btn" data-star="${esc(name)}" aria-pressed="${on}" title="${on ? "お気に入りスポットから外す" : "お気に入りスポットにする"}" aria-label="${esc(label)}">${ICON.star}</button>`;
+}
+
+/* お気に入りの劇場のチェーンで公開中の新作。映画の新作はチェーン名でしか記録されて
+   いない（どの劇場で上映するかは劇場のページを見ないと分からない）ので、劇場を★にした
+   人に、カードを何十枚も並べる代わりに1行で案内して、劇場のページへ送る。 */
+export function chainRowHtml(group, count, nowCount) {
+  const links = group.theaters
+    .filter((t) => safeUrl(t.url))
+    .slice(0, 4)
+    .map(
+      (t) =>
+        `<a class="chip-btn" href="${esc(safeUrl(t.url))}" target="_blank" rel="noopener noreferrer">${esc(t.name)}の上映スケジュール ↗</a>`,
+    )
+    .join("");
+  const names = group.theaters.map((t) => `★${t.name}`).join("・");
+  return `<div class="chain-row">
+      <span class="chain-head">${esc(group.chain)}で公開の新作 ${count}本${nowCount ? `<small>（うち上映中${nowCount}本）</small>` : ""}</span>
+      <p>${esc(names)} のチェーンです。新作はチェーン単位でしか記録していないため、この劇場で上映するかは劇場のページで確認してください。</p>
+      <div class="chain-acts">${links}<button type="button" class="chip-btn" data-chain-filter="${esc(group.chain)}" aria-label="${esc(group.chain)}の新作${count}本でしぼりこむ">この${count}本でしぼる</button></div>
+    </div>`;
+}
+
+/* ---------- 駐車場のバッジ（P） ----------
+   タイトルの末尾に置く。車で行くかどうかは、行き先を決める段階で知りたい情報なので、
+   「くわしく」を開かなくても見えるようにする。常設の駐車場の有無（名簿）と、その催しの
+   日だけの事情（臨時駐車場・当日の閉鎖）を、別々のバッジで重ねる。
+
+   色だけに頼らず、「近隣」「なし」「臨時」「当日不可」を文字でも出し、読み上げ用の
+   ラベルも付ける（WCAG 1.4.1）。未確認（名簿が空欄）は何も出さない——「なし」と
+   「未確認」を混ぜると、確かめていない場所に「駐車場なし」と言い切ることになる。 */
+const PK_LABEL = {
+  yes: "駐車場あり",
+  nearby: "専用駐車場はなく、近隣の駐車場を案内",
+  no: "駐車場なし",
+  closed: "この日は常設の駐車場を利用できません",
+  temp: "臨時駐車場あり",
+};
+export function parkBadgeHtml(kind, extraClass = "") {
+  const c = `pk ${kind}${extraClass ? " " + extraClass : ""}`;
+  const label = `<span class="sr-only">${esc(PK_LABEL[kind])}</span>`;
+  switch (kind) {
+    case "yes":
+      return `<span class="${c}" title="${PK_LABEL.yes}"><span aria-hidden="true">P</span>${label}</span>`;
+    case "nearby":
+      return `<span class="${c}" title="${PK_LABEL.nearby}"><span aria-hidden="true">P<small>近隣</small></span>${label}</span>`;
+    case "no":
+      return `<span class="${c}" title="${PK_LABEL.no}"><span aria-hidden="true">P<small>なし</small></span>${label}</span>`;
+    case "closed":
+      return `<span class="${c}" title="${PK_LABEL.closed}"><span aria-hidden="true">P<small>当日不可</small></span>${label}</span>`;
+    case "temp":
+      return `<span class="${c}" title="${PK_LABEL.temp}"><span aria-hidden="true">臨時P</span>${label}</span>`;
+    default:
+      return "";
+  }
+}
+/** 行のバッジ（HTML）。出すものが無ければ空文字。 */
+export function parkingBadgesHtml(it) {
+  const { base, ep } = parkingState(it);
+  const out = [];
+  if (ep === "closed" || ep === "temp_only") out.push(parkBadgeHtml("closed"));
+  else if (base) out.push(parkBadgeHtml(base));
+  if (ep === "temp" || ep === "temp_only") out.push(parkBadgeHtml("temp"));
+  return out.join("");
+}
+
 /* ---------- 会場行 ---------- */
 
 // その名前で会場モーダル（地図＋これからの予定）が開けるか。
@@ -162,23 +245,72 @@ function placeLineHtml(it, terms) {
   if (!names.length) return highlight(it.area || "", terms);
 
   const siteUrl = safeUrl(it.venueUrl || it.theaterUrl);
+  /* ★は、会場名が名簿のちょうど1か所に当たるときだけ付ける。2か所以上に当たる表記
+     （`A／B`）は、どちらの★か決められないので付けず、会場名を開いたシートで選ばせる。
+     チェーン名（`TOHOシネマズ`）は場所ではないので付かない。 */
+  const starFor = (v) => {
+    const spots = matchSpots(v);
+    return spots.length === 1 ? starBtnHtml(spots[0].name) : "";
+  };
   const rendered = names
     .map((v) => {
       if (hasPlaceInfo(v, it)) {
-        return `<button type="button" class="place-link" data-place="${esc(v)}" aria-label="${esc(v)}の場所とこれからの予定を見る">${highlight(v, terms)}</button>`;
+        return `<span class="place-item">${starFor(v)}<button type="button" class="place-link" data-place="${esc(v)}" aria-label="${esc(v)}の場所とこれからの予定を見る">${highlight(v, terms)}</button></span>`;
       }
       // 単一会場の行だけリンクにする。複数会場を1つのURLでまとめて代表させると、
       // どの会場のサイトなのか分からなくなるため。
       if (siteUrl && names.length === 1) {
-        return `<a class="place-link" href="${esc(siteUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v)}の会場サイトを開く">${highlight(v, terms)}</a>`;
+        return `<span class="place-item">${starFor(v)}<a class="place-link" href="${esc(siteUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(v)}の会場サイトを開く">${highlight(v, terms)}</a></span>`;
       }
-      return highlight(v, terms);
+      return `<span class="place-item">${starFor(v)}${highlight(v, terms)}</span>`;
     })
     .join("・");
 
   // 新作(チェーン名)の行は「チェーン名」だけで足り、エリアを足すと冗長になる。
   const showArea = it.area && !(names.length === 1 && isKnownChain(names[0]));
   return `${rendered}${showArea ? "／" + highlight(it.area, terms) : ""}`;
+}
+
+/* 同時開催でまとめたカード（セール）の施設の並び。共通の先頭（`三井アウトレットパーク `）は
+   見出しの題名にもう出ているので、施設名は違う部分だけにする。 */
+function shortNames(names) {
+  if (names.length < 2) return names;
+  let prefix = names[0];
+  names.forEach((n) => {
+    while (prefix && !n.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  });
+  const cut = Math.max(
+    prefix.lastIndexOf(" "),
+    prefix.lastIndexOf("　"),
+    prefix.lastIndexOf("・"),
+  );
+  prefix = cut >= 0 ? prefix.slice(0, cut + 1) : "";
+  return names.map((n) => n.slice(prefix.length) || n);
+}
+
+/* 施設ごとに、★・施設名（会場シートへ）・駐車場バッジを並べる。お気に入りの施設は先頭に置く
+   （まとめたカードの中でも「よく行く場所が上」を保つ）。 */
+function groupPlaceHtml(members, terms) {
+  const venues = members.map((m) => venueNames(m)[0] || m.area || "");
+  const labels = shortNames(venues);
+  const rows = members.map((m, i) => ({ m, v: venues[i], label: labels[i] }));
+  const favFirst = (r) => {
+    const spots = matchSpots(r.v);
+    return spots.length === 1 && isFavSpot(spots[0].name) ? 0 : 1;
+  };
+  rows.sort((a, b) => favFirst(a) - favFirst(b));
+  const items = rows
+    .map(({ m, v, label }) => {
+      const spots = matchSpots(v);
+      const star = spots.length === 1 ? starBtnHtml(spots[0].name) : "";
+      const name = hasPlaceInfo(v, m)
+        ? `<button type="button" class="place-link" data-place="${esc(v)}" aria-label="${esc(v)}の場所とこれからの予定を見る">${highlight(label, terms)}</button>`
+        : highlight(label, terms);
+      return `<li${favFirst({ v }) === 0 ? ' class="is-fav"' : ""}>${star}${name}<span class="grow"></span>${parkingBadgesHtml(m)}</li>`;
+    })
+    .join("");
+  return `<p class="fac-head">${members.length}施設で同時開催<span class="fac-tag">一斉</span></p>
+      <ul class="fac-list">${items}</ul>`;
 }
 
 // 会場の規模。同じアーティストでもドームとライブハウスでは体験が違い、
@@ -308,9 +440,13 @@ function venueDetailHtml(it) {
     rows.push(
       `<span class="vd-row"><span class="vd-label">最寄り駅</span>${esc(it.nearestStation)}</span>`,
     );
-  if (it.parking)
+  /* 駐車場の行は、バッジ（名簿・臨時・当日不可）と、公式の案内文（`parking` 列。台数・料金・
+     臨時駐車場の場所や予約の要否）を並べる。バッジだけでは「どこに・いくら」が分からず、
+     文だけでは一覧のバッジと同じ事実だと気づけないので、同じ行に置く。 */
+  const badges = parkingBadgesHtml(it);
+  if (badges || it.parking)
     rows.push(
-      `<span class="vd-row"><span class="vd-label">駐車場</span>${esc(it.parking)}</span>`,
+      `<span class="vd-row"><span class="vd-label">駐車場</span><span class="vd-park">${badges}${it.parking ? esc(it.parking) : ""}</span></span>`,
     );
   return rows.length ? `<p class="venue-detail">${rows.join("")}</p>` : "";
 }
@@ -509,11 +645,16 @@ export function gcalUrl(it, override) {
 
 /* ---------- カード本体 ---------- */
 
-export function cardHtml(tab, it, st, terms) {
+export function cardHtml(tab, it, st, terms, members = [it]) {
   const badge = statusMeta(tab.statusTable, it.status);
   const onsale = onsaleState(it);
   const href = safeUrl(it.url || it.officialUrl);
-  const cta = ctaLabel(it.source, tab.cta);
+  // 同時開催でまとめたカード（セール）は、施設ごとの情報を施設の並びに出す。代表の行1つの
+  // 最寄り駅・駐車場・距離を、カード全体の事実として出さないため。
+  const merged = members.length > 1;
+  // セールなど、予約するものではないカテゴリは主ボタンの文言が違う（config.js の CAT_WORDING）
+  const ctaDef = (catWording(it) || {}).cta || tab.cta;
+  const cta = ctaLabel(it.source, ctaDef);
   const fav = isFav(it);
   const officialLink = officialLinkHtml(it, tab.officialLabel);
 
@@ -539,7 +680,7 @@ export function cardHtml(tab, it, st, terms) {
       ? `<p class="coupon-note"><span class="coupon-tag">クーポン</span>${esc(it.couponNote)}</p>`
       : "",
     scheduleDetailHtml(it),
-    venueDetailHtml(it),
+    merged ? "" : venueDetailHtml(it),
     seriesOthersHtml(tab, it),
     it.note
       ? `<p class="coupon-note"><span class="coupon-tag">注意</span>${esc(it.note)}</p>`
@@ -574,13 +715,17 @@ export function cardHtml(tab, it, st, terms) {
           ${onsale === "closed" ? `<span class="status-badge closed-badge">${esc(tab.onsaleWords.closed)}</span>` : ""}
         </span>
       </div>
-      <h3 class="title">${highlight(it.title, terms)}</h3>
+      <h3 class="title">${highlight(it.title, terms)}${merged ? "" : parkingBadgesHtml(it)}</h3>
       ${artistLineHtml(it, terms)}
-      <p class="meta">${placeLineHtml(it, terms)}${venueCapHtml(it)}${officialLink ? `<br>${officialLink}` : ""}${distBadgeHtml(it, st)}</p>
+      ${
+        merged
+          ? `${groupPlaceHtml(members, terms)}${officialLink ? `<p class="meta">${officialLink}</p>` : ""}`
+          : `<p class="meta">${placeLineHtml(it, terms)}${venueCapHtml(it)}${officialLink ? `<br>${officialLink}` : ""}${distBadgeHtml(it, st)}</p>`
+      }
       <div class="cats">${pills}</div>
       ${ticketBlockHtml(tab, it)}
       ${detail}
-      ${href ? `<a class="go-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(ctaAria(it.title, it.source, tab.cta))}">${esc(cta)}</a>` : ""}
+      ${href ? `<a class="go-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(ctaAria(it.title, it.source, ctaDef))}">${esc(cta)}</a>` : ""}
     </div>
   </article>`;
 }

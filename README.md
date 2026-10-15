@@ -12,9 +12,9 @@ assets/
   app.css                     スタイル一式
   js/                         ES モジュール（ビルド工程なし。そのまま配信される）
     config.js                 定義テーブルと3タブの宣言。機能追加はまずここを触る
-    util.js  schedule.js  csv.js  data.js  state.js  filters.js
+    util.js  schedule.js  csv.js  data.js  spots.js  state.js  filters.js
     cards.js  render.js
-    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-lineup.js  ui-controls.js
+    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-lineup.js  ui-favspot.js  ui-controls.js
     main.js                   起動とタブ切り替えの配線のみ
     wallpaper.js               ヘッダーの壁紙（水玉／動的な空）。他モジュールと独立
   vendor/leaflet/             Leaflet 1.9.4（同梱。CDNではない）
@@ -25,7 +25,7 @@ data/                         週次で差し替えるデータ。ここだけ�
   lineups.csv                 フェスの日割りラインナップ（lives.csv の lineup_id で引く）
   theaters.csv                映画館の名簿（シネコン店舗ディレクトリ＋名画座）
   venues.csv                  関東のライブ会場の名簿
-  spots.csv                   イベント施設の名簿（収集側だけで使う。表示には使わない）
+  spots.csv                   イベント施設の名簿（★と駐車場の「場所」の名簿として画面も読む。商業施設の一斉セールの対象施設もここに載せる）
   festivals.csv               関東開催フェスの名簿（同上）
   sources.json                「調べたサイト一覧」
   no-crawl.json               調査対象外の申請を受けたサイトの登録簿（人が編集する）
@@ -61,7 +61,9 @@ tools/                        収集タスク用のスクリプト
   fetch_page_test.py          その抽出規則の検証（ネットワーク不要）
   purge_ended.py              終了日を過ぎた行をCSVから機械的に取り除く（docs/COLLECTION-PROTOCOL.md 第5.1節）
   purge_ended_test.py         判定・書き換えの検証（ネットワーク不要）
-  rowkey.py / roster.py       行の同定・名簿の保守
+  rowkey.py / roster.py       行の同定・名簿の保守（駐車場の記録は `--parking`）
+  backfill_parking.py         駐車場（P）の列を足し、名簿の parking を行の文から確実なものだけ埋める
+  backfill_parking_test.py    その読み取りと列の追加の検証（ネットワーク不要）
   robots_rules.py             robots.txt の判定規則（Allow/Disallow の最長一致・RFC 9309）
   fetch_gate.py               取得の直前にURL単位で可否を判定し、間隔を空ける門
   check_robots.py             調査元サイトの robots.txt を着手前に一望する
@@ -72,6 +74,9 @@ tools/                        収集タスク用のスクリプト
   lineup_test.mjs             データの繋ぎ・検索・シートの検証（DOM不要）
   tab_carry_test.mjs          タブ切替での日程・エリア・チップの持ち越しの検証（DOM不要）
   free_filter_test.mjs        「無料のものだけ」の判定規則と配線の検証（DOM不要）
+  fav_spots_test.mjs          お気に入りスポット（★）の名寄せ・保存・先頭セクションの検証（DOM不要）
+  parking_badge_test.mjs      駐車場（P）バッジの組み合わせ表と絞り込みの検証（DOM不要）
+  sale_group_test.mjs         バーゲンの同時開催カードと言い回しの検証（DOM不要）
   caladd_test.mjs             カレンダーに追加する日付の初期値の検証（DOM不要）
 terms.html                    利用規約・免責事項（権利者向けの窓口・収集の方針）
 privacy.html                  プライバシーポリシー（端末内データと外部送信の一覧）
@@ -112,7 +117,10 @@ docs/
 - **絞り込み** … カテゴリ・ジャンル・開催状況などのチップ。**選択肢ごとに件数が出て、0件の選択肢は押せない**
 - **適用中の絞り込み** … いま効いている条件は操作バーに並び、1タップで外せる。「すべての絞り込みを解除」は条件が1つでもあれば常に見える
 - **URL** … 絞り込みの状態はURLに載る。そのまま人に渡せるし、ブックマークもできる。ブラウザの「戻る」で1つ前の絞り込みに戻る
-- **行きたい／共有／カレンダー** … 各カードのアイコンから。「行きたい」はこの端末の中だけに保存され（ログイン不要・外部送信なし）、「絞り込み」から「お気に入りだけ」で呼び出せる。カレンダーは押すと「端末のカレンダー（.ics）」か「Googleカレンダー」を選べ、どちらを選んでも渡す前に日付・時刻を選ぶ画面が挟まる。会期がある催しでも、実際に行く1日だけを追加できる。**時刻を空のままにすると終日の予定になる**（終日か時刻指定かを選ぶ操作は無い）。日付の初期値は「明日」を起点に、開催中なら明日、これからなら初日、飛び日程なら明日以降のいちばん近い開催日が入る
+- **行きたい／共有／カレンダー** … 各カードのアイコンから。「行きたい」はこの端末の中だけに保存され（ログイン不要・外部送信なし）、「絞り込み」から「行きたいだけ」で呼び出せる。カレンダーは押すと「端末のカレンダー（.ics）」か「Googleカレンダー」を選べ、どちらを選んでも渡す前に日付・時刻を選ぶ画面が挟まる。会期がある催しでも、実際に行く1日だけを追加できる。**時刻を空のままにすると終日の予定になる**（終日か時刻指定かを選ぶ操作は無い）。日付の初期値は「明日」を起点に、開催中なら明日、これからなら初日、飛び日程なら明日以降のいちばん近い開催日が入る
+- **お気に入りスポット（★）** … カードの会場名の左の☆を押すと、その**場所**を覚える（イベント・映画・ライブの3タブ共通。この端末の中だけに保存）。その場所で開かれる催しが、各タブの一覧の先頭に「★お気に入りスポット」の見出しつきでまとまる（日程・エリア・カテゴリの絞り込みは先頭と「そのほか」の両方に効き、先頭は6件まで）。☆を押した瞬間には並べ替えず、トーストの「先頭にまとめる」で反映する。会場名を押すスポットのシートやエリアの会場一覧からも付けられ、先頭の「管理」で一覧と解除ができる。「絞り込み」に「★お気に入りスポットだけ」と「お気に入りスポットを先頭にまとめる」（既定でオン）がある。映画の新作はチェーン名でしか記録されていないため、劇場を★にしたときは、そのチェーンの新作を先頭に1行でまとめて案内する
+- **駐車場（P）** … 場所に駐車場の有無が登録されていれば、タイトルの末尾に **P**（あり）・P 近隣・P なしが出る。臨時駐車場が用意される催しには **臨時P**、当日は常設の駐車場が使えない催しには **P 当日不可** も出る。未確認の場所には何も出さない。「くわしく」の駐車場の行には、バッジと公式の案内文（台数・料金）が並ぶ。「絞り込み」に「駐車場があるものだけ」がある
+- **バーゲン** … イベントタブのカテゴリ「バーゲン・セール」。三井アウトレットパーク・ららぽーと・ららテラスの**施設全体のセール**（全館セール・初売りと福袋・会員優待日・先行セール）だけを載せ、店舗ごとのセールは載せない。関東の複数施設が同じ会期で行うセールは「5施設で同時開催」の1枚にまとまり、施設ごとに★と駐車場バッジが並ぶ
 - **更新** … 本体に新しい版が出たら、確認を挟まず自動で入れ替える。絞り込みの状態はURLに載っているので、読み直しても見ていた条件はそのまま戻る
 
 ## 地図で範囲をしぼる
@@ -155,15 +163,15 @@ node tools/smoke_test.mjs          # BASE=... で公開URLにも当てられる
 
 ## データの更新
 
-`data/events.csv` を差し替えるだけでよい。列は以下の45列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
+`data/events.csv` を差し替えるだけでよい。列は以下の46列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station,event_parking
 ```
 
 **日程の列は「機械が読める事実」だけを書く。** 画面に出る日付の文字列（`2026.9.5(土) 開場16:00／開演18:00`）も、`開催中` `まもなく開催` といった開催状況も、表示のたびに `start_date`／`end_date`／`dates`／`open_time`／`start_time`／`end_time`／`date_note` と**そのとき の日本時間**から組み立てられる。つまり **CSVを差し替えなくても、日付をまたげば表示が追いつく**。`date` 列は「10月中旬〜下旬（見頃予想）」のようにISOの日付へ落とせない日程だけを書く逃げ道で、通常は空欄。**ただし月・季節までは読み取れる場合は `start_date`/`end_date` にその月・季節をまるごと設定すること**（10月なら`2026-10-01`〜`2026-10-31`）——空欄のままだと絞り込みが「無期限」として扱い、無関係な日で絞っても表示されてしまう（第3.9.6節）。`status` / `rank` も、日付を1つも持たない行以外は空欄でよい（書いても無視される）。単日開催では `end_date` に `start_date` と同じ日を入れること——空欄は「終了日が未定」という別の意味になる。`dates`（飛び日程）を書いた行では、開催しない日は「本日は休み」と表示され、日程の絞り込みからも外れる。`backup_date`（予備日）は**会期に含めず**、カードの「くわしく」の中に出す——本開催で終われば使われない日なので、`end_date` を1日延ばすと「まだやっている」と嘘をつくことになる。ただし予備日の当日だけは「本日予備日」というバッジが出る（本開催が流れていればその日にやるので、「終了」と出すのは早すぎるため）。詳しくは `docs/DESIGN.md` 第3.9節。
 
-`kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。`parking` は駐車場情報（例：`あり（有料・120台）`）、`nearest_station` は最寄り駅と徒歩時間（例：`上野駅（徒歩10分）`）で、どちらも「くわしく」の中に表示される。会場公式サイトで確認できなければ空欄でよい（憶測で埋めない）。
+`kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。`parking` は駐車場情報の文（例：`あり（有料・120台）`）、`nearest_station` は最寄り駅と徒歩時間（例：`上野駅（徒歩10分）`）で、どちらも「くわしく」の中に表示される。**一覧のP（駐車場）バッジは `parking` の文からは作らない**（書き方がまちまちで、語から読むと誤るため）。常設の駐車場の有無は**名簿**（`spots.csv` `venues.csv` `theaters.csv`）の `parking` 列（`yes` あり / `nearby` 近隣を案内 / `no` なし / 空=未確認）が持ち、`event_parking` 列は**その催しの日だけ**の事情（`temp` 臨時駐車場あり / `closed` 当日は常設が使えない / `temp_only` 当日は臨時のみ。ほとんどの行は空欄）を持つ。名簿の `parking` は、終了工程が行の `parking` の文から確実なものだけ写す（`tools/backfill_parking.py`）。会場公式サイトで確認できなければ空欄でよい（憶測で埋めない）。
 
 価格は確認日時点のスナップショットであり、`price_checked` に確認日を記録する。リアルタイムの価格追従は行わない。
 
@@ -256,15 +264,15 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 `url` に入るのは公式サイト、招聘元（CREATIVEMAN PRODUCTIONS／ウドー音楽事務所／LIVE NATION H.I.P.／キョードー東京 等）の公演ページ、正規プレイガイド（チケットぴあ／イープラス／ローソンチケット／楽天チケット／ticket board／LivePocket／ZAIKO／teket 等）のみ。完売公演も掲載するが、`onsale_label` を `SOLD OUT` にして取れるように見せない（公式リセールや当日券の可能性があり、「何をやっているか」自体が情報のため）。
 
-### `data/lives.csv` の列（42列固定）
+### `data/lives.csv` の列（43列固定）
 
 ```
-id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,apple_music_url,lineup_id
+id,tour_id,title,kana,artists,genre,live_type,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,source,url,official_url,lat,lng,desc,note,parking,nearest_station,event_parking,apple_music_url,lineup_id
 ```
 
 **このタブは価格比較レイヤーを持たない。** `price_official` / `price_best` / `discount_pct` の列は存在しない。チケットは定価固定で、プレイガイドを横断しても値段が変わらないため。
 
-`parking` / `nearest_station` はイベントと同じ意味の列で、「くわしく」の中に表示される。`apple_music_url` は**その公演のメインアーティスト1組**（フェス・共演では `artists` の最初の1組）の Apple Music アーティストページへのリンク。Apple のアーティストページURLは `https://music.apple.com/{ストアフロント}/artist/{スラッグ}/{アーティストID}` という決まった形を取り、iTunes Search API（`https://itunes.apple.com/search?entity=musicArtist`）で名前から `artistLinkUrl` を機械的に引ける。同姓同名の別アーティストと取り違えるおそれがあるため、確信が持てない場合は空欄にする。
+`parking` / `nearest_station` / `event_parking` はイベントと同じ意味の列で、`parking` と `nearest_station` は「くわしく」の中に表示される（駐車場のバッジの元は `venues.csv` の `parking` と `event_parking`）。`apple_music_url` は**その公演のメインアーティスト1組**（フェス・共演では `artists` の最初の1組）の Apple Music アーティストページへのリンク。Apple のアーティストページURLは `https://music.apple.com/{ストアフロント}/artist/{スラッグ}/{アーティストID}` という決まった形を取り、iTunes Search API（`https://itunes.apple.com/search?entity=musicArtist`）で名前から `artistLinkUrl` を機械的に引ける。同姓同名の別アーティストと取り違えるおそれがあるため、確信が持てない場合は空欄にする。
 
 ### フェスの日割りラインナップ（`data/lineups.csv`）
 
@@ -286,7 +294,7 @@ lineup_id,date,stage,artist,is_headliner,apple_music_url,note
 
 `venue` は `data/venues.csv` の `venue` 列と**完全一致**させる。一致した場合だけ会場名がボタンになり、会場モーダル（地図・収容人数・その会場の公演一覧）が開く。一致しない臨時会場は、`venue_url` があれば会場名がそのサイトへのリンクになる。
 
-`data/venues.csv` は `venue,kind,pref,area,capacity,lat,lng,url`（＋名簿の保守用の列で全14列）。`kind` は `dome` `arena` `hall` `livehouse` `outdoor`。`data/theaters.csv` と同じく**準静的なマスター**だが、開館・閉館・改称・長期休館は週次の収集タスクが `tools/roster.py` 経由で反映する。
+`data/venues.csv` は `venue,kind,pref,area,capacity,lat,lng,url`（＋常設の駐車場の `parking` と名簿の保守用の列で全15列）。`kind` は `dome` `arena` `hall` `livehouse` `outdoor`。`data/theaters.csv` と同じく**準静的なマスター**だが、開館・閉館・改称・長期休館は週次の収集タスクが `tools/roster.py` 経由で反映する。
 
 `lives.csv` の `lat`/`lng` は、会場がマスターに載っていれば空欄でよい（読み込み後に補われる）。臨時の野外会場など、マスターに無い会場のときだけ書く。
 

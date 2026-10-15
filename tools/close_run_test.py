@@ -72,8 +72,8 @@ def _():
                          "--allow-thin", "price")
         if "festival_gate.py" in out:
             return "events で festival_gate.py を回している"
-        for step in ("purge_ended.py", "roster.py spots --gc", "diff_data.py events",
-                     "validate_data.py", "report_stats.py events --check"):
+        for step in ("purge_ended.py", "roster.py spots --gc", "backfill_parking.py events --apply",
+                     "diff_data.py events", "validate_data.py", "report_stats.py events --check"):
             if step not in out:
                 return f"{step} を回していない"
         return (code == 0 and "すべて通りました" in out) or f"exit={code}\n{out[-1500:]}"
@@ -89,6 +89,8 @@ def _():
         code, out = _run(tmp, "lives", "--allow", "テスト用フェス")
         if "festival_gate.py --allow テスト用フェス" not in out:
             return f"festival_gate.py に --allow が渡っていない\n{out[-800:]}"
+        if "backfill_parking.py lives --apply" not in out:
+            return "lives で駐車場の名簿を埋める工程を回していない"
         return "roster.py festivals --gc" in out or "festivals の名簿を整理していない"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

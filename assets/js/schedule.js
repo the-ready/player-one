@@ -24,6 +24,7 @@ import { fmtSpan, fmtTimes, iso, DAY_MS } from "./util.js";
 import {
   TABS,
   STATUS_BY_PHASE,
+  catWording,
   TIME_WORDS,
   SOON_DAYS,
   RANK_FALLBACK,
@@ -175,7 +176,9 @@ export function statusOf(it) {
   const phase = schedulePhase(it);
   const table = STATUS_BY_PHASE[it.tab];
   if (!phase || !table) return it.csvStatus;
-  return table[phase] || it.csvStatus;
+  // セールなど、予約も発売も無いカテゴリは言い回しが違う（config.js の CAT_WORDING）
+  const w = catWording(it);
+  return (w && w.status && w.status[phase]) || table[phase] || it.csvStatus;
 }
 
 /**

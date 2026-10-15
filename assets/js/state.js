@@ -4,6 +4,7 @@
    効かないと「この週末の横浜のイベント」を人に渡せないため。 */
 
 import { TABS, TAB_ORDER, PREFS } from "./config.js";
+import { spotKey } from "./util.js";
 
 /* ---------- タブごとの状態 ---------- */
 
@@ -258,6 +259,103 @@ export function favCount() {
   return favorites.size;
 }
 
+/* ---------- お気に入りスポット ----------
+   「行きたい」（催し1件ごと）とは別に、**場所**を覚えておく。よく行く会場の催しを
+   一覧の先頭にまとめるための印で、イベント・映画・ライブの3タブで同じ場所を共有する。
+
+   保存するのは名簿に載っている会場名そのもの（表示用）で、照合は spotKey でそろえる。
+   uid のような内容ハッシュにしないのは、名簿の名前が人が読める識別子であり、
+   管理画面にそのまま出せるため。名簿から消えた名前も残す（週次の名簿更新で
+   登録が黙って消えると、先頭に出なくなった理由が誰にも分からないため）。
+   ログインを持たない方針（設計書 1.4）は変えず、この端末の中だけに保存する。 */
+
+const FAV_SPOT_KEY = "eventboard.favspots.v1";
+let favSpots = new Map(); // spotKey -> 表示名
+
+export function loadFavSpots() {
+  favSpots = new Map();
+  try {
+    const raw = localStorage.getItem(FAV_SPOT_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(arr))
+      arr.forEach((x) => {
+        if (typeof x === "string" && x.trim()) favSpots.set(spotKey(x), x);
+      });
+  } catch {
+    favSpots = new Map();
+  }
+}
+function saveFavSpots() {
+  try {
+    localStorage.setItem(FAV_SPOT_KEY, JSON.stringify([...favSpots.values()]));
+  } catch {
+    /* 保存できなくても、このページを開いている間は効く */
+  }
+}
+export const isFavSpot = (name) => favSpots.has(spotKey(name));
+/** 登録状態を on/off に揃える。変化したら true を返す。 */
+export function setFavSpot(name, on) {
+  const k = spotKey(name);
+  if (!k || favSpots.has(k) === on) return false;
+  if (on) favSpots.set(k, String(name).trim());
+  else favSpots.delete(k);
+  saveFavSpots();
+  return true;
+}
+export function toggleFavSpot(name) {
+  const next = !isFavSpot(name);
+  setFavSpot(name, next);
+  return next;
+}
+export const favSpotNames = () => [...favSpots.values()];
+export const favSpotCount = () => favSpots.size;
+
+/* 先頭にまとめる設定と、先頭セクションをたたんだ状態。どちらも「見え方の好み」で、
+   絞り込みではないので URL には載せない（共有した相手には相手のお気に入りがあるため、
+   載せても意味が通らない）。保存できなくても既定（まとめる・ひらく）で動く。 */
+const PIN_KEY = "eventboard.favpin.v1";
+const FOLD_KEY = "eventboard.favfold.v1";
+let pinFav = true;
+let folded = {};
+let moreOpen = {}; // 「ほか◯件を表示」は覚えない（開いたままだと次に来た人が長い先頭に驚く）
+
+export function loadFavView() {
+  try {
+    pinFav = localStorage.getItem(PIN_KEY) !== "0";
+  } catch {
+    pinFav = true;
+  }
+  try {
+    const raw = JSON.parse(localStorage.getItem(FOLD_KEY) || "{}");
+    folded = raw && typeof raw === "object" ? raw : {};
+  } catch {
+    folded = {};
+  }
+}
+export const pinFavSpots = () => pinFav;
+export function setPinFavSpots(on) {
+  pinFav = !!on;
+  try {
+    localStorage.setItem(PIN_KEY, pinFav ? "1" : "0");
+  } catch {
+    /* 保存できなくても動く */
+  }
+}
+export const isFavSecFolded = (tabKey) => !!folded[tabKey];
+export function setFavSecFolded(tabKey, on) {
+  if (on) folded[tabKey] = true;
+  else delete folded[tabKey];
+  try {
+    localStorage.setItem(FOLD_KEY, JSON.stringify(folded));
+  } catch {
+    /* 保存できなくても動く */
+  }
+}
+export const isFavSecMoreOpen = (tabKey) => !!moreOpen[tabKey];
+export function setFavSecMoreOpen(tabKey, on) {
+  moreOpen[tabKey] = !!on;
+}
+
 /* ---------- 最後に見ていたタブ ---------- */
 const TAB_KEY = "eventboard.lastTab.v1";
 export function rememberTab(k) {
@@ -296,6 +394,8 @@ const FLAG_PARAM = {
   beforeOnly: "before",
   limitedOnly: "limited",
   favOnly: "fav",
+  favSpotOnly: "favspot",
+  parkingOnly: "parking",
   showEnded: "ended",
 };
 const FLAG_BY_PARAM = Object.fromEntries(

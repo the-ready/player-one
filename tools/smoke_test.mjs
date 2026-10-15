@@ -74,7 +74,10 @@ await page.waitForTimeout(300);
 // --- 絞り込みチップ
 await page.click("#catBtn");
 await page.waitForTimeout(300);
-const chips = await page.locator("#catBody .chip").count();
+// 「お気に入りスポットを先頭にまとめる」は絞り込みではなく見え方の設定なので件数を持たない
+const chips = await page
+  .locator('#catBody .chip:not([data-key="__pinFav"])')
+  .count();
 check("絞り込みチップが出る", chips > 0, `${chips}個`);
 check(
   "チップに件数が付く",
@@ -228,6 +231,74 @@ if (await calBtn.count()) {
     (await calAddSheet.getAttribute("hidden")) !== null,
   );
 }
+
+// --- お気に入りスポット（★）・駐車場（P）・管理シート（設計書 第5.11・5.12節）
+await page.goto(BASE + "?tab=event", { waitUntil: "networkidle" });
+await page.evaluate(() => localStorage.clear());
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+check(
+  "会場名の左に☆が出る",
+  (await page.locator("#list .star-btn").count()) > 0,
+);
+check(
+  "お気に入りが空のうちは先頭セクションが出ない",
+  (await page.locator("#list .fav-head").count()) === 0,
+);
+const star = page.locator("#list .star-btn").first();
+const spotName = await star.getAttribute("data-star");
+await star.click();
+await page.waitForTimeout(300);
+check(
+  "☆を押すと押した状態になり、トーストが出る",
+  (await star.getAttribute("aria-pressed")) === "true" &&
+    (await page.locator("#favToast").isVisible()),
+);
+check(
+  "押した瞬間には一覧を並べ替えない",
+  (await page.locator("#list .fav-head").count()) === 0,
+);
+await page.locator("#favToast button.primary").click();
+await page.waitForTimeout(500);
+check(
+  "「先頭にまとめる」で先頭セクションが出る",
+  (await page.locator("#list .fav-head").count()) === 1 &&
+    (await page.locator("#list .list-divider").count()) <= 1,
+);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+check(
+  "リロードしてもお気に入りが残る",
+  (await page.locator("#list .fav-head").count()) === 1,
+);
+await page.locator('#list [data-fav-act="manage"]').click();
+await page.waitForTimeout(300);
+check(
+  "管理シートに登録した場所が出る",
+  (await page.locator("#favSheet").isVisible()) &&
+    (await page.locator("#favSheetBody .vr-name").first().innerText()) ===
+      spotName,
+);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+check("管理シートが閉じる", !(await page.locator("#favSheet").isVisible()));
+await page.click("#catBtn");
+await page.waitForTimeout(300);
+await page.locator('#catBody .chip[data-key="favSpotOnly"]').click();
+await page.waitForTimeout(300);
+check(
+  "「★お気に入りスポットだけ」で絞れて、URLに載る",
+  (await page.locator("#list .card").count()) > 0 &&
+    /f=favspot/.test(new URL(page.url()).search),
+);
+await page.keyboard.press("Escape");
+await page.locator("#appliedClear").click();
+await page.waitForTimeout(300);
+check(
+  "駐車場のバッジが出る行がある",
+  (await page.locator("#list .card .pk").count()) > 0,
+);
+await page.evaluate(() => localStorage.clear());
 
 check(
   "コンソールエラーが無い",

@@ -831,7 +831,45 @@
       </div>
     </div>
 
+    <!-- お気に入りスポット（★）の管理。登録した場所の一覧と、外す・戻す操作 -->
+    <div
+      class="map-sheet"
+      id="favSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="favSheetTitle"
+      hidden
+    >
+      <div class="map-sheet-inner">
+        <div class="map-sheet-head">
+          <h2 id="favSheetTitle">お気に入りスポット</h2>
+          <button
+            type="button"
+            class="popover-close"
+            id="favSheetClose"
+            aria-label="とじる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="map-sheet-help" id="favSheetHelp"></p>
+        <div class="fav-sheet-body" id="favSheetBody"></div>
+      </div>
+    </div>
+
     <p class="toast" id="toast" role="status" aria-live="polite"></p>
+    <!-- ★を付け外ししたときの案内。並べ直す・元に戻すのボタンを持つので、
+     文字だけの #toast とは別にしてある -->
+    <div
+      class="fav-toast"
+      id="favToast"
+      role="status"
+      aria-live="polite"
+      hidden
+    >
+      <span class="ft-msg"></span>
+      <span class="ft-acts"></span>
+    </div>
 
     <!-- Service Worker が新しい版を用意したとき。押させずに自動で入れ替える。
      絞り込みの状態はURLに載っているので、読み直しても条件とタブは保たれる。 -->

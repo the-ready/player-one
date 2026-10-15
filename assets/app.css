@@ -28,6 +28,10 @@
   --coral-tint: #efdedc;
   --teal: #4b7e72;
   --teal-tint: #deeae7;
+  /* 駐車場（P）の標識の青。道路標識の「P」に寄せ、既存の8色と別のものとして見分けさせる。
+     白地の文字・--sign-tint 地の文字のどちらでも本文の基準（4.5:1）を満たす。 */
+  --sign: #1f5a9e;
+  --sign-tint: #e2ebf6;
   --font-display: "Zen Maru Gothic", sans-serif;
   --font-body: "Zen Kaku Gothic New", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
@@ -1155,6 +1159,12 @@ input[type="search"]:focus-visible {
 }
 .fav-chip[aria-pressed="true"] {
   --chip-c: var(--pink);
+}
+.favspot-chip[aria-pressed="true"] {
+  --chip-c: var(--sunny);
+}
+.parking-chip[aria-pressed="true"] {
+  --chip-c: var(--sign);
 }
 .ended-chip[aria-pressed="true"] {
   --chip-c: var(--text-soft);
@@ -2972,6 +2982,479 @@ footer p {
   }
 }
 
+/* ---------- 同時開催でまとめたカード（セール）----------
+   関東の複数施設が同じ会期で一斉に行うセールを1枚にまとめたとき、施設ごとに
+   ★・施設名・駐車場バッジを並べる。 */
+.fac-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.05rem 0 0.35rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.fac-tag {
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  letter-spacing: 0.04em;
+}
+.fac-list {
+  list-style: none;
+  margin: 0 0 0.55rem;
+  padding: 0.3rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  background: #faf8f3;
+  font-size: 12.5px;
+}
+.fac-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 34px;
+}
+.fac-list li.is-fav {
+  font-weight: 700;
+}
+.fac-list .grow {
+  flex: 1;
+}
+.fac-list .pk {
+  margin-left: 0.3rem;
+}
+.fac-list .star-btn {
+  margin: 0 0.1rem 0 -0.2rem;
+  vertical-align: baseline;
+}
+
+/* ---------- 駐車場のバッジ（P）----------
+   タイトルの末尾に置く小さな標識。種類は色と文字の両方で見分けられる（色だけに頼らない）。 */
+.pk {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 21px;
+  min-width: 21px;
+  margin-left: 0.4rem;
+  padding: 0 5px;
+  border: 2px solid var(--sign);
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  vertical-align: 2px;
+  /* 見出しの太さ・字間を引き継がない */
+  font-style: normal;
+}
+.pk small {
+  margin-left: 2px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.pk.yes {
+  background: var(--sign);
+  color: #fff;
+}
+.pk.nearby {
+  background: var(--sign-tint);
+  color: var(--sign);
+}
+.pk.no {
+  background: #e6e6ea;
+  border-color: #bdb8b0;
+  color: var(--text-soft);
+}
+/* 当日不可: 通常の「P」を打ち消し線で消さず、文字で「当日不可」と言う。灰色にして「使えない」を伝える */
+.pk.closed {
+  background: #e6e6ea;
+  border-color: #bdb8b0;
+  color: var(--text-soft);
+}
+.pk.temp {
+  background: var(--tangerine);
+  border-color: var(--tangerine);
+  color: #fff;
+}
+.vd-park {
+  display: inline;
+}
+.vd-park .pk {
+  margin: 0 0.45rem 0 0;
+}
+.venue-info .vi-park {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.venue-info .vi-park .pk {
+  margin: 0;
+}
+
+/* ---------- お気に入りスポット（★）----------
+   ★（場所）は♡（催し1件）と見分けがつくよう、色を変える。♡は pink、★は sunny。 */
+
+/* 会場名の左の☆。見た目は小さく、押せる範囲は ::after で広げる（隣の会場名リンクを
+   押し間違えないよう、広げるのは上下と左だけで右には出さない）。 */
+.place-item {
+  white-space: nowrap;
+}
+.place-item .place-link {
+  white-space: normal;
+}
+.star-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  margin: -2px 2px 0 -3px;
+  padding: 0;
+  vertical-align: -5px;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+}
+.star-btn::after {
+  content: "";
+  position: absolute;
+  inset: -11px 0 -11px -10px;
+}
+.star-btn svg {
+  width: 19px;
+  height: 19px;
+}
+.star-btn:hover {
+  color: var(--sunny);
+}
+.star-btn[aria-pressed="true"] {
+  color: var(--sunny);
+}
+.star-btn[aria-pressed="true"] svg,
+.star-big[aria-pressed="true"] svg {
+  fill: var(--sunny);
+}
+/* 一覧の行の中では、行の高さを揃えるため押す範囲を行いっぱいにする */
+.venue-row .star-btn,
+.venue-rows .star-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  vertical-align: baseline;
+}
+.venue-row .star-btn::after,
+.venue-rows .star-btn::after {
+  inset: 0;
+}
+.star-big {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.25rem 0.9rem 0.25rem 0.7rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.star-big svg {
+  color: var(--sunny);
+}
+.star-big[aria-pressed="true"] {
+  background: var(--sunny-tint);
+}
+.vi-star {
+  margin: 0 0 0.6rem;
+}
+
+/* エリアの会場一覧：★の列と会場の行を並べる */
+.venue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.venue-row .venue-opt {
+  flex: 1;
+  min-width: 0;
+}
+.star-pad {
+  flex: none;
+  width: 34px;
+}
+.venue-group {
+  margin: 0.35rem 0 0.1rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+.venue-group:first-child {
+  margin-top: 0;
+}
+
+/* スポットのシート・管理シートの場所の一覧 */
+.venue-rows,
+.venue-info ul.venue-rows {
+  list-style: none;
+  margin: 0 0 0.7rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.venue-rows li,
+.venue-info .venue-rows li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  min-height: 44px;
+  padding: 0.15rem 0.6rem 0.15rem 0.3rem;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+}
+.vr-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.45;
+}
+.vr-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+.vr-main small {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+/* 店舗が何十もあるチェーンは、枠の中でスクロールさせる（シート全体を押し下げない） */
+.vr-scroll {
+  max-height: 11.5rem;
+  overflow-y: auto;
+}
+.fav-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--card);
+  padding: 0.85rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* 一覧の先頭セクション。グリッドの全列にまたがる */
+.fav-head,
+.fav-note,
+.fav-more,
+.list-divider,
+.chain-row {
+  grid-column: 1 / -1;
+}
+.fav-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.8rem;
+  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: var(--sunny-tint);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.fh-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.7rem;
+  min-width: 0;
+}
+.fh-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 15px;
+}
+.fh-star {
+  color: var(--sunny);
+  margin-right: 0.3rem;
+}
+.fh-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.fh-acts {
+  display: flex;
+  gap: 0.4rem;
+}
+.mini-btn {
+  min-height: 36px;
+  padding: 0.15rem 0.85rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.mini-btn:hover {
+  background: var(--paper);
+}
+.fav-note {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.fav-more {
+  display: flex;
+  justify-content: center;
+}
+.list-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.4rem 0 0;
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.list-divider::before,
+.list-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 2px dashed var(--line);
+}
+.list-divider .n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+}
+
+/* チェーンの新作のまとめ行（映画。劇場を★にした人への案内） */
+.chain-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.8rem 0.95rem;
+  border: 3px dashed var(--ink);
+  border-radius: 16px;
+  background: #fff;
+}
+.chain-head {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.chain-head small {
+  margin-left: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tag);
+  color: var(--text-soft);
+}
+.chain-row p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+.chain-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0.2rem 0.85rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.chip-btn:hover {
+  background: var(--paper);
+}
+
+/* ★を付け外ししたときの案内（ボタン付き）。文字だけの .toast とは別。 */
+.fav-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
+  z-index: 81;
+  width: min(32em, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%) translateY(140%);
+  opacity: 0;
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+.fav-toast[hidden] {
+  display: none;
+}
+.fav-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+.ft-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.ft-acts button {
+  min-height: 40px;
+  padding: 0.15rem 0.95rem;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.ft-acts button.primary {
+  background: #fff;
+  color: var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fav-toast {
+    transition: opacity 0.01s;
+  }
+}
+
 /* ---------- print ----------
    紙に落とすときは操作系を全部落とし、カードだけを素直に並べる。 */
 @media print {
@@ -2980,6 +3463,7 @@ footer p {
   .popover-panel,
   .map-sheet,
   .toast,
+  .fav-toast,
   .update-overlay,
   .cal-menu,
   .skip-link,

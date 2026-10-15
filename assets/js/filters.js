@@ -2,9 +2,10 @@
    タブごとの違いは config.js のファセット宣言だけが持つ。 */
 
 import { DAY_MS, haversineKm, searchTerms } from "./util.js";
-import { CLOSED_ONSALE, venueNames } from "./config.js";
+import { CLOSED_ONSALE, venueNames, catWording } from "./config.js";
 import { TODAY, ITEMS } from "./data.js";
 import { isFav } from "./state.js";
+import { isFavSpotItem, hasParking } from "./spots.js";
 
 /* ---------- 日付まわり ---------- */
 
@@ -125,7 +126,14 @@ export const hasEnded = (it) =>
   );
 
 /* flags の test に渡す判定ヘルパ。config.js が state/data を直接見なくて済むようにする。 */
-const FLAG_HELPERS = { onsaleState, isNewlyAnnounced, isFav, hasEnded };
+const FLAG_HELPERS = {
+  onsaleState,
+  isNewlyAnnounced,
+  isFav,
+  isFavSpotItem,
+  hasParking,
+  hasEnded,
+};
 
 /* ---------- 絞り込み ---------- */
 
@@ -254,6 +262,43 @@ export function sortItems(items, st) {
   return items.slice().sort(byDateThenRank(st));
 }
 
+/* ---------- 同時開催のまとめ（セール） ----------
+   同じ series_id で会期（開始日・終了日）まで同じ行を、描くとき1枚にまとめる。
+   アウトレットのように関東5施設が同じ会期で一斉に行うセールは、行としては1施設1行で
+   持つ（都県・地図・★・駐車場がどれも1か所の場所を前提にしているため）が、そのまま
+   並べると、繁忙期に会期も題名も同じカードが何枚も続いて本題が埋もれる。
+
+   まとめるのは**絞り込みと並べ替えのあと**。千葉県で絞れば木更津と幕張だけが残り、
+   「関東2施設で同時開催」になる。会期が1日でも違う行（ららぽーとの施設ごとの会期）は
+   別のカードのままにする。まとめるのは CAT_WORDING で merge を宣言したカテゴリだけ。
+   先頭の行（並びの先頭＝いちばん早く出る行）が代表になり、代表の位置にカードが出る。 */
+function mergeKey(it) {
+  const w = catWording(it);
+  if (!(w && w.merge) || !it.seriesId) return null;
+  return [it.tab, it.seriesId, it.startDate || "", it.endDate || ""].join("|");
+}
+
+/** 並べ替え済みの行を、同時開催でまとめる。[{rep, members}] を元の並びのまま返す。 */
+export function mergeSimultaneous(items) {
+  const groups = new Map();
+  const out = [];
+  items.forEach((it) => {
+    const k = mergeKey(it);
+    if (!k) {
+      out.push({ rep: it, members: [it] });
+      return;
+    }
+    if (!groups.has(k)) {
+      const g = { rep: it, members: [it] };
+      groups.set(k, g);
+      out.push(g);
+    } else {
+      groups.get(k).members.push(it);
+    }
+  });
+  return out;
+}
+
 export function withDistances(items, st) {
   items.forEach((it) => {
     it._dist =
@@ -326,13 +371,15 @@ export function flagCounts(tab, st, items) {
 export function venueCounts(tab, st, items) {
   const m = new Map();
   items.forEach((it) => {
-    if (!(
-      matchesQuery(st, it) &&
-      matchesDate(st, it) &&
-      matchesFacets(tab, st, it) &&
-      matchesFlags(tab, st, it) &&
-      matchesEndedFlag(st, it)
-    ))
+    if (
+      !(
+        matchesQuery(st, it) &&
+        matchesDate(st, it) &&
+        matchesFacets(tab, st, it) &&
+        matchesFlags(tab, st, it) &&
+        matchesEndedFlag(st, it)
+      )
+    )
       return;
     venueNames(it).forEach((v) => m.set(v, (m.get(v) || 0) + 1));
   });

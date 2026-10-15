@@ -7,8 +7,17 @@ import { esc, fmtKm } from "./util.js";
 import { PREFS } from "./config.js";
 import { ITEMS, venueMeta, isKnownChain } from "./data.js";
 import { venueCounts } from "./filters.js";
-import { activeTab, curTab, curState, setPlaceFilter } from "./state.js";
+import {
+  activeTab,
+  curTab,
+  curState,
+  setPlaceFilter,
+  isFavSpot,
+} from "./state.js";
 import { refreshNow } from "./render.js";
+import { matchSpots } from "./spots.js";
+import { starBtnHtml } from "./cards.js";
+import { toggleSpot } from "./ui-favspot.js";
 import { closePopover } from "./ui-popover.js";
 
 const el = {};
@@ -47,6 +56,12 @@ export function initArea() {
     renderVenueList();
   });
   el.list.addEventListener("click", (e) => {
+    // ★は会場の絞り込みとは別の操作。行を押した扱いにしない
+    const star = e.target.closest("button[data-star]");
+    if (star) {
+      toggleSpot(star.dataset.star);
+      return;
+    }
     const btn = e.target.closest(".venue-opt");
     if (!btn) return;
     const st = curState();
@@ -148,15 +163,29 @@ export function renderVenueList() {
     el.list.innerHTML = `<p class="venue-empty">${ITEMS[activeTab].length ? "該当する会場がありません。" : "データを読み込むと会場を選べます。"}</p>`;
     return;
   }
-  el.list.innerHTML = opts
-    .slice(0, 60)
-    .map(
-      (o) =>
-        `<button type="button" class="venue-opt" data-venue="${esc(o.venue)}" aria-pressed="${st.venue === o.venue}">
+  /* お気に入りスポットに当たる会場は、件数の多さに関係なく先頭のグループに置く。
+     よく行く場所を、60件の上限や検索の絞り込みの外に追いやらないため。
+     ★は名簿のちょうど1か所に当たる表記にだけ付く（カードの★と同じ規則）。 */
+  const spotOf = (venue) => {
+    const sp = matchSpots(venue);
+    return sp.length === 1 ? sp[0] : null;
+  };
+  const isFavOpt = (o) => matchSpots(o.venue).some((e) => isFavSpot(e.name));
+  const row = (o) => {
+    const sp = spotOf(o.venue);
+    return `<div class="venue-row">${sp ? starBtnHtml(sp.name) : '<span class="star-pad" aria-hidden="true"></span>'}<button type="button" class="venue-opt" data-venue="${esc(o.venue)}" aria-pressed="${st.venue === o.venue}">
        <span>${esc(o.venue)}</span><span class="vo-sub">${o.count}件</span>
-     </button>`,
-    )
-    .join("");
+     </button></div>`;
+  };
+  const favOpts = opts.filter(isFavOpt);
+  const restOpts = opts.filter((o) => !isFavOpt(o)).slice(0, 60);
+  el.list.innerHTML = favOpts.length
+    ? `<p class="venue-group">★ お気に入りスポット</p>${favOpts.map(row).join("")}${
+        restOpts.length
+          ? `<p class="venue-group">すべての${esc(place.pickerLabel.replace(/でしぼる$/, ""))}</p>${restOpts.map(row).join("")}`
+          : ""
+      }`
+    : restOpts.map(row).join("");
 }
 
 /** タブが変わったら、そのタブ向けにピッカーを組み直す。 */

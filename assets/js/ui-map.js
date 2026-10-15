@@ -12,6 +12,7 @@ import {
   TAB_ORDER,
   venueNames,
   VENUE_KINDS,
+  PARKING_KINDS,
 } from "./config.js";
 import {
   ITEMS,
@@ -20,9 +21,22 @@ import {
   isKnownChain,
   pointsForPlace,
 } from "./data.js";
-import { matchesBaseFilters, withinArea, byDateThenRank } from "./filters.js";
+import {
+  matchesBaseFilters,
+  withinArea,
+  byDateThenRank,
+  hasEnded,
+} from "./filters.js";
 import { activeTab, curTab, curState, setPlaceFilter } from "./state.js";
 import { refreshNow, toast } from "./render.js";
+import { starBtnHtml, parkBadgeHtml } from "./cards.js";
+import { flushFavChange, toggleSpot } from "./ui-favspot.js";
+import {
+  matchSpots,
+  spotsOfItem,
+  branchesOfChain,
+  spotFacts,
+} from "./spots.js";
 import { closePopover, trapTab, setBackgroundInert } from "./ui-popover.js";
 import {
   geoPrecheckError,
@@ -449,6 +463,9 @@ export function initPlaceSheet() {
   ps.close.addEventListener("click", closePlaceSheet);
   ps.sheet.addEventListener("click", (e) => {
     if (e.target === ps.sheet) closePlaceSheet();
+    // シートの中では並べ替えを保留し、閉じたときにまとめて反映する（背面のカードを動かさない）
+    const star = e.target.closest("button[data-star]");
+    if (star) toggleSpot(star.dataset.star, { silent: true });
   });
   ps.sheet.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -503,9 +520,19 @@ function initPlaceMap(points) {
 function upcomingAt(name) {
   const st = curState();
   const rows = [];
+  /* 名簿の場所に当たる会場は、表記が違う行（`東京国際フォーラム ホールE`）も同じ場所の
+     予定として数える。★を付けた場所の予定が一覧の先頭に出る範囲と、ここに出る範囲を
+     食い違わせないため。終わった催しは「これからの予定」ではないので外す。 */
+  const hit = matchSpots(name);
+  const target = hit.length === 1 ? hit[0] : null;
   TAB_ORDER.forEach((key) => {
     ITEMS[key]
-      .filter((it) => venueNames(it).includes(name))
+      .filter(
+        (it) =>
+          !hasEnded(it) &&
+          (venueNames(it).includes(name) ||
+            (target && spotsOfItem(it).includes(target))),
+      )
       .forEach((it) => rows.push(it));
   });
   return rows.sort(byDateThenRank(st));
@@ -525,14 +552,56 @@ function placeFacts(name) {
   const t = theaterMeta(name);
   if (t) return [t.area, t.pref].filter(Boolean).join("　");
   if (isKnownChain(name)) return `関東の店舗 ${pointsForPlace(name).length}件`;
-  return "";
+  // イベント施設（spots.csv）は会場マスターを持たないので、名簿から「どんな場所か」を出す
+  const sp = matchSpots(name);
+  return sp.length === 1 ? spotFacts(sp[0]) : "";
 }
 function placeSite(name) {
   const v = venueMeta(name);
   if (v && v.url) return safeUrl(v.url);
   const t = theaterMeta(name);
   if (t && t.url) return safeUrl(t.url);
+  const sp = matchSpots(name);
+  if (sp.length === 1 && sp[0].url) return safeUrl(sp[0].url);
   return null;
+}
+
+/* 常設の駐車場。名簿が値を持つ場所だけ出す（空欄は未確認で、何も言わない）。
+   詳しい台数・料金は催しの行の parking 文にあるので、ここは有無だけにとどめる。 */
+function placeParking(name) {
+  const sp = matchSpots(name);
+  if (sp.length !== 1 || !(sp[0].parking in PARKING_KINDS)) return "";
+  return `<p class="vi-facts vi-park">駐車場${parkBadgeHtml(sp[0].parking)}${esc(PARKING_KINDS[sp[0].parking].label)}</p>`;
+}
+
+/* お気に入りスポットの★。会場の表記が名簿のちょうど1か所に当たるときは大きな★、
+   複数に当たるとき（`A／B`）は場所ごとの★を並べる。チェーン名そのものは場所ではないので、
+   よく行く店舗に★を付けてもらうよう店舗の一覧を出す（店舗が何十もあるので、
+   一覧は枠の中でスクロールさせる）。名簿に無い会場には出さない。 */
+function placeStars(name, chain) {
+  if (chain) {
+    const branches = branchesOfChain(name);
+    if (!branches.length) return "";
+    return `<p class="vi-facts">よく行く店舗を★にしておくと、その店舗の上映が一覧の先頭にまとまります。</p>
+      <ul class="venue-rows vr-scroll">${branches
+        .map(
+          (b) =>
+            `<li>${starBtnHtml(b.name)}<span class="vr-main"><span class="vr-name">${esc(b.name)}</span><small>${esc(b.area || "")}</small></span></li>`,
+        )
+        .join("")}</ul>`;
+  }
+  const spots = matchSpots(name);
+  if (spots.length === 1)
+    return `<p class="vi-star">${starBtnHtml(spots[0].name, { big: true })}</p>`;
+  if (spots.length > 1)
+    return `<p class="vi-facts">この表記は複数の場所を含みます。★を付ける場所を選んでください。</p>
+      <ul class="venue-rows">${spots
+        .map(
+          (b) =>
+            `<li>${starBtnHtml(b.name)}<span class="vr-main"><span class="vr-name">${esc(b.name)}</span></span></li>`,
+        )
+        .join("")}</ul>`;
+  return "";
 }
 
 export function openPlaceSheet(name) {
@@ -555,7 +624,9 @@ export function openPlaceSheet(name) {
   const site = placeSite(name);
   ps.info.hidden = false;
   ps.info.innerHTML = `
+    ${placeStars(name, chain)}
     ${facts ? `<p class="vi-facts">${esc(facts)}</p>` : ""}
+    ${chain ? "" : placeParking(name)}
     ${site ? `<p class="vi-site"><a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">${chain ? "チェーンの公式サイト" : "会場の公式サイト"}を見る ↗</a></p>` : ""}
     <p class="vi-facts">ここでのこれからの予定（${upcoming.length}件）</p>
     ${
@@ -605,6 +676,9 @@ export function closePlaceSheet() {
   // 再描画される（日付をまたいだ・データが更新された等）と元のボタンがDOMから
   // 消えていることがあるので、closeMapSheet() と同じく「エリア」ボタンへ
   // 逃がす（フォーカスが行き場を失って迷子にならないようにする）。
+  // シートの中で★を付け外ししていたら、閉じたときに一覧の並びへ反映する。
+  // 戻り先の判定より先に行う（再描画で元のボタンが消えることがあるため）。
+  flushFavChange();
   const back =
     placeReturnFocus && placeReturnFocus.offsetParent !== null
       ? placeReturnFocus

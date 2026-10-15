@@ -269,6 +269,9 @@ export async function loadSources() {
 
 export let THEATERS = [];
 export let VENUES = [];
+// イベント施設の名簿。これまで収集側だけが使っていたが、お気に入りスポットと駐車場の
+// 表示（spots.js）が「場所」の正本として読む。読めなくても本体は動く。
+export let SPOTS = [];
 // 日付(ISO) → 祝日名。祝日は法改正時以外ほぼ動かないので、他の準静的マスターと
 // 同じくここに置く（出典・更新方法は tools/update_holidays.py のdocstring）。
 export const HOLIDAYS = new Map();
@@ -284,6 +287,7 @@ export async function loadTheaters() {
       lat: num(row.lat),
       lng: num(row.lng),
       url: txt(row.url),
+      parking: txt(row.parking),
     }));
     resolveVenues();
   } catch {
@@ -304,11 +308,32 @@ export async function loadVenues() {
         lat: num(row.lat),
         lng: num(row.lng),
         url: txt(row.url),
+        parking: txt(row.parking),
       }))
       .filter((v) => v.venue);
     resolveVenues();
   } catch {
     /* 会場種別で絞れなくなるだけ */
+  }
+}
+
+export async function loadSpots() {
+  try {
+    const { text } = await fetchText("./data/spots.csv");
+    SPOTS = parseCsvObjects(text)
+      .map((row) => ({
+        name: txt(row.name),
+        kind: txt(row.kind),
+        pref: txt(row.pref),
+        area: txt(row.area),
+        lat: num(row.lat),
+        lng: num(row.lng),
+        url: txt(row.url),
+        parking: txt(row.parking),
+      }))
+      .filter((s) => s.name);
+  } catch {
+    /* ★と駐車場のバッジが出ないだけで、一覧は従来どおり表示される */
   }
 }
 

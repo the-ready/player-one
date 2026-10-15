@@ -65,7 +65,7 @@ EXPECTED_HEADERS = {
         "date","dates","open_time","start_time","end_time","date_note","backup_date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
         "onsale_start_time","onsale_end","onsale_end_time","limited_sale","price","price_official",
         "price_best","discount_pct","best_source","coupon_note","price_checked","price_condition",
-        "source","url","official_url","lat","lng","desc","note","parking","nearest_station"],
+        "source","url","official_url","lat","lng","desc","note","parking","nearest_station","event_parking"],
     "movies.csv": ["id","title","kana","genre","screening_type","area","theater","theater_url","pref",
         "release_date","end_date","date","dates","open_time","start_time","end_time","date_note",
         "backup_date","status","rank","series_id","announced_date","is_additional",
@@ -77,17 +77,17 @@ EXPECTED_HEADERS = {
         "backup_date","status","rank","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","source","url","official_url","lat","lng","desc","note",
-        "parking","nearest_station","apple_music_url","lineup_id"],
+        "parking","nearest_station","event_parking","apple_music_url","lineup_id"],
     # --- フェスの日割りラインナップ（設計書 第12.12節）。lives.csv の lineup_id で引く ---
     "lineups.csv": ["lineup_id","date","stage","artist","is_headliner","apple_music_url","note"],
     # --- 収集の「定点観測リスト」。名簿は収集タスクが roster.py 経由で育てる ---
     # status / first_seen / last_hit / hit_count は名簿の保守用の列で、
     # ダッシュボードは列名で引くので、末尾に足しても表示側には影響しない。
-    "theaters.csv": ["chain","name","pref","area","lat","lng","url",
+    "theaters.csv": ["chain","name","pref","area","lat","lng","url","parking",
         "status","first_seen","last_hit","hit_count","note"],
-    "venues.csv": ["venue","kind","pref","area","capacity","lat","lng","url",
+    "venues.csv": ["venue","kind","pref","area","capacity","lat","lng","url","parking",
         "status","closed_until","first_seen","last_hit","hit_count","note"],
-    "spots.csv": ["name","kind","pref","area","lat","lng","url",
+    "spots.csv": ["name","kind","pref","area","lat","lng","url","parking",
         "status","closed_until","first_seen","last_hit","hit_count","note"],
     "festivals.csv": ["name","venue","pref","month_hint","url",
         "status","first_seen","last_hit","hit_count","note"],
@@ -165,8 +165,9 @@ LINEUP_FILE = "lineups.csv"
 
 ROSTER_STATUS = {"", "active", "candidate", "retired", "blocked"}
 
-# spots.csv の施設種別。ダッシュボードは spots.csv を読まない（収集側だけで使う）ので、
-# config.js には置かずここで定義する。
+# spots.csv の施設種別。ダッシュボードは spots.csv を、お気に入りスポット（★）と駐車場（P）の
+# 「場所」の名簿として読む。種別の表示名は config.js の SPOT_KINDS にあるが、検証の許可集合は
+# 収集側の定義としてここに持つ（種別は収集が決める分類で、画面の絞り込みには使わないため）。
 SPOT_KINDS = {"themepark","aquazoo","museum","science","hall","theater","mall","park","landmark"}
 
 # --- 画像を持たない（設計書 第7.1節） ------------------------------------
@@ -203,6 +204,23 @@ def load_prefs():
     return keys
 
 
+def load_parking_kinds():
+    """`config.js` の PARKING_KINDS / EVENT_PARKING_KINDS から、駐車場の値の集合を読む。
+
+    roster.py が名簿の `parking` を検証するために使う。load_prefs と同じく、
+    名簿の検証に config.js の全テーブルを読ませないよう、必要な2つだけを読む。
+    """
+    src = open(CONFIG_JS, encoding="utf-8").read()
+    out = {}
+    for name in ("PARKING_KINDS", "EVENT_PARKING_KINDS"):
+        m = re.search(r"export const %s = \{(.*?)\n\};" % name, src, re.S)
+        if not m:
+            raise SystemExit(f"ERROR: config.js から {name} を読めませんでした（定義の書式が変わった可能性があります）")
+        # 値は `{ label: ... }` の入れ子なので、最初のインデントのキーだけを拾う
+        out[name] = set(re.findall(r"^  ([a-z_]+):", m.group(1), re.M))
+    return out["PARKING_KINDS"], out["EVENT_PARKING_KINDS"]
+
+
 def load_enums():
     """assets/js/config.js から選択肢のキーを読む。
 
@@ -236,6 +254,8 @@ def load_enums():
         "live_genre": keys_of("LIVE_GENRES"),
         "live_type": keys_of("LIVE_TYPES"),
         "venue_kind": keys_of("VENUE_KINDS"),
+        "parking": load_parking_kinds()[0],
+        "event_parking": load_parking_kinds()[1],
         "event_status": string_keys_of("EVENT_STATUS_STYLE"),
         "movie_status": string_keys_of("MOVIE_STATUS_STYLE"),
         "live_status": string_keys_of("LIVE_STATUS_STYLE"),
@@ -499,6 +519,31 @@ def validate_main(name, rows, enums, rep):
             check_enum(rep, where, "live_type", (r.get("live_type") or "").strip(), enums["live_type"])
             check_status(rep, where, r, enums["live_status"], start, end)
 
+        # 商業施設の一斉セール（cats=sale）。入場料ではないので料金の列は空欄が正しい。
+        # `price` に「無料」と書くと「無料のものだけ」に混ざり、割引の列を書くと
+        # 商品の値引きと取り違えられる。
+        if name == "events.csv" and "sale" in [c.strip() for c in (r.get("cats") or "").split("|")]:
+            priced = [c for c in ("price", "price_official", "price_best", "discount_pct", "best_source", "coupon_note")
+                      if (r.get(c) or "").strip()]
+            if priced:
+                rep.warn(where, f"cats=sale の行に料金の列が入っています（{', '.join(priced)}）。"
+                                "セールは入場料ではないので空欄にしてください"
+                                "（会員限定の条件は price_condition に書く）")
+            if (r.get("price_condition") or "").strip() == "" and "会員" in (r.get("desc") or "") and "限定" in (r.get("desc") or ""):
+                rep.warn(where, "desc に会員限定とありますが price_condition が空です（条件を伏せた優待は載せない）")
+
+        # 駐車場（P）。常設の有無は名簿の parking、ここは「その催しの日だけの事情」。
+        if name in ("events.csv", "lives.csv"):
+            ep = (r.get("event_parking") or "").strip()
+            if ep and ep not in enums["event_parking"]:
+                rep.error(where, f"event_parking に未知の値 {ep!r}（使えるのは {sorted(enums['event_parking'])}。"
+                                 "表示側では何も出ません）")
+            elif ep in ("temp", "temp_only", "closed") and not (r.get("parking") or "").strip():
+                # バッジだけでは「どこに・何台・予約は要るか」が伝わらない。利用者が行き先を
+                # 決めるのは「くわしく」の文なので、バッジを付けるなら文も要る。
+                rep.warn(where, f"event_parking={ep} なのに parking が空です"
+                                "（臨時駐車場の場所・台数・予約の要否など、バッジの中身を parking に書いてください）")
+
         pref = (r.get("pref") or "").strip()
         if pref and pref not in enums["pref"]:
             rep.error(where, f"pref に未知の値 {pref!r}（都県の絞り込みから漏れます）")
@@ -735,6 +780,10 @@ def validate_master(name, rows, enums, rep):
             kind = (r.get("kind") or "").strip()
             if kind and kind not in SPOT_KINDS:
                 rep.error(where, f"kind に未知の値 {kind!r}（使えるのは {sorted(SPOT_KINDS)}）")
+        # 常設の駐車場（P）。空欄は「未確認」で、画面には何も出さない（推測で埋めない）。
+        pk = (r.get("parking") or "").strip()
+        if pk and pk not in enums["parking"]:
+            rep.error(where, f"parking に未知の値 {pk!r}（使えるのは {sorted(enums['parking'])}、または空欄）")
         check_url(rep, where, "url", (r.get("url") or "").strip())
         lat_range, lng_range = coord_ranges(pref)
         check_num(rep, where, "lat", (r.get("lat") or "").strip(), *lat_range)

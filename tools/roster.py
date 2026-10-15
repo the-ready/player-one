@@ -63,6 +63,10 @@ blocked も retired も、行そのものはCSVに残る（--gc は消さない�
     # robots.txt が取得を拒否している先を、調査対象から外す（閉館ではない）
     python3 tools/roster.py venues --block ○○ホール --reason "robots.txt が Claude-SearchBot を拒否" 
 
+    # 常設の駐車場の有無を記録する（yes=あり / nearby=近隣を案内 / no=なし / 空=未確認に戻す）
+    # 公式サイトのアクセスページで確かめたものだけ。画面のP（駐車場）バッジの元になる。
+    python3 tools/roster.py spots --parking 東京国立博物館=yes --parking ○○美術館=no
+
     # 収穫のない名簿を整理する（毎回の最後に実行）
     python3 tools/roster.py spots --gc
 
@@ -82,7 +86,7 @@ import sys
 import unicodedata
 from datetime import date
 
-from validate_data import load_prefs
+from validate_data import load_prefs, load_parking_kinds
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -103,7 +107,7 @@ PROMOTE_HITS = 2       # candidate がこの回数ヒットしたら active に�
 # --- 外から来た文字列を名簿に入れる前の検疫 -----------------------------------
 # 名簿の値はWebページ由来になりうる。次の実行でこのCSVを読むのは自分自身なので、
 # 指示文めいた長文や制御文字が混じると、実質的に指示書へ書き込めてしまう。
-MAX_LEN = {"name": 60, "area": 30, "note": 120, "kind": 20, "month_hint": 20, "venue": 60}
+MAX_LEN = {"name": 60, "area": 30, "note": 120, "kind": 20, "month_hint": 20, "venue": 60, "parking": 10}
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 SUSPICIOUS = re.compile(
     r"(ignore\s+(all\s+)?previous|disregard\s+the|system\s*prompt|"
@@ -360,6 +364,11 @@ def do_add(rows, head, key, today):
                 f"使えるのは {sorted(prefs)} です"
                 "（関東以外の会場は 'other' にしてください）"
             )
+        if row.get("parking") and row["parking"] not in load_parking_kinds()[0]:
+            raise SystemExit(
+                f"ERROR: {name} の parking に未知の値 {row['parking']!r}。"
+                f"使えるのは {sorted(load_parking_kinds()[0])}、または空欄（未確認）です"
+            )
         row["status"] = "candidate"
         row["first_seen"] = today.isoformat()
         row["last_hit"] = today.isoformat()
@@ -367,6 +376,39 @@ def do_add(rows, head, key, today):
         rows.append(row)
         added.append(name)
     return added, dupes
+
+
+def do_set_parking(rows, head, key, specs):
+    """`--parking 名前=値` を名簿に反映する。値は yes / nearby / no / 空（未確認に戻す）。
+
+    名簿の parking は画面のP（駐車場）バッジの元になる**場所の事実**である。誤った
+    「あり」は利用者を駐車場の無い場所へ向かわせる（ここで空欄が既定なのは、確かめて
+    いないものに何も出さないため）ので、値は決まった語に限り、名簿に無い名前は黙って
+    作らずに知らせる。
+    """
+    if "parking" not in head:
+        raise SystemExit(
+            "ERROR: この名簿に parking 列がありません。"
+            "python3 tools/backfill_parking.py --migrate で列を足してください"
+        )
+    allowed = load_parking_kinds()[0]
+    done, missing = [], []
+    for spec in specs:
+        name, sep, value = spec.rpartition("=")
+        if not sep or not name.strip():
+            raise SystemExit(f"ERROR: --parking は 名前=値 の形で指定してください: {spec!r}")
+        value = value.strip()
+        if value and value not in allowed:
+            raise SystemExit(
+                f"ERROR: parking の値 {value!r} は使えません。{sorted(allowed)}、または空（未確認）です"
+            )
+        r = find(rows, key, sanitize(key, name))
+        if not r:
+            missing.append(name.strip())
+            continue
+        r["parking"] = value
+        done.append(f"{r.get(key)}={value or '（未確認）'}")
+    return done, missing
 
 
 def do_gc(rows, key, today):
@@ -437,6 +479,8 @@ def main():
     p.add_argument("--reason", default="", help="--retire / --block / --close の理由")
     p.add_argument("--close", help="休館中にする")
     p.add_argument("--until", help="--close の再開予定日 YYYY-MM-DD")
+    p.add_argument("--parking", action="append", metavar="名前=値",
+                   help="常設の駐車場の有無を記録する（yes / nearby / no / 空で未確認に戻す）。複数可")
     p.add_argument("--gc", action="store_true", help="収穫のない名簿を整理する")
     p.add_argument("--list", action="store_true", help="調査対象の一覧を出す")
     p.add_argument("--status", help="--list を状態で絞る")
@@ -468,6 +512,14 @@ def main():
             print(f"  追加(candidate): {a}")
         for d in dupes:
             print(f"  既にあります: {d}")
+
+    if args.parking:
+        done, missing = do_set_parking(rows, head, key, args.parking)
+        dirty = dirty or bool(done)
+        for d in done:
+            print(f"  parking: {d}")
+        for m in missing:
+            print(f"  WARNING: 名簿にありません（--add で追加してください）: {m}", file=sys.stderr)
 
     if args.retire:
         for name in args.retire:

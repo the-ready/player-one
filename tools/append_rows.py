@@ -91,9 +91,9 @@ VENUE_FACTS = ["lat", "lng", "parking", "nearest_station", "venue_url", "theater
 # 理由に data/ を戻す）。数十件書いた後にまとめて弾かれるより、書く瞬間に
 # 1件だけ弾くほうが被害が小さい。
 ENUM_COLUMNS = {
-    "events.csv": {"cats": "cats"},
+    "events.csv": {"cats": "cats", "event_parking": "event_parking"},
     "movies.csv": {"genre": "movie_genre", "screening_type": "screening_type"},
-    "lives.csv": {"genre": "live_genre", "live_type": "live_type"},
+    "lives.csv": {"genre": "live_genre", "live_type": "live_type", "event_parking": "event_parking"},
 }
 
 
@@ -184,6 +184,11 @@ CARRY_NEVER = {
     "limited_sale", "price", "price_official", "price_best", "discount_pct",
     "best_source", "coupon_note", "price_checked", "price_condition",
     "url", "source",
+    # 臨時駐車場・当日の閉鎖は、その催しの日だけの事情で、毎回確かめ直す事実。前回の
+    # 「臨時あり」を黙って持ち越すと、終わった催しの案内が次の催しに残る。確かめられなかった
+    # 週はバッジが消えるだけで済む（誤った「臨時P」を出さない側に倒す）。
+    # 常設の駐車場の有無は場所の事実なので名簿の `parking` 列にあり、ここには含まれない。
+    "event_parking",
 }
 
 # `_no_carry` は「この列は前回値で埋めないでほしい」という指定。CARRY_ALWAYS を

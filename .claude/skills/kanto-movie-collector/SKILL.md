@@ -365,7 +365,7 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 
 #### チェーン名の表記統一（`theaters.csv` と一致させる）
 
-映画チェーンの店舗ディレクトリは `data/theaters.csv` に別途まとめてある（`chain,name,pref,area,lat,lng,url` に加えて、名簿の保守用に `status,first_seen,last_hit,hit_count,note` を持つ）。新作行の `theater` に書くチェーン名は、必ず `theaters.csv` の `chain` 列に実在する値と**完全に一致**させること（表記ゆれがあると、チェーン名をクリックしたときの店舗地図が空になる）。対象チェーンは概ね以下の通り：
+映画チェーンの店舗ディレクトリは `data/theaters.csv` に別途まとめてある（`chain,name,pref,area,lat,lng,url,parking` に加えて、名簿の保守用に `status,first_seen,last_hit,hit_count,note` を持つ。`parking` は劇場の常設の駐車場の有無で、`yes` / `nearby` / `no` / 空=未確認。画面のP（駐車場）バッジの元になる。公式の劇場ページで有無をはっきり確かめたものだけ `python3 tools/roster.py theaters --parking 劇場名=yes` で書く。映画の行には `event_parking` 列は無い）。新作行の `theater` に書くチェーン名は、必ず `theaters.csv` の `chain` 列に実在する値と**完全に一致**させること（表記ゆれがあると、チェーン名をクリックしたときの店舗地図が空になる）。対象チェーンは概ね以下の通り：
 
 ```
 TOHOシネマズ / イオンシネマ / 109シネマズ / MOVIX / ユナイテッド・シネマ / T・ジョイ / USシネマ / ヒューマントラストシネマ

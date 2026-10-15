@@ -47,6 +47,11 @@ DATA = os.path.join(ROOT, "data")
 
 # 各スキルが「このタスクの価値の中心」と宣言している列。ここが薄い週は、
 # 件数がそろっていても仕事をしていない。
+#
+# `event_parking`（臨時駐車場・当日の閉鎖）は、**空欄が正しい書き方の列**である。
+# ほとんどの催しは臨時駐車場を用意せず、常設の駐車場も閉まらない。充足率を求めると、
+# 「空欄が多い＝薄い週」と誤判定するうえ、埋めるために推測で値を書かせる圧力になる
+# （推測で書かない規則に反する）ので、中核列にも分布の対象にも入れていない。
 CORE = {
     "events.csv": [
         # `price`（画面に出る料金の文字列）が、この表に無かった。中核だと宣言して
@@ -89,6 +94,11 @@ CORE = {
         ("is_additional", "上映延長・アンコール"),
     ],
 }
+
+# 下限を求めない区分。`sale`（商業施設の一斉セール）は年に数回しか開かれず、会期の外では
+# 載せる行が無いのが正しい。下限を求めると、無い月に「枠を埋めるために店舗ごとのセールを
+# 押し込む」圧力になる（載せない規則に反する）。件数は分布には出る。
+FLOOR_EXEMPT = {"cats": {"sale"}}
 
 # 分布を見る列と、各SKILL.mdが求めている下限。
 BALANCE = {
@@ -326,7 +336,7 @@ def analyse(name):
             if col == "pref":
                 keys = EVENT_PREFS if name == "events.csv" else PREFS[:7]
             else:
-                keys = sorted(c)
+                keys = [k for k in sorted(c) if k not in FLOOR_EXEMPT.get(col, ())]
             short = [k for k in keys if c.get(k, 0) < floor]
             if col == "pref" and short:
                 res["warnings"].append(

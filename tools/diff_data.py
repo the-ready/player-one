@@ -67,6 +67,7 @@ WATCH = [
     "onsale_label", "onsale_start", "onsale_start_time", "onsale_end", "onsale_end_time", "limited_sale",
     "price", "price_official", "price_best", "discount_pct", "price_condition", "best_source", "coupon_note",
     "artists", "venue", "theater", "is_additional", "url", "source",
+    "event_parking",   # 臨時駐車場・当日の閉鎖。変わったら画面のPバッジが変わる
 ]
 QUIET = ["desc", "note", "official_url", "apple_music_url"]   # 変わった事実だけ出す
 
