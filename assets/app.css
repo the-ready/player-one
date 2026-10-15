@@ -1969,6 +1969,8 @@ mark {
   max-width: 340px;
   margin: 0 auto;
 }
+/* 5つのプリセットは1行に収める。以前は折り返して「3ヶ月」だけが下の段に落ちていた
+   （iPhone 16 Pro の幅）。幅を等分し、字が入りきらない幅になったときだけ折り返す。 */
 .cal-presets {
   display: flex;
   flex-wrap: wrap;
@@ -1976,11 +1978,15 @@ mark {
   margin-bottom: 0.9rem;
 }
 .preset-chip {
+  flex: 1 1 0;
+  min-width: 3.4em;
+  white-space: nowrap;
+  text-align: center;
   min-height: 40px;
   border: 2px solid var(--ink);
   background: #fff;
   border-radius: 999px;
-  padding: 0.35rem 0.85rem;
+  padding: 0.35rem 0.3rem;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--text);
