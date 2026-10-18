@@ -381,6 +381,14 @@ def tier_of(name, row, today):
     if label and not os_end and norm(label) not in SETTLED_ONSALE:
         reasons.append("受付状況が未確定")
 
+    # 出演者のいる行。降板・出演日の変更は、来場の目的そのものが消える変化で、
+    # 料金の変更よりも利用者の損が大きい。出演日がすべて過去ならもう気にしなくてよい
+    # （出演日を持たない行は、いつ出るか分からないので A に残す）。
+    if (row.get("guests") or "").strip():
+        gdays = [d for d in (_d(x) for x in (row.get("guest_dates") or "").split("|")) if d]
+        if not gdays or any(d >= today for d in gdays):
+            reasons.append("出演予定")
+
     if (row.get("coupon_note") or "").strip():
         reasons.append("クーポン")           # 配布は不定期に終わる
     if (row.get("is_additional") or "").strip() in ("1", "true", "yes"):
@@ -579,9 +587,16 @@ def cmd_show(name, rows, args):
 # 価格が「いつ確認した値か」を `price_checked` で示せるのに対し、受付の締切は
 # 過ぎた瞬間に**間違った案内**になるためである（設計書 第7.2.3節）。
 # `limited_sale` も同じ性質を持つので一緒に空にする。
+#
+# 出演者（`guests` / `guest_dates` / `guest_note`）も同じ理由で空にする。降板や日程の
+# 変更は受付の締切と同じく「過ぎた瞬間に間違った案内になる」種類の事実で、**確認して
+# いない行に残すと、来ない人の名前で「出演あり」の絞り込みに入る**。取りこぼしより
+# 誤判定のほうが害が大きいので、再確認できなかった行は出演者を載せない側へ倒す。
+# 代わりに `tier_of` が、前回出演者がいた行を tier A に上げて再確認の順番を先にする。
 CARRY_REST_CLEAR = (
     "onsale_label", "onsale_start", "onsale_start_time",
     "onsale_end", "onsale_end_time", "limited_sale",
+    "guests", "guest_dates", "guest_note",
 )
 
 # 持ち越した目印を行に書かないのは、`note` が**画面に出る列**だからである

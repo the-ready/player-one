@@ -534,6 +534,97 @@ def _():
         return "同じ回の中で前の行" not in buf.getvalue() or f"誤検知した: {buf.getvalue()[:200]!r}"
 
 
+# ---------------------------------------------------------------- 出演者（guests / guest_dates / guest_note）
+
+GUEST_COLS = ("guests", "guest_dates", "guest_note")
+GUEST_PREV = dict(guests="青山龍|白石凛", guest_dates="2026-10-25|2026-11-03",
+                  guest_note="10/25 トーク／11/3 サイン会")
+
+
+@check("出演者の3列は CARRY_NEVER にあり、CARRY_ALWAYS には無い（降板・出演日の経過で変わる）")
+def _():
+    return (all(c in ar.CARRY_NEVER and c not in ar.CARRY_ALWAYS for c in GUEST_COLS)) \
+        or "持ち越しの分類が違う"
+
+
+@check("events: 出演者は前回値から補われない（書き忘れた行は空になる）")
+def _():
+    with Sandbox() as s:
+        s.put([])
+        s.put_prev([_row(id="1", **GUEST_PREV, **BASE)])
+        r = s.send([_row(price="再確認", **BASE)])["rows"][0]
+        left = {c: r[c] for c in GUEST_COLS if r[c]}
+        return not left or f"出演者が持ち越された: {left}"
+
+
+@check("events: `_carry: \"*\"` でも出演者は復活しない（持ち越し可能な列に入らない）")
+def _():
+    with Sandbox() as s:
+        s.put([])
+        s.put_prev([_row(id="1", note="注記", **GUEST_PREV, **BASE)])
+        r = s.send([dict(_row(**BASE), _carry="*")])["rows"][0]
+        left = {c: r[c] for c in GUEST_COLS if r[c]}
+        return (not left and r["note"] == "注記") or f"left={left} note={r['note']!r}"
+
+
+@check("events: `_carry` に出演者の列を書いたら落ちる（日付・料金と同じ扱い）")
+def _():
+    for col in GUEST_COLS:
+        with Sandbox() as s:
+            s.put([])
+            s.put_prev([_row(id="1", **GUEST_PREV, **BASE)])
+            try:
+                s.send([dict(_row(**BASE), _carry=col)])
+            except SystemExit:
+                continue
+            return f"{col} の持ち越しが通ってしまった"
+    return True
+
+
+@check("events: 出演者を明示して書けば、その値で置き換わる（行ごとの置き換え）")
+def _():
+    with Sandbox() as s:
+        s.put([_row(id="1", **GUEST_PREV, **BASE)])
+        new = dict(guests="赤松蓮", guest_dates="2026-10-26", guest_note="10/26 トーク")
+        r = s.send([_row(**new, **BASE)])["rows"][0]
+        return all(r[c] == new[c] for c in new) or f"置き換わらない: { {c: r[c] for c in GUEST_COLS} }"
+
+
+@check("events: 出演者が空になっても警告しない（降板は空欄が正しい書き方）")
+def _():
+    import contextlib, io
+    with Sandbox() as s:
+        s.put([_row(id="1", **GUEST_PREV, **BASE)])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            s.send([_row(**BASE)])
+        return not any(c in buf.getvalue() for c in GUEST_COLS) or f"不要な警告: {buf.getvalue()[:160]!r}"
+
+
+@check("movies: 出演者も持ち越されない／明示すれば書ける（舞台挨拶の回は週ごとに変わる）")
+def _():
+    mv = dict(title="特集上映", release_date="2026-11-01", end_date="2026-11-14",
+              screening_type="revival", theater="新文芸坐", pref="tokyo")
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "movies.csv", [dict(id="1", **GUEST_PREV, **mv)],
+                            [dict(price="一般1,500円", **mv)])
+        carried = {c: rows[0][c] for c in GUEST_COLS if rows[0][c]}
+    with Sandbox() as s:
+        rows2, _m = _send_ds(s, "movies.csv", [dict(id="1", **mv)],
+                             [dict(guests="監督太郎", guest_dates="2026-11-03", **mv)])
+    return (not carried and rows2[0]["guests"] == "監督太郎") or f"carried={carried} 書けた={rows2[0]['guests']!r}"
+
+
+@check("lives: 出演者の列は無く、書いても落ちる（lives は artists を使う）")
+def _():
+    try:
+        with Sandbox() as s:
+            _send_ds(s, "lives.csv", [dict(id="1", **LIVE)], [dict(LIVE, _carry="guests")])
+    except SystemExit:
+        return True
+    return "lives に guests の持ち越しが通った"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

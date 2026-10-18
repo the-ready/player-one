@@ -241,6 +241,59 @@ def _():
     return True
 
 
+@check("書き戻す行の出演者（guests / guest_dates / guest_note）も空にする（確認していない行に残さない）")
+def _():
+    row = {"title": "トーク付き展", "venue": "会場", "pref": "tokyo",
+           "start_date": "2026-10-01", "end_date": "2026-11-30", "price": "無料",
+           "guests": "青山龍|白石凛", "guest_dates": "2026-10-25|2026-11-03",
+           "guest_note": "10/25 トーク", "desc": "説明" * 20}
+    obj = pr._build_carry_obj(row, lineups=set())
+    leaked = [c for c in ("guests", "guest_dates", "guest_note") if c in obj]
+    if leaked:
+        return f"出演者が書き戻しに残っている: {leaked}"
+    # 他の列は残す（出演者だけを空にする）
+    return (obj.get("price") == "無料" and bool(obj.get("desc"))) or f"他の列まで消している: {obj}"
+
+
+def _tier(guests="", guest_dates="", today=date(2026, 10, 20), **kw):
+    row = {"title": "展", "venue": "会場", "pref": "tokyo", "start_date": "2026-09-01",
+           "end_date": "2026-12-31", "price": "無料", "guests": guests, "guest_dates": guest_dates}
+    row.update(kw)
+    return pr.tier_of("events.csv", row, today)
+
+
+@check("出演者のいる行は tier A（出演予定）— 降板・日程変更は料金より損が大きい")
+def _():
+    tier, reasons = _tier(guests="青山龍", guest_dates="2026-10-25")
+    return (tier == "A" and "出演予定" in reasons) or f"tier={tier} reasons={reasons}"
+
+
+@check("出演日が不明（空）の出演者行も tier A（いつ出るか分からないので毎週確かめる）")
+def _():
+    tier, reasons = _tier(guests="青山龍")
+    return (tier == "A" and "出演予定" in reasons) or f"tier={tier} reasons={reasons}"
+
+
+@check("出演日が今日なら tier A、すべて過去なら出演予定の理由を付けない")
+def _():
+    today_tier, today_reasons = _tier(guests="A", guest_dates="2026-10-20")
+    past_tier, past_reasons = _tier(guests="A", guest_dates="2026-10-10|2026-10-19")
+    return ("出演予定" in today_reasons and "出演予定" not in past_reasons) \
+        or f"today={today_tier,today_reasons} past={past_tier,past_reasons}"
+
+
+@check("出演者のいない行は出演予定の理由を持たない（従来どおり）")
+def _():
+    tier, reasons = _tier()
+    return "出演予定" not in reasons or f"tier={tier} reasons={reasons}"
+
+
+@check("出演日の書式が壊れていても tier_of は落ちない（日付として読めない要素は無視）")
+def _():
+    tier, reasons = _tier(guests="A", guest_dates="10/25|2026-13-45")
+    return (tier == "A" and "出演予定" in reasons) or f"tier={tier} reasons={reasons}"
+
+
 @check("前回の note を持ち越しの目印で上書きしない")
 def _():
     r = _row(title="注意書きつき公演", start_date="2026-09-20", end_date="2026-09-20",

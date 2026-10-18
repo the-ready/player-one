@@ -11,6 +11,7 @@ import {
   statusOf,
   rankOf,
   displayDate,
+  activeGuests,
   refreshToday as refreshTodayRaw,
 } from "./schedule.js";
 
@@ -168,6 +169,11 @@ function searchHay(tab, it) {
     [it.title, it.kana, it.venue, it.area, it.desc, it.note]
       .concat(it.venues || [])
       .concat(it.artists || [])
+      // 出演者（イベント・映画）。**いま残っている出演者だけ**を索引に入れる。
+      // 出演日を過ぎた人の名前で検索に当たると、カードのどこにも出演行が出ないのに
+      // ヒットする（なぜ出たのか分からない）。日付をまたぐと refreshToday() が
+      // 索引を作り直すので、期限切れは翌日から自然に外れる。
+      .concat(activeGuests(it))
       // フェスは artists 列が主要8組までなので、それだけを索引にすると
       // 「出演するのに検索で出てこないアーティスト」が大量に生まれる。
       // 日割りラインナップ（第12.12節）の全出演者を索引に含める。

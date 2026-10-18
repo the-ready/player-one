@@ -390,6 +390,7 @@ const FLAG_PARAM = {
   dealsOnly: "deals",
   freeOnly: "free",
   newOnly: "new",
+  guestOnly: "guest",
   onsaleOnly: "onsale",
   beforeOnly: "before",
   limitedOnly: "limited",

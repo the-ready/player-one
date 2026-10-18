@@ -88,6 +88,67 @@ check(
 );
 check("日付をまったく持たない行は空", suggestedVisitDate({}, TODAY), "");
 
+console.log("\n--- 出演日（guest_dates。出演者がいる行だけ） ---");
+const SPAN = { startDate: "2026-06-10", endDate: "2026-12-01" };
+check(
+  "明日以降でいちばん近い出演日（会期中の行でも、明日ではなく出演日）",
+  suggestedVisitDate(
+    {
+      ...SPAN,
+      guests: ["A"],
+      guestDates: ["2026-09-19", "2026-10-25", "2026-11-03"],
+    },
+    TODAY,
+  ),
+  "2026-10-25",
+);
+check(
+  "出演日が今日だけなら出演日では決めない（起点は明日）→ 会期の規則どおり明日",
+  suggestedVisitDate(
+    { ...SPAN, guests: ["A"], guestDates: ["2026-09-21"] },
+    TODAY,
+  ),
+  "2026-09-22",
+);
+check(
+  "出演日が明日ならその日",
+  suggestedVisitDate(
+    { ...SPAN, guests: ["A"], guestDates: ["2026-09-22"] },
+    TODAY,
+  ),
+  "2026-09-22",
+);
+check(
+  "出演日がすべて過去（出演は終わっている）なら従来の規則",
+  suggestedVisitDate(
+    { ...SPAN, guests: ["A"], guestDates: ["2026-09-01"] },
+    TODAY,
+  ),
+  "2026-09-22",
+);
+check(
+  "出演者がいなければ guest_dates だけがあっても使わない",
+  suggestedVisitDate({ ...SPAN, guestDates: ["2026-10-25"] }, TODAY),
+  "2026-09-22",
+);
+check(
+  "出演日を持たない出演者行は従来の規則（出演日を推測しない）",
+  suggestedVisitDate({ ...SPAN, guests: ["A"] }, TODAY),
+  "2026-09-22",
+);
+check(
+  "飛び日程の行でも、出演日が先（出演日が行く理由になる）",
+  suggestedVisitDate(
+    {
+      dates: ["2026-09-22", "2026-09-27", "2026-10-04"],
+      guests: ["A"],
+      guestDates: ["2026-10-04"],
+    },
+    TODAY,
+  ),
+  "2026-10-04",
+);
+
 console.log(
   failures.length
     ? `\nNG ${failures.length}件: ${failures.join(", ")}`

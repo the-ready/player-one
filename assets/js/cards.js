@@ -9,6 +9,7 @@ import {
   highlight,
   fmtDateWd,
   fmtDateWdShort,
+  fmtSpan,
   fmtWhen,
   fold,
   haversineKm,
@@ -34,7 +35,12 @@ import {
   seriesSiblings,
   seriesHighlights,
 } from "./filters.js";
-import { schedulePhase, nextOpenDay } from "./schedule.js";
+import {
+  schedulePhase,
+  nextOpenDay,
+  activeGuests,
+  upcomingGuestDates,
+} from "./schedule.js";
 import { isFav, isFavSpot } from "./state.js";
 import { matchSpots, parkingState } from "./spots.js";
 
@@ -226,6 +232,46 @@ export function parkingBadgesHtml(it) {
   else if (base) out.push(parkBadgeHtml(base));
   if (ep === "temp" || ep === "temp_only") out.push(parkBadgeHtml("temp"));
   return out.join("");
+}
+
+/* ---------- 出演者行（イベント・映画。設計書 第5.4.2節） ----------
+
+   「芸能人・著名人の出演あり」「舞台挨拶・ゲスト登壇あり」で絞った人にも、検索で
+   名前を打った人にも、**なぜこのカードが出たのか**がタイトル直下で分かるようにする。
+   ライブの出演者行（上の artistLineHtml）と違って、出演者が1人でも出す——ライブは
+   単独公演のタイトルに本人の名前が出ているが、イベントや映画の題に人名は出ない。
+
+   出すのは `activeGuests`（いま残っている出演者）だけ。出演日を過ぎた人は、行そのものが
+   会期中でも出さない。出演日が決まっていれば、これからの日だけを名前の後ろに添える。
+   検索語に当たった名前は先頭へ繰り上げる（4人目以降に隠れると手がかりが無くなる）。
+   guestWords を持たないタブ（ライブ）では何も返さない。 */
+const GUEST_VISIBLE = 3;
+function guestLineHtml(tab, it, terms) {
+  const words = tab.guestWords;
+  const names = words ? activeGuests(it) : [];
+  if (!names.length) return "";
+
+  const hit = (n) => (terms && terms.length && matchesTerms(n, terms) ? 0 : 1);
+  const ordered = names
+    .map((n, i) => [n, i])
+    .sort((a, b) => hit(a[0]) - hit(b[0]) || a[1] - b[1])
+    .map((x) => x[0]);
+  const shown = ordered.slice(0, GUEST_VISIBLE);
+  const rest = names.length - shown.length;
+  const more = rest > 0 ? `　ほか${rest}名` : "";
+  const days = upcomingGuestDates(it);
+  const when = days.length
+    ? `<span class="guest-when">（${esc(fmtSpan(null, null, days))}）</span>`
+    : "";
+  return `<p class="guest-line"><span class="guest-label">${esc(words.label)}</span>${shown.map((n) => highlight(n, terms)).join("・")}${more}${when}</p>`;
+}
+
+/* 「くわしく」の中の補足（いつ・どんな形で出るか）。guest_note は出演者がいま残って
+   いるときだけ出す——出演が終わった行に「10/25 14時 トークショー」だけが残ると、
+   終わった案内を現在形で読ませることになる。 */
+function guestDetailHtml(tab, it) {
+  if (!tab.guestWords || !it.guestNote || !activeGuests(it).length) return "";
+  return `<p class="fact-list"><span class="vd-row"><span class="vd-label">${esc(tab.guestWords.note)}</span>${esc(it.guestNote)}</span></p>`;
 }
 
 /* ---------- 会場行 ---------- */
@@ -680,6 +726,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
       ? `<p class="coupon-note"><span class="coupon-tag">クーポン</span>${esc(it.couponNote)}</p>`
       : "",
     scheduleDetailHtml(it),
+    guestDetailHtml(tab, it),
     merged ? "" : venueDetailHtml(it),
     seriesOthersHtml(tab, it),
     it.note
@@ -717,6 +764,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
       </div>
       <h3 class="title">${highlight(it.title, terms)}${merged ? "" : parkingBadgesHtml(it)}</h3>
       ${artistLineHtml(it, terms)}
+      ${merged ? "" : guestLineHtml(tab, it, terms)}
       ${
         merged
           ? `${groupPlaceHtml(members, terms)}${officialLink ? `<p class="meta">${officialLink}</p>` : ""}`

@@ -145,6 +145,23 @@ check("URL", e["url"], "https://example.jp/exhibition")
 check("中止が eventStatus から取れる", ev[1]["status"], "EventCancelled")
 check("location が文字列でも会場名として読める", ev[1]["venue"], "日比谷野外音楽堂")
 
+print("出演者（performer / actor）")
+check("performer が無い Event には列そのものが出ない", "performer" in ev[0], False)
+check("performer が無い（2件目）も同じ", "performer" in ev[1], False)
+ev_p = fp.normalize_events([
+    {"@type": "Event", "name": "a", "performer": {"@type": "Person", "name": "山田太郎"}},
+    {"@type": "Event", "name": "b",
+     "performer": [{"@type": "Person", "name": "山田太郎"}, {"@type": "PerformingGroup", "name": "劇団X"},
+                   {"name": "山田太郎"}, "鈴木花子", {"@type": "Person"}]},
+    {"@type": "Event", "name": "c", "actor": {"name": "佐藤"}},
+    {"@type": "Event", "name": "d", "performer": ""},
+])
+check("単数の辞書", ev_p[0]["performer"], "山田太郎")
+check("配列は `|` 区切り・重複と名前の無い要素は落とす・文字列も読める",
+      ev_p[1]["performer"], "山田太郎|劇団X|鈴木花子")
+check("actor でも拾う", ev_p[2]["performer"], "佐藤")
+check("空文字の performer は列を出さない", "performer" in ev_p[3], False)
+
 print("値の型ゆれ")
 check("配列の name", fp._txt(["A", "B"]), "A / B")
 check("辞書の name", fp._txt({"name": "C"}), "C")

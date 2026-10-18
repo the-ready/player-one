@@ -450,6 +450,106 @@ def _run_main_lives(rows, prev_rows_, argv):
         return code, out.getvalue(), err.getvalue()
 
 
+# ---------------------------------------------------------------- 出演者（guests）
+
+from datetime import date as _date                            # noqa: E402
+
+G_TODAY = _date(2026, 10, 20)
+
+
+def _g(title, guests="", guest_dates="", **kw):
+    r = {"id": title, "title": title, "venue": "会場", "start_date": "2026-10-01",
+         "end_date": "2026-12-31", "guests": guests, "guest_dates": guest_dates}
+    r.update(kw)
+    return r
+
+
+@check("guests: 件数・前回の件数・今週の新規のうちの件数を数える（下限は置かない）")
+def _():
+    cur = [_g("a", "青山龍", "2026-10-25"), _g("b"), _g("c", "白石凛")]
+    prev = [_g("a", "青山龍", "2026-10-25")]
+    fresh = [cur[2]]
+    g = rs.guest_report("events.csv", cur, prev, fresh, G_TODAY)
+    return (g["filled"] == 2 and g["prev_filled"] == 1 and g["fresh_filled"] == 1) or f"{g}"
+
+
+@check("guests: 前回は出演者がいて今回は空の行を「消えた行」に挙げる（降板か書き忘れか）")
+def _():
+    prev = [_g("a", "青山龍", "2026-10-25"), _g("b", "白石凛", "2026-10-26")]
+    cur = [_g("a"), _g("b", "白石凛", "2026-10-26")]
+    g = rs.guest_report("events.csv", cur, prev, [], G_TODAY)
+    return [t for _i, t in g["dropped"]] == ["a"] or f"{g['dropped']}"
+
+
+@check("guests: 出演日がすべて過去だった行が空になったのは自然な終わりで、消えた行に数えない")
+def _():
+    prev = [_g("a", "青山龍", "2026-10-10")]
+    cur = [_g("a")]
+    g = rs.guest_report("events.csv", cur, prev, [], G_TODAY)
+    return g["dropped"] == [] or f"{g['dropped']}"
+
+
+@check("guests: 出演日を持たない行は、会期が終わっていなければ生きているので、空になれば挙げる")
+def _():
+    alive = rs.guest_report("events.csv", [_g("a")], [_g("a", "青山龍")], [], G_TODAY)
+    ended = rs.guest_report("events.csv", [_g("a", end_date="2026-10-01")],
+                            [_g("a", "青山龍", end_date="2026-10-01")], [], G_TODAY)
+    return (len(alive["dropped"]) == 1 and ended["dropped"] == []) or f"alive={alive['dropped']} ended={ended['dropped']}"
+
+
+@check("guests: 前回に無い行（新規）は、空でも「消えた」ではない")
+def _():
+    g = rs.guest_report("events.csv", [_g("new")], [], [], G_TODAY)
+    return g["dropped"] == [] or f"{g['dropped']}"
+
+
+@check("guests: 登壇の語があるのに guests が空の行を候補に挙げる（desc / note / date_note / title）")
+def _():
+    cur = [
+        _g("t1", desc="10/25にトークショーを開催"),
+        _g("t2", note="初日は舞台挨拶あり"),
+        _g("t3", date_note="サイン会あり"),
+        _g("ゲスト登壇つきの展"),
+        _g("無関係", desc="来場者に特典を配布。ステージショーあり。出演：キャスト一覧"),
+    ]
+    g = rs.guest_report("events.csv", cur, [], [], G_TODAY)
+    ids = [i for i, _t in g["candidates"]]
+    return ids == ["t1", "t2", "t3", "ゲスト登壇つきの展"] or f"候補={ids}（来場・出演・ステージでは拾わない）"
+
+
+@check("guests: すでに guests がある行・終わった催しは候補にしない／候補は上限で打ち切り、総数は出す")
+def _():
+    cur = [_g("have", "青山龍", desc="トークショー"),
+           _g("ended", desc="トークショー", end_date="2026-10-01")]
+    cur += [_g(f"c{i}", desc="トークショー") for i in range(rs.GUEST_CANDIDATES_MAX + 5)]
+    g = rs.guest_report("events.csv", cur, [], [], G_TODAY)
+    return (len(g["candidates"]) == rs.GUEST_CANDIDATES_MAX
+            and g["candidates_total"] == rs.GUEST_CANDIDATES_MAX + 5
+            and all(i.startswith("c") for i, _t in g["candidates"])) or f"{g['candidates_total']}件 {g['candidates'][:3]}"
+
+
+@check("guests: lives には出さない／列の無い古いCSVでは出さない（analyse の配線）")
+def _():
+    rows = [_row(title=f"公演{i}") for i in range(3)]
+    with _isolated_lives(rows, rows):
+        res = rs.analyse("lives.csv")
+    return "guests" not in res or f"lives に出演者の節が出た: {res.get('guests')}"
+
+
+@check("guests: 出力に「下限なし」と件数が出る（print_human）")
+def _():
+    res = {"dataset": "events.csv", "current_count": 3, "prev_count": 3, "core": [],
+           "balance": {}, "warnings": [],
+           "guests": {"filled": 1, "prev_filled": 2, "fresh_filled": 0,
+                      "dropped": [("7", "降板した展")], "candidates": [("9", "候補の展")],
+                      "candidates_total": 1}}
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rs.print_human(res)
+    out = buf.getvalue()
+    return all(w in out for w in ("1/3件", "前回2件", "下限なし", "降板した展", "候補の展")) or out
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

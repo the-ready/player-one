@@ -36,7 +36,9 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from prev_rows import load_prev, resolve_dataset                  # noqa: E402
@@ -263,6 +265,74 @@ def pct(n, total):
     return (n * 100 // total) if total else 0
 
 
+# --- 出演者（`guests`）は充足率の「下限」を置かない ------------------------------
+#
+# 出演者のいる催しは、イベントでも映画でも少数派である（実測では events の1〜2割、
+# 映画は舞台挨拶つきの回があるぶん多い）。**空欄が大半なのが正常で、下限を置くと
+# 載せるものを探す圧力が、載せてはいけない人名を作る圧力になる**（設計書 第7.2.6節）。
+# そこで件数と前週比だけを出し、判断に要る2つの手がかりを添える。
+#
+#   消えた行   前回は出演者がいたのに今回は空の行。降板か、書き忘れかの見分けは
+#              中身を見ないとつかない（`guests` は持ち越し禁止なので、再確認で
+#              書き直さないと消える）。出演日がすべて過去なら自然に終わったので数えない
+#   候補       `desc` などに登壇の語があるのに `guests` が空の行。取りこぼしの
+#              見当をつけるための**手がかりで、判定ではない**（精度は実測で2〜3割。
+#              施設側の人の講演会などが混ざる）。語は「出演」「来場」「ステージ」を
+#              含めない——それらは来場者・ステージショー・キャストの一覧に頻出する
+GUEST_DATASETS = ("events.csv", "movies.csv")
+GUEST_HINT = re.compile(r"ゲスト|登壇|トークショー|トークイベント|舞台挨拶|サイン会|握手会|来日")
+GUEST_HINT_COLS = ("title", "desc", "note", "date_note")
+GUEST_CANDIDATES_MAX = 12
+
+
+def _iso(v):
+    try:
+        return date.fromisoformat((v or "").strip())
+    except ValueError:
+        return None
+
+
+def _guest_alive(row, today):
+    """その行の出演者が「これから」のものか（出演日を持たなければ会期が終わるまで生きている）。"""
+    days = [d for d in (_iso(x) for x in (row.get("guest_dates") or "").split("|")) if d]
+    if days:
+        return any(d >= today for d in days)
+    end = _iso(row.get("end_date"))
+    return end is None or end >= today
+
+
+def guest_report(name, cur, prev, fresh, today):
+    """出演者の件数・消えた行・取りこぼしの候補を返す（events / movies だけ）。"""
+    have = [r for r in cur if (r.get("guests") or "").strip()]
+    prev_have = [r for r in prev if (r.get("guests") or "").strip()]
+    cur_by_uid = {row_uid(name, r): r for r in cur}
+    dropped = []
+    for r in prev_have:
+        if not _guest_alive(r, today):
+            continue
+        now = cur_by_uid.get(row_uid(name, r))
+        if now is not None and not (now.get("guests") or "").strip():
+            dropped.append((r.get("id", ""), (r.get("title") or "")[:40]))
+    candidates = []
+    for r in cur:
+        if (r.get("guests") or "").strip():
+            continue
+        end = _iso(r.get("end_date"))
+        if end is not None and end < today:
+            continue              # 終わった催しは載せ直す意味が無い
+        text = " ".join((r.get(c) or "") for c in GUEST_HINT_COLS)
+        if GUEST_HINT.search(text):
+            candidates.append((r.get("id", ""), (r.get("title") or "")[:40]))
+    return {
+        "filled": len(have),
+        "prev_filled": len(prev_have),
+        "fresh_filled": sum(1 for r in fresh if (r.get("guests") or "").strip()),
+        "dropped": dropped,
+        "candidates": candidates[:GUEST_CANDIDATES_MAX],
+        "candidates_total": len(candidates),
+    }
+
+
 def counts(rows, col):
     out = {}
     for r in rows:
@@ -273,7 +343,8 @@ def counts(rows, col):
     return out
 
 
-def analyse(name):
+def analyse(name, today=None):
+    today = today or date.today()
     cur = read_current(name)
     prev, _src = load_prev(name)
     res = {
@@ -317,6 +388,9 @@ def analyse(name):
             res["thin_issues"].append(
                 {"column": col, "pct": p, "floor": floor, "count": len(fresh),
                  "filled": n, "min_len": min_len})
+
+    if name in GUEST_DATASETS and cur and "guests" in cur[0]:
+        res["guests"] = guest_report(name, cur, prev, fresh, today)
 
     for col, label in CORE.get(name, []):
         if cur and col not in cur[0]:
@@ -396,6 +470,21 @@ def print_human(res):
             cond = f"・{c['min_len']}字以上" if c.get("min_len") else ""
             print(f"    {c['column']:<18} {c['filled']:>4}/{fresh['count']:<4}"
                   f" {c['pct']:>3}%  （下限 {c['floor']}%{cond}）{mark}")
+
+    g = res.get("guests")
+    if g:
+        total = res["current_count"]
+        print(f"\n  出演者（guests）: {g['filled']}/{total}件（前回{g['prev_filled']}件 / "
+              f"今週の新規のうち{g['fresh_filled']}件）  ※下限なし。空欄が大半で正常")
+        if g["dropped"]:
+            print(f"    前回は出演者がいたのに今回は空: {len(g['dropped'])}件"
+                  "（降板か書き忘れか、公式ページで確かめる）")
+            for i, t in g["dropped"][:8]:
+                print(f"      id={i} {t}")
+        if g["candidates_total"]:
+            print(f"    登壇の語があるのに guests が空（候補・精度は低い）: {g['candidates_total']}件")
+            for i, t in g["candidates"][:8]:
+                print(f"      id={i} {t}")
 
     for col, c in res["balance"].items():
         if not c:

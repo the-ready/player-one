@@ -87,7 +87,7 @@ EVENTS_HEADERS = [
     "onsale_end", "onsale_end_time", "limited_sale", "price", "price_official",
     "price_best", "discount_pct", "best_source", "coupon_note", "price_checked",
     "price_condition", "source", "url", "official_url", "lat", "lng", "desc",
-    "note", "parking", "nearest_station",
+    "note", "parking", "nearest_station", "guests", "guest_dates", "guest_note",
 ]
 
 
@@ -358,6 +358,53 @@ def _():
         res, _ = dd.diff_one("events.csv")
         noop = dd.is_noop(res, today)
     return (not res["changed"] and noop) or f"changed={res['changed']} noop={noop}"
+
+
+# ---------------------------------------------------------------- 出演者
+
+_GUEST_PREV = dict(id="1", title="トークイベント", venue="ホールX", start_date="2026-10-10",
+                   end_date="2026-11-30", pref="tokyo", price="無料",
+                   guests="青山龍|白石凛", guest_dates="2026-10-25|2026-11-03",
+                   guest_note="10/25 トーク／11/3 サイン会")
+
+
+@check("出演者の降板（guests が消えた）は [変更] に出る（書き直した行）")
+def _():
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_GUEST_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS,
+                       [dict(_GUEST_PREV, guests="", guest_dates="", guest_note="")])
+        res, _ = dd.diff_one("events.csv")
+    fields = res["changed"][0]["fields"] if res["changed"] else {}
+    return ({"guests", "guest_dates", "guest_note"} <= set(fields)) or f"降板が差分に出ない: {res['changed']}"
+
+
+@check("出演者の追加・出演日の変更も [変更] に出る")
+def _():
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [dict(_GUEST_PREV, guests="", guest_dates="", guest_note="")])
+        sb.put_current("events.csv", EVENTS_HEADERS, [_GUEST_PREV])
+        res, _ = dd.diff_one("events.csv")
+        added = res["changed"][0]["fields"] if res["changed"] else {}
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_GUEST_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS, [dict(_GUEST_PREV, guest_dates="2026-10-26|2026-11-03")])
+        res2, _ = dd.diff_one("events.csv")
+        moved = res2["changed"][0]["fields"] if res2["changed"] else {}
+    return ("guests" in added and "guest_dates" in moved) or f"added={added} moved={moved}"
+
+
+@check("carry-rest が出演者欄を空にして書き戻しただけの行は、[変更] に出さない（pending にある）")
+def _():
+    import rowkey
+    with _Sandbox() as sb:
+        sb.put_prev("events.csv", EVENTS_HEADERS, [_GUEST_PREV])
+        sb.put_current("events.csv", EVENTS_HEADERS,
+                       [dict(_GUEST_PREV, id="9", guests="", guest_dates="", guest_note="")])
+        _pending(sb, "events.csv", [rowkey.uid("events.csv", _GUEST_PREV)])
+        res, _ = dd.diff_one("events.csv")
+    if res["changed"]:
+        return f"見かけの変更（出演者が空になっただけ）が [変更] に出た: {res['changed']}"
+    return len(res["carried_unverified"]) == 1 or f"持ち越しとして数えられていない: {res}"
 
 
 def main():

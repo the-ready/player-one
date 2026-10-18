@@ -74,11 +74,11 @@ HEAD_LINE_RE = re.compile(r"^#{2,3} +\S")
 
 PER_DATASET = {
     "movies": ["上映形態キー", "ジャンルキー", "`theater` 列の書き方", "画像は扱わない",
-               "price_official", "onsale_"],
+               "price_official", "onsale_", "guest_dates", "登壇者の書き方"],
     "lives":  ["転売サイトの絶対禁止", "公演形態キー", "ジャンルキー", "onsale_",
                "limited_sale", "tour_id"],
     "events": ["カテゴリキー", "coupon_note", "price_condition", "onsale_",
-               "parking", "lat"],
+               "parking", "lat", "guest_dates", "出演者の書き方", "ステップ3.5"],
 }
 
 fails = 0

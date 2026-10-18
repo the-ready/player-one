@@ -91,7 +91,7 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 
 ### CSVの列を足す・変える・消す
 
-**9か所を必ず揃える。** 1つ漏れると「収集は成功したのに画面に出ない」という最も気づきにくい壊れ方をする。
+**次の13か所を必ず揃える。** 1つ漏れると「収集は成功したのに画面に出ない」という最も気づきにくい壊れ方をする。
 
 1. `tools/validate_data.py` の `EXPECTED_HEADERS`（ここが唯一の正。他ツールはここから読む）
 2. `assets/js/config.js` の `*_COLUMNS`（表示に使う列だけ）
@@ -102,6 +102,21 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 7. `tools/diff_data.py` の `WATCH` / `QUIET`（**変動する列をここに入れ忘れると、変化が差分報告に一切出ない**）
 8. `tools/report_stats.py` の `CORE` / `BALANCE`（充足率と分布の計算対象）
 9. `docs/DESIGN.md` 第10章の列数と `docs/COLLECTION-PROTOCOL.md` 第4章の持ち越し表
+10. `tools/prev_rows.py` の `CARRY_REST_CLEAR`（確認できなかった行を書き戻すとき空にする列）と `tier_of`（再確認の優先度）
+11. `tools/skill_brief_test.py` の `PER_DATASET`（新しい規則が、子に渡す抜粋から黙って落ちないことの固定）
+12. 列を手書きで並べているテスト（`tools/diff_data_test.py` の `EVENTS_HEADERS` など）と `tools/validate_data_test.py` の検査
+13. 画面に出す列なら、`assets/js/` の `cards.js`（描画）・`filters.js`（絞り込み）・`data.js` の `searchHay`（検索）・`state.js`（URL）と、`sw.js` の `VERSION`（**HEAD の値から**上げる）
+
+**上の一覧は手で書いているので漏れる**（13番は、10〜13番を足した回に類似列を調べ直して初めて見つかった）。
+列を足す回は、**似た性質の既存列（`parking` `limited_sale` `artists` など）の名前を、snake_case と camelCase の両方で
+リポジトリ全体から grep し、ヒットしたファイルの一覧と、自分が触ったファイルの一覧を突き合わせる**こと。
+触らないファイルには、触らない理由が言えなければならない。
+
+```bash
+for w in nearest_station nearestStation limited_sale limitedSale artists; do
+  echo "== $w"; grep -rIl --exclude-dir={.git,temp,worktrees,logs,__pycache__,node_modules} --exclude='*.csv' -e "$w" . | sort | tr '\n' ' '; echo
+done
+```
 
 > **`~/.claude/skills/` に収集スキルの複製は無い**（2026-09-22 時点）。ディレクトリ自体は存在するが、
 > 中身はアカウント側から同期される別のスキル（`synced/`）と `session-start-hook` だけである。
@@ -119,6 +134,7 @@ CSV・Python・シェルは対象外（prettier に parser が無い）。
 node tools/lineup_test.mjs                  # データの繋ぎ・検索・シート（DOM不要）
 node tools/tab_carry_test.mjs               # タブ切替での絞り込みの持ち越し（DOM不要）
 node tools/free_filter_test.mjs             # 「無料のものだけ」の判定規則と配線（DOM不要）
+node tools/guest_filter_test.mjs            # 「出演あり」チップ：判定・日程連動・時間経過・カード（DOM不要）
 node tools/caladd_test.mjs                  # カレンダー追加の初期日付の分岐（DOM不要）
 node tools/fav_spots_test.mjs               # お気に入りスポット（★）の名寄せ・保存・先頭セクション（DOM不要）
 node tools/parking_badge_test.mjs           # 駐車場（P）バッジの組み合わせ表と絞り込み（DOM不要）

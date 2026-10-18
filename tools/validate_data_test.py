@@ -334,6 +334,168 @@ def _():
     return "parking が空です" in msg or msg
 
 
+# --- 出演者（guests / guest_dates / guest_note） -----------------------------------
+
+from datetime import date as _date                            # noqa: E402
+
+_TODAY = _date(2026, 10, 20)
+
+
+def _guest_messages(name="events.csv", **kw):
+    """出演者の3列だけを検査する（今日を固定して、他の列の警告に埋もれさせない）。"""
+    r = _row(title="展", venue="V", start_date="2026-10-01", end_date="2026-11-30", **kw) \
+        if name == "events.csv" else {c: "" for c in vd.EXPECTED_HEADERS[name]} | kw
+    rep = vd.Report()
+    start = vd.parse_date(r.get("start_date") or r.get("release_date"))
+    end = vd.parse_date(r.get("end_date"))
+    vd.check_guests(rep, "x:2", r, start, end, today=_TODAY)
+    return "\n".join(rep.warning_lines()), "\n".join(rep.errors)
+
+
+def _expect_clean(**kw):
+    w, e = _guest_messages(**kw)
+    return (not w and not e) or f"何も出ないはずが出た: warn={w!r} err={e!r}"
+
+
+@check("出演者の3列は events / movies のヘッダーにあり、lives には無い")
+def _():
+    h = vd.EXPECTED_HEADERS
+    cols = ["guests", "guest_dates", "guest_note"]
+    return (all(h["events.csv"][-3:] == cols and h["movies.csv"][-3:] == cols for _ in [0])
+            and not any(c in h["lives.csv"] for c in cols)) or "ヘッダーの位置・対象が違う"
+
+
+@check("出演者が空の行には何も言わない（大半の行はこちら）")
+def _():
+    return _expect_clean()
+
+
+@check("正しい書き方（氏名・出演日・注記）は何も言わない")
+def _():
+    return _expect_clean(guests="青山龍|白石凛", guest_dates="2026-10-25|2026-11-03",
+                         guest_note="10/25 14:00 トーク／11/3 サイン会")
+
+
+@check("出演日が空でも、出演者がいれば何も言わない（出演日を推測しない）")
+def _():
+    return _expect_clean(guests="青山龍")
+
+
+@check("guest_dates の書式崩れは ERROR（日付の比較が壊れ、期限切れの判定が嘘になる）")
+def _():
+    w, e = _guest_messages(guests="青山龍", guest_dates="10/25")
+    return "guest_dates の書式が YYYY-MM-DD ではありません" in e or f"ERROR にならない: {e!r}"
+
+
+@check("存在しない日付（2026-02-30）も ERROR")
+def _():
+    w, e = _guest_messages(guests="A", guest_dates="2026-11-31")
+    return "存在しない日付" in e or f"ERROR にならない: {e!r}"
+
+
+@check("guests が空なのに guest_dates / guest_note があれば WARNING（画面に出ない値）")
+def _():
+    w, e = _guest_messages(guest_dates="2026-10-25", guest_note="トーク")
+    return ("guest_dates があるのに guests が空" in w and "guest_note があるのに guests が空" in w and not e) \
+        or f"w={w!r} e={e!r}"
+
+
+@check("人名ではない語（ほか・豪華ゲスト・スペシャルゲスト…）は WARNING")
+def _():
+    out = []
+    for bad in ("ほか豪華ゲスト多数", "スペシャルゲスト", "出演者未定", "調整中", "他"):
+        w, _e = _guest_messages(guests=f"青山龍|{bad}")
+        out.append(("人名ではない語" in w, bad))
+    return all(ok for ok, _ in out) or f"拾えなかった: {[b for ok, b in out if not ok]}"
+
+
+@check("敬称・肩書付き（さん・様・氏・先生・監督・選手）は WARNING（肩書は guest_note へ）")
+def _():
+    out = []
+    for bad in ("青山龍さん", "白石様", "黒田氏", "赤松先生", "ダニエル・フイ監督", "緑川選手"):
+        w, _e = _guest_messages(guests=bad)
+        out.append(("敬称・肩書" in w, bad))
+    return all(ok for ok, _ in out) or f"拾えなかった: {[b for ok, b in out if not ok]}"
+
+
+@check("肩書の語が名前の先頭・途中にあるだけなら誤検知しない（末尾にあるときだけ拾う）")
+def _():
+    for ok_name in ("ヴィッキー・ヤン", "氏家恵", "選手村太郎", "監督院花子", "Mr.Children"):
+        w, _e = _guest_messages(guests=ok_name)
+        if "敬称・肩書" in w:
+            return f"誤検知: {ok_name}"
+    return True
+
+
+@check("`||`・末尾の `|`・同名の重複・区切り違い（、 ／ ｜ ，）は WARNING。AC/DC や ・ は人名の一部なので拾わない")
+def _():
+    a, _ = _guest_messages(guests="A||B")
+    b, _ = _guest_messages(guests="A|B|")
+    c, _ = _guest_messages(guests="A|A")
+    d, _ = _guest_messages(guests="A、B")
+    e = [_guest_messages(guests=g)[0] for g in ("A／B", "A｜B", "A，B", "A,B")]
+    ok_names = [_guest_messages(guests=g)[0] for g in ("AC/DC", "ヴィッキー・ヤン")]
+    return ("空の要素" in a and "空の要素" in b and "2回あります" in c and "区切りは半角の `|`" in d
+            and all("区切りは半角の `|`" in w for w in e) and not any(ok_names)) \
+        or f"a={a!r} b={b!r} c={c!r} d={d!r} e={e} ok={ok_names}"
+
+
+@check("1件が30字を超える（文章を書いている）・9人以上は WARNING")
+def _():
+    a, _ = _guest_messages(guests="あ" * 31)
+    b, _ = _guest_messages(guests="|".join(f"名{i}" for i in range(9)))
+    c, _ = _guest_messages(guests="|".join(f"名{i}" for i in range(8)))
+    return ("30字を超えて" in a and "8人を超えて" in b and "8人を超えて" not in c) \
+        or f"a={a!r} b={b!r} c={c!r}"
+
+
+@check("出演日の並び順・重複・会期外・すべて過去を WARNING で挙げる")
+def _():
+    a, _ = _guest_messages(guests="A", guest_dates="2026-11-03|2026-10-25")
+    b, _ = _guest_messages(guests="A", guest_dates="2026-10-25|2026-10-25")
+    c, _ = _guest_messages(guests="A", guest_dates="2026-09-20|2026-10-25")       # 会期前
+    d, _ = _guest_messages(guests="A", guest_dates="2026-12-24")                  # 会期後
+    e, _ = _guest_messages(guests="A", guest_dates="2026-10-10")                  # すべて過去
+    return ("日付順に並んでいません" in a and "同じ日が2回" in b and "開始日" in c
+            and "終了日" in d and "すべて過去" in e) or f"a={a!r} b={b!r} c={c!r} d={d!r} e={e!r}"
+
+
+@check("出演日が今日ならまだ過去ではない（当日は残す）")
+def _():
+    w, _e = _guest_messages(guests="A", guest_dates="2026-10-20")
+    return "すべて過去" not in w or f"当日を過去扱いした: {w!r}"
+
+
+@check("guest_note が長すぎれば WARNING")
+def _():
+    w, _e = _guest_messages(guests="A", guest_note="あ" * 121)
+    return "120字を超えて" in w or f"拾えない: {w!r}"
+
+
+@check("映画（release_date）でも同じ検査が効く／ライブには適用しない")
+def _():
+    mv = {c: "" for c in vd.EXPECTED_HEADERS["movies.csv"]}
+    mv.update(title="m", theater="t", release_date="2026-10-10", end_date="2026-11-10",
+              url="https://example.com/", guests="監督太郎さん", guest_dates="2026-10-24")
+    rep = vd.Report()
+    vd.validate_main("movies.csv", [mv], vd.load_enums(), rep)
+    msg = "\n".join(rep.warning_lines() + rep.errors)
+    lv = {c: "" for c in vd.EXPECTED_HEADERS["lives.csv"]}
+    lv.update(title="l", venue="v", start_date="2026-10-10", end_date="2026-10-10",
+              url="https://example.com/", artists="A|B")
+    rep2 = vd.Report()
+    vd.validate_main("lives.csv", [lv], vd.load_enums(), rep2)
+    msg2 = "\n".join(rep2.warning_lines() + rep2.errors)
+    return ("敬称・肩書" in msg and "guest" not in msg2) or f"映画={msg!r} ライブ={msg2!r}"
+
+
+@check("validate_main を通しても、正常な出演者行は ERROR を出さない（配線）")
+def _():
+    msg = _messages([_row(title="トーク付き展", venue="V", start_date="2026-10-01", end_date="2099-12-31",
+                          url="https://example.com/", guests="青山龍", guest_dates="2099-10-25")])
+    return "guest" not in msg or f"正常な行に出た: {msg}"
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

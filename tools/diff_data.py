@@ -68,6 +68,9 @@ WATCH = [
     "price", "price_official", "price_best", "discount_pct", "price_condition", "best_source", "coupon_note",
     "artists", "venue", "theater", "is_additional", "url", "source",
     "event_parking",   # 臨時駐車場・当日の閉鎖。変わったら画面のPバッジが変わる
+    # 出演者の追加・降板・出演日の変更。利用者の来場の目的そのものが変わる事実なので、
+    # QUIET ではなく変化を毎回見せる。降板（guests が消える）はここでしか気づけない。
+    "guests", "guest_dates", "guest_note",
 ]
 QUIET = ["desc", "note", "official_url", "apple_music_url"]   # 変わった事実だけ出す
 

@@ -327,9 +327,20 @@ const PRICE_COLUMNS = {
   priceCondition: ["price_condition", txt],
 };
 
+/* 出演者（イベントと映画。ライブは全公演が `artists` を持つので持たない）。
+   guests は氏名の並び、guest_dates は出演日（ISO）、guest_note は日時・形式の補足。
+   「いま出演がある」かどうかは本日から決まるので、画面は必ず schedule.js の
+   activeGuests を通して読む（この列を直接見ない）。 */
+const GUEST_COLUMNS = {
+  guests: ["guests", list],
+  guestDates: ["guest_dates", list],
+  guestNote: ["guest_note", txt],
+};
+
 const EVENT_COLUMNS = {
   ...COMMON_COLUMNS,
   ...PRICE_COLUMNS,
+  ...GUEST_COLUMNS,
   cats: ["cats", list],
   venue: ["venue", txt],
   startDate: ["start_date", txt],
@@ -344,6 +355,7 @@ const EVENT_COLUMNS = {
 const MOVIE_COLUMNS = {
   ...COMMON_COLUMNS,
   ...PRICE_COLUMNS,
+  ...GUEST_COLUMNS,
   genre: ["genre", list],
   screeningType: ["screening_type", list],
   venue: ["theater", txt],
@@ -456,6 +468,17 @@ const FLAG_PARKING = {
   label: () => "駐車場があるものだけ",
   test: (it, h) => h.hasParking(it),
 };
+/* 出演者のいるものだけ。ライブは全公演が出演者を持つので、イベントと映画にだけ置く。
+   「出演がある」の意味はタブで違う: イベントは芸能人・著名人の出演（絞る価値がある
+   少数派）、映画は舞台挨拶・ゲスト登壇（作品のキャストの一覧ではなく、劇場に来る人）。
+   文言は guestWords で出し分け、判定は同じ（いま出演者が残っているか）にしてある。 */
+const FLAG_GUEST = {
+  id: "guestOnly",
+  group: "注目",
+  cls: "guest-chip",
+  label: (t) => t.guestWords.chip,
+  test: (it, h) => h.hasGuests(it),
+};
 /* ♡（催し1件ごとの「行きたい」）と★（場所ごとの「お気に入りスポット」）は別の機能。
    名前が「お気に入り」で重なると、どちらで絞っているのか分からなくなるので、
    ♡のほうは「行きたい」と呼ぶ。保存済みの♡はそのまま残る（キーは変えていない）。 */
@@ -525,6 +548,11 @@ export const TABS = {
     },
     officialLabel: "公式サイトを見る",
     additionalLabel: "追加開催",
+    guestWords: {
+      label: "出演",
+      chip: "芸能人・著名人の出演あり",
+      note: "出演の詳細",
+    },
     seriesLabel: "この巡回展の他の会場",
     onsaleWords: { before: "受付前", open: "受付中", closed: "受付終了" },
     onsaleNoun: "申込",
@@ -556,6 +584,7 @@ export const TABS = {
       FLAG_DEALS,
       FLAG_FREE,
       FLAG_NEW,
+      FLAG_GUEST,
       FLAG_ONSALE,
       FLAG_BEFORE,
       FLAG_LIMITED,
@@ -591,6 +620,11 @@ export const TABS = {
     },
     officialLabel: "作品公式サイトを見る",
     additionalLabel: "上映延長",
+    guestWords: {
+      label: "登壇",
+      chip: "舞台挨拶・ゲスト登壇あり",
+      note: "登壇の詳細",
+    },
     seriesLabel: "この特集の他の上映",
     onsaleWords: {
       before: "前売り発売前",
@@ -633,6 +667,7 @@ export const TABS = {
       FLAG_DEALS,
       FLAG_FREE,
       FLAG_NEW,
+      FLAG_GUEST,
       FLAG_ONSALE,
       FLAG_BEFORE,
       FLAG_LIMITED,

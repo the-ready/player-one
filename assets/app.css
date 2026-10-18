@@ -1145,6 +1145,10 @@ input[type="search"]:focus-visible {
 .free-chip[aria-pressed="true"] {
   --chip-c: var(--lime);
 }
+/* 絞り込みのチップで未使用の色（grape）を使う。白文字とのコントラストは 4.75:1（AA）。 */
+.guest-chip[aria-pressed="true"] {
+  --chip-c: var(--grape);
+}
 .add-chip[aria-pressed="true"] {
   --chip-c: var(--coral);
 }
@@ -1421,6 +1425,25 @@ mark {
    ボタンの前に名前が入るときは、これまでどおり間隔を空ける。 */
 .lineup-line > .lineup-btn:first-child {
   margin-left: 0;
+}
+/* イベント・映画の出演者行。ライブの出演者行（.lineup-line）と並びと大きさをそろえ、
+   「出演」「登壇」の語だけを色にする（本文の一部なので、行全体には色を付けない）。 */
+.guest-line {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.guest-line mark {
+  background: var(--sunny-tint);
+}
+.guest-label {
+  color: var(--grape);
+  margin-right: 0.45em;
+}
+.guest-when {
+  font-weight: 500;
+  margin-left: 0.25em;
 }
 .card .meta {
   font-size: 12px;

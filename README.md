@@ -77,6 +77,7 @@ tools/                        収集タスク用のスクリプト
   fav_spots_test.mjs          お気に入りスポット（★）の名寄せ・保存・先頭セクションの検証（DOM不要）
   parking_badge_test.mjs      駐車場（P）バッジの組み合わせ表と絞り込みの検証（DOM不要）
   sale_group_test.mjs         バーゲンの同時開催カードと言い回しの検証（DOM不要）
+  guest_filter_test.mjs       「出演あり」チップの判定・日程連動・時間経過・カード表示の検証（DOM不要）
   caladd_test.mjs             カレンダーに追加する日付の初期値の検証（DOM不要）
 terms.html                    利用規約・免責事項（権利者向けの窓口・収集の方針）
 privacy.html                  プライバシーポリシー（端末内データと外部送信の一覧）
@@ -163,15 +164,17 @@ node tools/smoke_test.mjs          # BASE=... で公開URLにも当てられる
 
 ## データの更新
 
-`data/events.csv` を差し替えるだけでよい。列は以下の46列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
+`data/events.csv` を差し替えるだけでよい。列は以下の49列を固定（順序・列名ともに変更しない）。空欄でよい列は多いが、**列そのものを省いてはいけない**。
 
 ```
-id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station,event_parking
+id,title,kana,cats,area,venue,venue_url,pref,start_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,parking,nearest_station,event_parking,guests,guest_dates,guest_note
 ```
 
 **日程の列は「機械が読める事実」だけを書く。** 画面に出る日付の文字列（`2026.9.5(土) 開場16:00／開演18:00`）も、`開催中` `まもなく開催` といった開催状況も、表示のたびに `start_date`／`end_date`／`dates`／`open_time`／`start_time`／`end_time`／`date_note` と**そのとき の日本時間**から組み立てられる。つまり **CSVを差し替えなくても、日付をまたげば表示が追いつく**。`date` 列は「10月中旬〜下旬（見頃予想）」のようにISOの日付へ落とせない日程だけを書く逃げ道で、通常は空欄。**ただし月・季節までは読み取れる場合は `start_date`/`end_date` にその月・季節をまるごと設定すること**（10月なら`2026-10-01`〜`2026-10-31`）——空欄のままだと絞り込みが「無期限」として扱い、無関係な日で絞っても表示されてしまう（第3.9.6節）。`status` / `rank` も、日付を1つも持たない行以外は空欄でよい（書いても無視される）。単日開催では `end_date` に `start_date` と同じ日を入れること——空欄は「終了日が未定」という別の意味になる。`dates`（飛び日程）を書いた行では、開催しない日は「本日は休み」と表示され、日程の絞り込みからも外れる。`backup_date`（予備日）は**会期に含めず**、カードの「くわしく」の中に出す——本開催で終われば使われない日なので、`end_date` を1日延ばすと「まだやっている」と嘘をつくことになる。ただし予備日の当日だけは「本日予備日」というバッジが出る（本開催が流れていればその日にやるので、「終了」と出すのは早すぎるため）。詳しくは `docs/DESIGN.md` 第3.9節。
 
 `kana` は読み検索用（`隅田川花火大会` → `すみだがわはなびたいかい`）。`series_id` は巡回展をまとめるキー。`onsale_*` は事前予約・抽選・整理券の受付期間で、当日ふらっと行けるイベントは空欄でよい。`price_condition` は割引の適用条件で、**条件付きの割引を書いたら必須**（条件を伏せた安い価格は、値段を出さないより有害になる）。`parking` は駐車場情報の文（例：`あり（有料・120台）`）、`nearest_station` は最寄り駅と徒歩時間（例：`上野駅（徒歩10分）`）で、どちらも「くわしく」の中に表示される。**一覧のP（駐車場）バッジは `parking` の文からは作らない**（書き方がまちまちで、語から読むと誤るため）。常設の駐車場の有無は**名簿**（`spots.csv` `venues.csv` `theaters.csv`）の `parking` 列（`yes` あり / `nearby` 近隣を案内 / `no` なし / 空=未確認）が持ち、`event_parking` 列は**その催しの日だけ**の事情（`temp` 臨時駐車場あり / `closed` 当日は常設が使えない / `temp_only` 当日は臨時のみ。ほとんどの行は空欄）を持つ。名簿の `parking` は、終了工程が行の `parking` の文から確実なものだけ写す（`tools/backfill_parking.py`）。会場公式サイトで確認できなければ空欄でよい（憶測で埋めない）。
+
+`guests` `guest_dates` `guest_note` は**芸能人・著名人の出演者**（氏名を `|` 区切り・出演日 `YYYY-MM-DD` を `|` 区切り・日時と形式の補足）で、「芸能人・著名人の出演あり」の絞り込みと、カードのタイトル直下の出演行の材料になる。**会場に来る広く知られた人**だけを、**公式ページに氏名が書かれているときだけ**書き（音声ガイド・監修・キャスト一覧・氏名未発表の「豪華ゲスト」は書かない）、迷ったら空欄にする。出演日を過ぎた行は画面から自動で外れ、日程で絞ると期間の中に出演日がある行だけが残る。**3列とも毎週書き直す列で、前回値の持ち越しは `append_rows.py` が拒否する**（降板が残らないように）。空欄が大半で正常（第3.4.5節・第5.4.2節）。
 
 価格は確認日時点のスナップショットであり、`price_checked` に確認日を記録する。リアルタイムの価格追従は行わない。
 
@@ -217,13 +220,13 @@ CSVの中身の日付（`price_checked` 等）にはフォールバックしな�
 
 このルールは `tools/validate_data.py` が ERROR で落とす（`poster_url` / `poster_source` の列が存在した時点で失格）。散文のお願いは安いほうの経路へ流れるので、仕組みで固定してある。
 
-### `data/movies.csv` の列（44列固定）
+### `data/movies.csv` の列（47列固定）
 
 ```
-id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note
+id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,guests,guest_dates,guest_note
 ```
 
-`onsale_*` は前売り券（ムビチケ等）の販売期間。`series_id` は特集上映・映画祭のプログラムをまとめるキー。`price_official` 〜 `price_condition` は料金の比較レイヤーで、**映画の割引はほとんどが条件付き**（会員限定・特定曜日・時間帯）なので `price_condition` は必須扱い。条件を特定できない割引は書かずに落とす。
+`onsale_*` は前売り券（ムビチケ等）の販売期間。`series_id` は特集上映・映画祭のプログラムをまとめるキー。`price_official` 〜 `price_condition` は料金の比較レイヤーで、**映画の割引はほとんどが条件付き**（会員限定・特定曜日・時間帯）なので `price_condition` は必須扱い。条件を特定できない割引は書かずに落とす。`guests` `guest_dates` `guest_note` は**舞台挨拶・トーク・サイン会で劇場に来る人**の氏名・実施日・劇場と形式（「舞台挨拶・ゲスト登壇あり」の材料）で、**作品のキャスト一覧は書かない**。イベントと同じく毎週書き直す列で、氏名が告知されていないものは空欄（第3.4.5節）。
 
 `genre` は `anime` `jp-live` `foreign` `doc` `fam` `tokusatsu` `music` の複数選択可（`|`区切り）。`screening_type` は `new`(新作公開) `revival`(名画座・リバイバル) `outdoor`(野外上映・ドライブイン) `special`(特別上映) `festival`(映画祭)。開催状況（`本日が最終上映` `まもなく公開` `上映中` `前売り券発売中` `上映終了`）は日付から自動で決まる。
 

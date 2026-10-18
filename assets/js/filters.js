@@ -4,6 +4,7 @@
 import { DAY_MS, haversineKm, searchTerms } from "./util.js";
 import { CLOSED_ONSALE, venueNames, catWording } from "./config.js";
 import { TODAY, ITEMS } from "./data.js";
+import { activeGuests, guestDays } from "./schedule.js";
 import { isFav } from "./state.js";
 import { isFavSpotItem, hasParking } from "./spots.js";
 
@@ -125,6 +126,11 @@ export const hasEnded = (it) =>
     !(it.backupDate || []).some((d) => d >= TODAY())
   );
 
+/* いま出演者が残っているか（出演日を過ぎた行・会期が終わった行は含まない）。
+   「出演あり」チップとカードの出演行・検索の索引が同じ答えを返すよう、判定は
+   schedule.js の activeGuests に1本化してある。 */
+export const hasGuests = (it) => activeGuests(it).length > 0;
+
 /* flags の test に渡す判定ヘルパ。config.js が state/data を直接見なくて済むようにする。 */
 const FLAG_HELPERS = {
   onsaleState,
@@ -133,6 +139,7 @@ const FLAG_HELPERS = {
   isFavSpotItem,
   hasParking,
   hasEnded,
+  hasGuests,
 };
 
 /* ---------- 絞り込み ---------- */
@@ -144,8 +151,26 @@ function matchesQuery(st, it) {
   return terms.every((t) => it._fold.includes(t)); // スペース区切りは AND
 }
 
-function matchesDate(st, it) {
+/* 「出演あり」を立てて日程も絞っているときは、**期間の中に出演日がある行だけ**に
+   絞る。会期が数週間続く展覧会で、トークが期間の外の1日だけなら、その人は
+   「今週末に行く」人の探しているものではない。出演日が分からない行（guest_dates が
+   空）は、不明を理由に落とさず、行の会期で判定する（不明は取りこぼさない）。
+
+   `guestOn` を引数にしているのは、チップの件数（flagCounts）が「立てたら何件になるか」を
+   数えるとき、まだ立っていないチップの分もこの絞り込みを効かせて数えるため。 */
+function matchesGuestDay(st, it, guestOn) {
+  if (!guestOn) return true;
+  const days = guestDays(it);
+  if (!days.length) return true;
+  return days.some((d) => d >= st.rangeStart && d <= st.rangeEnd);
+}
+
+function matchesDate(st, it, guestOn = !!(st.flags && st.flags.guestOnly)) {
   if (!(st.rangeStart && st.rangeEnd)) return true;
+  return matchesSpan(st, it) && matchesGuestDay(st, it, guestOn);
+}
+
+function matchesSpan(st, it) {
   // 予備日は会期の外にあるが、その日に開催されうる日ではある。
   // バッジが「本日予備日」と言っているのに、日程で今日を選ぶと消える——
   // という食い違いを作らないよう、ここでも拾う。
@@ -356,7 +381,7 @@ export function flagCounts(tab, st, items) {
     out[f.id] = items.filter(
       (it) =>
         matchesQuery(st, it) &&
-        matchesDate(st, it) &&
+        matchesDate(st, it, f.id === "guestOnly" || undefined) &&
         matchesFacets(tab, st, it) &&
         matchesFlags(tab, st, it, f.id) &&
         matchesEndedFlag(st, it) &&
@@ -371,15 +396,13 @@ export function flagCounts(tab, st, items) {
 export function venueCounts(tab, st, items) {
   const m = new Map();
   items.forEach((it) => {
-    if (
-      !(
-        matchesQuery(st, it) &&
-        matchesDate(st, it) &&
-        matchesFacets(tab, st, it) &&
-        matchesFlags(tab, st, it) &&
-        matchesEndedFlag(st, it)
-      )
-    )
+    if (!(
+      matchesQuery(st, it) &&
+      matchesDate(st, it) &&
+      matchesFacets(tab, st, it) &&
+      matchesFlags(tab, st, it) &&
+      matchesEndedFlag(st, it)
+    ))
       return;
     venueNames(it).forEach((v) => m.set(v, (m.get(v) || 0) + 1));
   });

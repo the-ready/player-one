@@ -134,6 +134,41 @@ export function nextOpenDay(it, ref = TODAY()) {
   return days.find((d) => d >= ref) || null;
 }
 
+/* ---------- 出演者（guests / guest_dates・設計書 第3.4.5節・第5.4.2節） ----------
+
+   「出演あり」の絞り込みも、カードの出演行も、検索の索引も、**ここが返す名前だけ**を
+   使う。CSVの `guests` をそのまま見ない理由は2つある。
+
+   1. 出演は日で終わる。会期が数週間続く展覧会で、トークが10/25の1日だけなら、
+      10/26以降の「出演あり」は嘘になる。CSVは週に1度しか書き換わらないので、
+      **終わったかどうかは、見るたびに本日から決める**（日程の状態と同じ理由。上の節）。
+   2. 出演日が分からない行（`guest_dates` が空）は、その行の会期が終わるまで生きている
+      ものとして扱う。出演日を推測で補うことも、分からないという理由で外すこともしない。
+
+   出演日があるときは**出演日が決める**。会期末が過ぎていても、これからの出演日が
+   あるなら残す（データの食い違いを、利用者が行ける日の側に寄せて受け止める）。 */
+/* 出演日として読める値だけを、日付順にして返す。
+   CSV由来の値は信用しない（設計書 第3.5節）。`TBD` や `10/25` のような値は文字列の比較で
+   「未来」にも「過去」にもなってしまい、**読めない値が1つあるだけで出演が永久に残る**
+   （`"TBD" > "2026-10-20"`）。検証（validate_data.py）は書式の崩れを ERROR にするが、
+   画面は検証を通ったことを前提にしない。読めない値は無いものとして扱い、全部が読めなければ
+   「出演日が不明」（＝会期で判定）に落とす。並べ替えるのは、順不同でも「次の出演日」と
+   日付の並びが正しく出るようにするため。 */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+export function guestDays(it) {
+  return (it.guestDates || []).filter((d) => ISO_DAY.test(d)).sort();
+}
+export function upcomingGuestDates(it, ref = TODAY()) {
+  return guestDays(it).filter((d) => d >= ref);
+}
+export function activeGuests(it, ref = TODAY()) {
+  const names = it.guests || [];
+  if (!names.length) return [];
+  const days = guestDays(it);
+  if (days.length) return days.some((d) => d >= ref) ? names : [];
+  return it.endDate && it.endDate < ref ? [] : names;
+}
+
 const addDays = (ymd, n) => {
   const d = new Date(ymd + "T00:00:00");
   if (isNaN(d.getTime())) return ymd;
@@ -147,6 +182,7 @@ const addDays = (ymd, n) => {
  * 起点を今日ではなく**明日**に置いている。この画面を開くのは「これから行く日」を
  * 決めるためで、すでに始まっている今日を提案しても選び直しになるためである。
  *
+ *   出演日（`guest_dates`）  明日以降でいちばん近い出演日（出演者がいる行だけ）
  *   飛び日程（`dates`）    明日以降でいちばん近い開催日
  *   会期が始まっている行   明日（会期末がそれより前なら末日）
  *   これから始まる行       初日
@@ -154,6 +190,12 @@ const addDays = (ymd, n) => {
  */
 export function suggestedVisitDate(it, ref = TODAY()) {
   const tomorrow = addDays(ref, 1);
+  // 出演日が決まっている行は、その日がいちばん行く理由になる日（出演あり・舞台挨拶つき）。
+  // 明日以降の出演日が無ければ、下の規則どおり。
+  if (activeGuests(it, ref).length) {
+    const next = upcomingGuestDates(it, tomorrow)[0];
+    if (next) return next;
+  }
   const days = it.dates && it.dates.length ? it.dates : null;
   if (days) return nextOpenDay(it, tomorrow) || days[days.length - 1];
 

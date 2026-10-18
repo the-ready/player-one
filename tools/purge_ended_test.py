@@ -103,7 +103,8 @@ def run_integration():
                    "is_additional", "onsale_label", "onsale_start", "onsale_start_time",
                    "onsale_end", "onsale_end_time", "limited_sale", "price_official",
                    "price_best", "discount_pct", "best_source", "coupon_note", "price_checked",
-                   "price_condition", "official_url", "lat", "lng", "parking", "nearest_station"]
+                   "price_condition", "official_url", "lat", "lng", "parking", "nearest_station",
+                   "guests", "guest_dates", "guest_note"]
         ended = {"id": "1", "title": "終わった展覧会", "venue": "A館", "pref": "tokyo",
                  "start_date": "2026-07-01", "end_date": "2026-07-31"}
         ongoing = {"id": "2", "title": "続いている展覧会", "venue": "B館", "pref": "tokyo",

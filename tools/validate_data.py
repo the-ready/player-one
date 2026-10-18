@@ -65,13 +65,15 @@ EXPECTED_HEADERS = {
         "date","dates","open_time","start_time","end_time","date_note","backup_date","status","rank","series_id","announced_date","is_additional","onsale_label","onsale_start",
         "onsale_start_time","onsale_end","onsale_end_time","limited_sale","price","price_official",
         "price_best","discount_pct","best_source","coupon_note","price_checked","price_condition",
-        "source","url","official_url","lat","lng","desc","note","parking","nearest_station","event_parking"],
+        "source","url","official_url","lat","lng","desc","note","parking","nearest_station","event_parking",
+        "guests","guest_dates","guest_note"],
     "movies.csv": ["id","title","kana","genre","screening_type","area","theater","theater_url","pref",
         "release_date","end_date","date","dates","open_time","start_time","end_time","date_note",
         "backup_date","status","rank","series_id","announced_date","is_additional",
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","price_official","price_best","discount_pct","best_source","coupon_note","price_checked",
-        "price_condition","source","url","official_url","lat","lng","desc","note"],
+        "price_condition","source","url","official_url","lat","lng","desc","note",
+        "guests","guest_dates","guest_note"],
     "lives.csv": ["id","tour_id","title","kana","artists","genre","live_type","area","venue","venue_url",
         "pref","start_date","end_date","date","dates","open_time","start_time","end_time","date_note",
         "backup_date","status","rank","announced_date","is_additional",
@@ -92,6 +94,28 @@ EXPECTED_HEADERS = {
     "festivals.csv": ["name","venue","pref","month_hint","url",
         "status","first_seen","last_hit","hit_count","note"],
 }
+
+# --- 出演者（`guests` / `guest_dates` / `guest_note`。設計書 第3.4.5節） ----------
+#
+# イベントと映画だけが持つ。ライブは全公演が出演者を持つので `artists` が受け持ち、
+# 「出演者がいるかどうか」で絞る意味が無い。
+GUEST_DATASETS = ("events.csv", "movies.csv")
+
+# `guests` 1件の長さと人数の目安。人名1つが30字を超えることはまず無く、超えるのは
+# 「〇〇ほか豪華ゲスト多数」のような文章を人名の欄に書いたときである。人数は、
+# カードの出演行に収まる量（8人まで）を超えたら、音楽フェスのように日割りの
+# ラインナップ（lineups.csv）で持つべき規模だという合図として WARNING に出す。
+GUEST_NAME_MAX = 30
+GUEST_COUNT_MAX = 8
+GUEST_NOTE_MAX = 120
+
+# 人名ではない語。「ほか」「ゲスト」を人名の欄に書くと、画面には
+# 「出演：ほか」「出演：豪華ゲスト」と出て、**誰が来るのか分からないのに「出演あり」で
+# 絞り込みに入る**。氏名が確認できていないなら、欄ごと空にする（設計書 第7.2.3節）。
+GUEST_NOT_A_NAME = re.compile(r"ほか|他|多数|など|未定|調整中|発表予定|豪華|スペシャル|ゲスト|キャスト|出演者|登壇者|関係者")
+# 敬称・肩書。肩書は `guest_note` に書く。名前に付いていると検索（「ダニエル・フイ」）
+# にも、同じ人の別行との照合にも当たらなくなる。
+GUEST_HONORIFIC = re.compile(r"(さん|様|氏|先生|監督|選手|師匠)$")
 
 # 開始日の列名はファイルごとに違う
 START_COL = {"events.csv":"start_date", "movies.csv":"release_date", "lives.csv":"start_date"}
@@ -437,6 +461,84 @@ def check_schedule(rep, where, name, r, start_col, start, end):
                         "（空欄は『終了日未定』の意味で、いつまでも開催中と表示されます）")
 
 
+def split_bar(raw):
+    """`|` 区切りの列を、空要素を落とさずに分ける（空要素そのものを検査するため）。"""
+    raw = (raw or "").strip()
+    return [x.strip() for x in raw.split("|")] if raw else []
+
+
+def check_guests(rep, where, r, start, end, today=None):
+    """出演者の3列（guests / guest_dates / guest_note）を見る。
+
+    この列は「芸能人・著名人の出演あり」「舞台挨拶・ゲスト登壇あり」の絞り込みの
+    唯一の材料で、**間違いは利用者にだけ見える**。人名の欄に文章が入っていれば誰が
+    来るのか分からないまま絞り込みに入り、出演日がずれていれば日程で絞った人を
+    空振りさせる。表示が壊れるわけではないので、書式の崩れ（日付）だけを ERROR にし、
+    中身の疑いは WARNING に出す。
+
+    `today` を引数にしているのは、「出演日がすべて過去」の判定が実行日で変わるためで、
+    検証（`validate_data_test.py`）から日付を固定して呼べるようにしてある。
+    """
+    names = split_bar(r.get("guests"))
+    dates_raw = split_bar(r.get("guest_dates"))
+    note = (r.get("guest_note") or "").strip()
+    today = today or date.today()
+
+    if not names:
+        # 出演者の欄が空なら、他の2列は画面に出ない（絞り込みにも入らない）。
+        if dates_raw:
+            rep.warn(where, "guest_dates があるのに guests が空です（出演日は画面に出ません）")
+        if note:
+            rep.warn(where, "guest_note があるのに guests が空です（注記は画面に出ません）")
+        return
+
+    if "" in names:
+        rep.warn(where, f"guests に空の要素があります（`||` や末尾の `|`）: {r.get('guests')!r}")
+    seen = set()
+    for n in names:
+        if not n:
+            continue
+        if n in seen:
+            rep.warn(where, f"guests に同じ名前が2回あります: {n!r}")
+        seen.add(n)
+        if len(n) > GUEST_NAME_MAX:
+            rep.warn(where, f"guests の1件が{GUEST_NAME_MAX}字を超えています（文章を書いていませんか）: {n[:24]!r}…")
+        if GUEST_NOT_A_NAME.search(n):
+            rep.warn(where, f"guests に人名ではない語があります: {n!r}"
+                            "（氏名が確認できていないなら、書かずに欄ごと空にする）")
+        if GUEST_HONORIFIC.search(n):
+            rep.warn(where, f"guests の名前に敬称・肩書が付いています: {n!r}（肩書は guest_note に書く）")
+        # 区切りを `|` 以外で書くと、画面には1人の長い名前として出て、検索にも当たらない。
+        # 全角の `｜` `／` `，` は見た目が似ていて取り違えやすい。`/` は AC/DC のように
+        # 名前の一部になりうるので拾わない（`・` も ヴィッキー・ヤン の一部）。
+        if re.search(r"[,，、／｜]", n) or "http" in n:
+            rep.warn(where, f"guests の区切りは半角の `|` です: {n[:30]!r}")
+    if len([n for n in names if n]) > GUEST_COUNT_MAX:
+        rep.warn(where, f"guests が{GUEST_COUNT_MAX}人を超えています（{len(names)}人）。"
+                        "カードの出演行に収まりません。主要な出演者に絞ってください")
+
+    days = []
+    for tok in dates_raw:
+        d = check_date(rep, where, "guest_dates", tok)
+        if d:
+            days.append(d)
+    if len(set(days)) != len(days):
+        rep.warn(where, "guest_dates に同じ日が2回あります")
+    if days != sorted(days):
+        rep.warn(where, "guest_dates が日付順に並んでいません")
+    for d in days:
+        if start and d < start:
+            rep.warn(where, f"guest_dates の {d} が開始日({start})より前です")
+        elif end and d > end:
+            rep.warn(where, f"guest_dates の {d} が終了日({end})より後です")
+    # 過ぎた出演は画面からは自動で消えるが、収集が毎週書き直しているなら残らないはずの値。
+    # 残っているのは「前回値をそのまま写した」ことのしるしなので知らせる（持ち越し禁止の列）。
+    if days and all(d < today for d in days):
+        rep.warn(where, "guest_dates がすべて過去です（出演は終わっています。guests も guest_dates も空にしてください）")
+    if len(note) > GUEST_NOTE_MAX:
+        rep.warn(where, f"guest_note が{GUEST_NOTE_MAX}字を超えています（{len(note)}字）。日時と形式だけを短く書く")
+
+
 def check_status(rep, where, r, allowed, start, end):
     """status / rank は表示側が日付から毎回計算する（assets/js/schedule.js）。
 
@@ -488,6 +590,8 @@ def validate_main(name, rows, enums, rep):
             rep.warn(where, f"{start_col} も end_date も空です（日程での絞り込みに一切かかりません）")
         check_date(rep, where, "announced_date", (r.get("announced_date") or "").strip())
         check_schedule(rep, where, name, r, start_col, start, end)
+        if name in GUEST_DATASETS:
+            check_guests(rep, where, r, start, end)
 
         # 受付期間
         os_start = check_date(rep, where, "onsale_start", (r.get("onsale_start") or "").strip())

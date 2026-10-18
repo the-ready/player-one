@@ -284,6 +284,23 @@ def _offer(v):
     return (min(prices) if prices else ""), cur, url, avail
 
 
+def _people(v):
+    """performer / actor を、`|` 区切りの名前の並びにする（CSVの `guests` と同じ区切り）。
+
+    schema.org の `performer` は Person・PerformingGroup・Organization のどれでも、
+    単数でも配列でも来る。**これは「出演者の候補」であって `guests` の確定値ではない**
+    ——主催団体や会場の運営会社が入っていることがあり（Organization）、人物でも
+    著名人かどうかは判断が要る。名前を拾って見せるところまでが、このツールの役目である。
+    """
+    items = v if isinstance(v, list) else [v] if v else []
+    names = []
+    for x in items:
+        n = _txt(x.get("name") if isinstance(x, dict) else x)
+        if n and n not in names:
+            names.append(n)
+    return "|".join(names)
+
+
 def normalize_events(blocks):
     """Event 系を、収集スキルが読める最小限の形にそろえる。"""
     out = []
@@ -308,6 +325,10 @@ def normalize_events(blocks):
             "availability": avail,
             "url": _txt(b.get("url")) or offer_url,
             "desc": _txt(b.get("description"), 160),
+            # 出演者の候補。無いページが大半なので、空のときは列ごと出さない
+            # （`--events` の出力を、ほとんどの行で空の列で太らせない）。
+            **({"performer": _people(b.get("performer") or b.get("actor"))}
+               if (b.get("performer") or b.get("actor")) else {}),
         })
     return out
 
