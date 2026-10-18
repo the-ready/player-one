@@ -523,7 +523,7 @@ function chipButton({ key, text, count, pressed, color, textColor, cls }) {
   const dead = count === 0 && !pressed;
   return `<button type="button" class="chip${cls ? " " + cls : ""}" data-key="${esc(key)}"
       aria-pressed="${pressed}"${dead ? " disabled" : ""}
-      style="${pressed && color ? `--chip-c:${color};--chip-tx:${textColor || "#fff"}` : ""}"
+      style="${pressed && color ? `--chip-c:${color};--chip-tx:${textColor || "var(--on-accent)"}` : ""}"
     >${esc(text)}<span class="chip-count" aria-hidden="true">${count}</span><span class="sr-only">（${count}件）</span></button>`;
 }
 

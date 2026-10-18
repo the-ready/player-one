@@ -21,7 +21,7 @@ export const CATS = {
   /* 商業施設の一斉セール（三井アウトレットパーク・ららぽーと・ららテラスの全館セール、初売り・福袋、
      会員優待日）。入っている店舗ごとのセールは載せない。既存の8色は使い切っているので、
      値札を思わせる墨色にする（バッジの白い文字が読める濃さ）。 */
-  sale: { label: "バーゲン・セール", c: "var(--ink)" },
+  sale: { label: "バーゲン・セール", c: "var(--text)" },
 };
 
 export const MOVIE_GENRES = {
@@ -49,7 +49,7 @@ export const LIVE_GENRES = {
   pop: { label: "J-POP・ポップス", c: "var(--pink)" },
   idol: { label: "アイドル", c: "var(--tangerine)" },
   kpop: { label: "K-POP・アジア", c: "var(--grape)" },
-  hiphop: { label: "ヒップホップ・R&B", c: "var(--ink)" },
+  hiphop: { label: "ヒップホップ・R&B", c: "var(--text)" },
   dance: { label: "ダンス・EDM", c: "var(--sky)" },
   jazz: { label: "ジャズ・ソウル", c: "var(--sunny)" },
   classical: { label: "クラシック", c: "var(--teal)" },
@@ -67,33 +67,33 @@ export const LIVE_TYPES = {
 /* 開催状況のバッジ。**並び順がそのまま rank（並べ替えの優先度）になる**ので、
    「いま行ける順」に並べておくこと。ラベルは schedule.js が日付から毎回選ぶ。 */
 export const EVENT_STATUS_STYLE = {
-  本日開催: { c: "#fff", bg: "var(--coral)" },
-  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
-  まもなく開催: { c: "#fff", bg: "var(--sunny)" },
-  開催中: { c: "#fff", bg: "var(--grape)" },
-  本日は休み: { c: "var(--ink)", bg: "var(--sunny-tint)" },
-  発売中: { c: "#fff", bg: "var(--sky)" },
+  本日開催: { c: "var(--on-accent)", bg: "var(--coral)" },
+  本日予備日: { c: "var(--on-accent)", bg: "var(--tangerine)" },
+  まもなく開催: { c: "var(--on-accent)", bg: "var(--sunny)" },
+  開催中: { c: "var(--on-accent)", bg: "var(--grape)" },
+  本日は休み: { c: "var(--text)", bg: "var(--sunny-tint)" },
+  発売中: { c: "var(--on-accent)", bg: "var(--sky)" },
   // セール（CAT_WORDING.sale）が「まだ先」のときの呼び方。予約も発売も無いので「発売中」とは言わない。
-  開催予定: { c: "#fff", bg: "var(--sky)" },
-  通年予約可: { c: "var(--ink)", bg: "#EFEFF2" },
+  開催予定: { c: "var(--on-accent)", bg: "var(--sky)" },
+  通年予約可: { c: "var(--text)", bg: "#EFEFF2" },
   終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
 export const MOVIE_STATUS_STYLE = {
-  本日が最終上映: { c: "#fff", bg: "var(--coral)" },
-  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
-  まもなく公開: { c: "#fff", bg: "var(--sunny)" },
-  上映中: { c: "#fff", bg: "var(--grape)" },
-  本日は上映なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
-  前売り券発売中: { c: "#fff", bg: "var(--sky)" },
+  本日が最終上映: { c: "var(--on-accent)", bg: "var(--coral)" },
+  本日予備日: { c: "var(--on-accent)", bg: "var(--tangerine)" },
+  まもなく公開: { c: "var(--on-accent)", bg: "var(--sunny)" },
+  上映中: { c: "var(--on-accent)", bg: "var(--grape)" },
+  本日は上映なし: { c: "var(--text)", bg: "var(--sunny-tint)" },
+  前売り券発売中: { c: "var(--on-accent)", bg: "var(--sky)" },
   上映終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
 export const LIVE_STATUS_STYLE = {
-  本日開催: { c: "#fff", bg: "var(--coral)" },
-  本日予備日: { c: "#fff", bg: "var(--tangerine)" },
-  まもなく開催: { c: "#fff", bg: "var(--sunny)" },
-  開催中: { c: "#fff", bg: "var(--grape)" },
-  本日は公演なし: { c: "var(--ink)", bg: "var(--sunny-tint)" },
-  公演予定: { c: "#fff", bg: "var(--sky)" },
+  本日開催: { c: "var(--on-accent)", bg: "var(--coral)" },
+  本日予備日: { c: "var(--on-accent)", bg: "var(--tangerine)" },
+  まもなく開催: { c: "var(--on-accent)", bg: "var(--sunny)" },
+  開催中: { c: "var(--on-accent)", bg: "var(--grape)" },
+  本日は公演なし: { c: "var(--text)", bg: "var(--sunny-tint)" },
+  公演予定: { c: "var(--on-accent)", bg: "var(--sky)" },
   終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
 };
 
@@ -264,7 +264,7 @@ export const PLACE_UPCOMING_MAX = 8;
 export const DEFAULT_CENTER = [35.6812, 139.7671]; // 東京駅
 
 /* ---------- 表引き（未知の値でも落ちない） ---------- */
-export const tableMeta = (tbl, k) => tbl[k] || { label: k, c: "var(--ink)" };
+export const tableMeta = (tbl, k) => tbl[k] || { label: k, c: "var(--text)" };
 export const statusMeta = (tbl, k) => tbl[k] || NEUTRAL_BADGE;
 
 /* ---------- CSVの列マッピング ----------

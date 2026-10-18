@@ -95,7 +95,7 @@ function pillList(keys, table) {
   return (keys || [])
     .map((k) => {
       const m = tableMeta(table, k);
-      return `<span class="pill-cat" style="background:${m.c};color:#fff">${esc(m.label)}</span>`;
+      return `<span class="pill-cat" style="background:${m.c};color:var(--on-accent)">${esc(m.label)}</span>`;
     })
     .join("");
 }
@@ -751,7 +751,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
 
   return `
   <article class="card" data-key="${esc(it.key)}">
-    ${mainCat ? `<span class="cat-badge" style="background:${mainCat.c};color:#fff">${esc(mainCat.label)}</span>` : ""}
+    ${mainCat ? `<span class="cat-badge" style="background:${mainCat.c};color:var(--on-accent)">${esc(mainCat.label)}</span>` : ""}
     ${isNewlyAnnounced(it) ? `<span class="new-badge">NEW</span>` : ""}
     <div class="card-body">
       <div class="top-row">

@@ -360,6 +360,124 @@ check(
 );
 await page.evaluate(() => localStorage.clear());
 
+/* 夜のカードの読みやすさ（第6.6節）。空モードの夜（太陽高度 -4° 未満）は、カードの色の道具を
+   夜用に差し替える。差し替え漏れ（明るい地に明るい文字、暗い地に暗い文字）は見た目では
+   気づきにくいので、3タブすべてのカードの文字を、実際の地の色との対比で機械的に調べる。
+   「くわしく」の中身も見えるよう、すべて開いてから測る。昼は白いカードと白いタグ文字のままかだけを見る
+   （昼の配色は今回の対象外。補助色の一部は 4.4:1 前後で、基準にわずかに届かない）。 */
+async function scanCards(isoTime) {
+  const ctx = await browser.newContext({ serviceWorkers: "block" });
+  const p = await ctx.newPage();
+  const t = Date.parse(isoTime);
+  await p.addInitScript((t) => {
+    const real = Date.now.bind(Date);
+    const off = t - real();
+    Date.now = () => real() + off;
+  }, t);
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.waitForSelector("#list .card");
+  await p.waitForTimeout(1500);
+  const out = {
+    cls: await p.evaluate(() => document.documentElement.className),
+    bad: [],
+    n: 0,
+  };
+  for (const tab of ["#tabEventBtn", "#tabMovieBtn", "#tabLiveBtn"]) {
+    await p.click(tab);
+    await p.waitForTimeout(1200);
+    const r = await p.evaluate(() => {
+      const parse = (c) => {
+        const m = c.match(/[\d.]+/g).map(Number);
+        return { r: m[0], g: m[1], b: m[2], a: m[3] ?? 1 };
+      };
+      const lin = (v) =>
+        (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      const lum = (c) =>
+        0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+      const over = (t, b) => ({
+        r: t.r * t.a + b.r * (1 - t.a),
+        g: t.g * t.a + b.g * (1 - t.a),
+        b: t.b * t.a + b.b * (1 - t.a),
+        a: 1,
+      });
+      const bgOf = (el) => {
+        const stack = [];
+        for (let e = el; e; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor);
+          if (c.a > 0) stack.push(c);
+          if (c.a >= 1) break;
+        }
+        let acc = { r: 0, g: 0, b: 0, a: 1 };
+        for (let i = stack.length - 1; i >= 0; i--) acc = over(stack[i], acc);
+        return acc;
+      };
+      const bad = [];
+      let n = 0;
+      for (const card of document.querySelectorAll(".card")) {
+        if (!card.offsetParent) continue;
+        card.querySelectorAll(".desc").forEach((d) => d.classList.add("open"));
+        for (const el of card.querySelectorAll("*")) {
+          if (
+            ![...el.childNodes].some(
+              (c) => c.nodeType === 3 && c.textContent.trim(),
+            )
+          )
+            continue;
+          if (el.closest(".sr-only")) continue;
+          const cs = getComputedStyle(el);
+          const bg = bgOf(el);
+          const fg = parse(cs.color);
+          const f = fg.a < 1 ? over(fg, bg) : fg;
+          const [hi, lo] = [lum(f), lum(bg)].sort((a, b) => b - a);
+          const cr = (hi + 0.05) / (lo + 0.05);
+          const size = parseFloat(cs.fontSize);
+          const need =
+            size >= 24 || (size >= 18.66 && parseInt(cs.fontWeight) >= 700)
+              ? 3
+              : 4.5;
+          n++;
+          if (cr < need)
+            bad.push(
+              `${cr.toFixed(1)}:1 .${[...el.classList].join(".")} "${el.textContent.trim().slice(0, 12)}"`,
+            );
+        }
+      }
+      return { bad: [...new Set(bad)].slice(0, 6), n };
+    });
+    out.n += r.n;
+    out.bad.push(...r.bad);
+  }
+  out.cardBg = await p.evaluate(
+    () => getComputedStyle(document.querySelector(".card")).backgroundColor,
+  );
+  out.badgeColor = await p.evaluate(
+    () => getComputedStyle(document.querySelector(".cat-badge")).color,
+  );
+  await ctx.close();
+  return out;
+}
+{
+  const night = await scanCards("2026-10-18T20:30:00+09:00");
+  check("夜: 空モードの夜になっている", /sky-night/.test(night.cls), night.cls);
+  check(
+    "夜: 3タブすべてのカードの文字が読める（対比 4.5:1・大きい文字 3:1）",
+    night.bad.length === 0,
+    `${night.n}要素を走査 ${night.bad.join(" / ")}`,
+  );
+  check("夜: カードは暗い地", night.cardBg === "rgb(31, 37, 72)", night.cardBg);
+  const day = await scanCards("2026-10-18T12:00:00+09:00");
+  check(
+    "昼: カードは白のまま",
+    day.cardBg === "rgb(255, 255, 255)",
+    day.cardBg,
+  );
+  check(
+    "昼: タグ・ボタンの文字は白のまま（--on-accent の既定値）",
+    day.badgeColor === "rgb(255, 255, 255)",
+    day.badgeColor,
+  );
+}
+
 check(
   "コンソールエラーが無い",
   consoleErrors.length === 0,

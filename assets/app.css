@@ -8,6 +8,8 @@
   --ink: #33302b;
   --paper: #f2eee5;
   --card: #ffffff;
+  /* 色つきの塗り（タグ・ボタン）の上の文字。夜のカードでは淡い塗りに合わせて濃い色になる */
+  --on-accent: #ffffff;
   --line: #33302b;
   --text: #33302b;
   --text-soft: #6b6660;
@@ -745,6 +747,96 @@ html.sky-night :is(input[type="search"], .search-toggle, .sort-btn) {
   background: var(--card);
 }
 
+/* 夜のカード。暗い藍の地に、色の道具を「暗くせず淡く」して置く。
+   昼の色を夜空の藍で暗くすると、ピンクは赤黒く・黄色は茶色く濁って不気味に見えるため、
+   タグとボタンは明るいパステルの塗りに濃い文字（--on-accent）にする。
+   縁と影は黒に近い紺（昼の黒インクと同じ関係）で、青白く光らせない。文字は温かい生成り。
+   ここで上書きするのは .card の中だけ。検索欄・絞り込み・各シートは上の冷やした明るい色のまま */
+html.sky-night .card {
+  --card: #1f2548;
+  --ink: #0d1128;
+  --line: #5d6598;
+  --text: #f4efe4;
+  --text-soft: #c3c6dd;
+  --text-faint: #a9adc9;
+  --on-accent: #2a2438;
+  --pink: #f2aec2;
+  --pink-tint: #3d3859;
+  --sunny: #efd08a;
+  --sunny-tint: #3c3d51;
+  --sky: #9ccfe0;
+  --sky-tint: #303d5d;
+  --grape: #c6b6ee;
+  --grape-tint: #36395f;
+  --lime: #b6d8a2;
+  --lime-tint: #343e55;
+  --tangerine: #f1b693;
+  --tangerine-tint: #3c3952;
+  --coral: #efa59e;
+  --coral-tint: #3c3754;
+  --teal: #8fd4c1;
+  --teal-tint: #2f3e59;
+  --sign: #9bbdf0;
+  --sign-tint: #303a60;
+}
+/* 本文の色に --ink を使っている部品は、カードの中では生成りにする（--ink は縁の暗い色になるため） */
+html.sky-night
+  .card
+  :is(
+    .title,
+    .live-date,
+    .pc-detail-body,
+    .pc-cond,
+    .coupon-note,
+    .venue-detail,
+    .vd-row,
+    .vd-park,
+    .fact-list,
+    .ticket-info,
+    .fac-head
+  ) {
+  color: var(--text);
+}
+html.sky-night .card .act-btn {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-soft);
+}
+html.sky-night .card .act-btn:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+}
+html.sky-night .card :is(.star-btn, .detail-toggle) {
+  color: var(--text-soft);
+}
+html.sky-night .card :is(.pk.no, .pk.closed) {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-soft);
+}
+/* 昼の紙色に合わせた明るい地（受付情報・限定販売・終了のタグ）は、カードより少し明るい藍にする */
+html.sky-night
+  .card
+  :is(
+    .ticket-info:not(.before, .open, .urgent),
+    .ticket-info.closed,
+    .ts-tag.closed,
+    .ts-tag.limited
+  ) {
+  background: #272e55;
+}
+html.sky-night .card :is(.price-compare, .coupon-note) {
+  border-color: var(--line);
+}
+html.sky-night .card .status-badge.closed-badge {
+  background: var(--text-soft);
+  border-color: var(--text-soft);
+}
+/* 地が --ink（縁の暗い色）の部品は、暗いカードでは見えないので生成りの地にする */
+html.sky-night .card :is(.ti-badge, .fac-tag) {
+  background: var(--text);
+}
+
 /* ---------- locate feedback ---------- */
 @keyframes btnPulse {
   0%,
@@ -1419,7 +1511,7 @@ mark {
   font-weight: 700;
   box-shadow: 2px 2px 0 var(--ink);
   background: var(--sunny);
-  color: #fff;
+  color: var(--on-accent);
   font-family: var(--font-mono);
   letter-spacing: 0.06em;
   z-index: 2;
@@ -1461,13 +1553,13 @@ mark {
 }
 .add-badge {
   background: var(--coral);
-  color: #fff;
+  color: var(--on-accent);
 }
 /* 受付終了は「取れるように見せない」ため、他のステータスとは違う無彩色にする
    （ticket-info.closed と同じグレー。docs/DESIGN.md 第12.3節）。 */
 .status-badge.closed-badge {
   background: var(--text-soft);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--text-soft);
 }
 .card .title {
@@ -1672,14 +1764,14 @@ mark {
 .fav-btn[aria-pressed="true"] {
   background: var(--pink);
   border-color: var(--pink);
-  color: #fff;
+  color: var(--on-accent);
 }
 /* Apple Music の ♪ ボタン。フェスの日割りラインナップ内の ♪（.lu-am）と
    同じ塗り（紫）で揃え、遷移先の種類が同じであることを見た目でも示す。 */
 .act-btn.am-btn {
   border-color: var(--grape);
   background: var(--grape);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
@@ -1687,7 +1779,7 @@ mark {
 .act-btn.am-btn:hover {
   background: var(--pink);
   border-color: var(--pink);
-  color: #fff;
+  color: var(--on-accent);
 }
 .fav-btn[aria-pressed="true"] svg {
   fill: currentColor;
@@ -1738,7 +1830,7 @@ mark {
   width: 100%;
   min-height: 46px;
   background: var(--pink);
-  color: #fff;
+  color: var(--on-accent);
   text-decoration: none;
   font-weight: 700;
   font-size: 14px;
@@ -1807,7 +1899,7 @@ mark {
 .pc-saved {
   font-size: var(--fs-tag);
   font-weight: 700;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--coral);
   padding: 0.08rem 0.45rem;
   border-radius: 999px;
@@ -1851,7 +1943,7 @@ mark {
   padding: 0.08rem 0.45rem;
   border-radius: 999px;
   background: var(--sunny);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-tag);
   font-weight: 700;
 }
@@ -1914,7 +2006,7 @@ mark {
   border-radius: 999px;
   border: 1.5px solid var(--ink);
   background: var(--ink);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-tag);
   font-weight: 700;
   white-space: nowrap;
@@ -1990,7 +2082,7 @@ mark {
 }
 .ts-tag.limited {
   background: var(--sunny);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ---------- venue picker ---------- */
@@ -3117,7 +3209,7 @@ footer p {
   padding: 0 0.45rem;
   border-radius: 999px;
   background: var(--ink);
-  color: #fff;
+  color: var(--on-accent);
   font-family: var(--font-mono);
   font-size: var(--fs-tag);
   letter-spacing: 0.04em;
@@ -3183,7 +3275,7 @@ footer p {
 }
 .pk.yes {
   background: var(--sign);
-  color: #fff;
+  color: var(--on-accent);
 }
 .pk.nearby {
   background: var(--sign-tint);
@@ -3203,7 +3295,7 @@ footer p {
 .pk.temp {
   background: var(--tangerine);
   border-color: var(--tangerine);
-  color: #fff;
+  color: var(--on-accent);
 }
 .vd-park {
   display: inline;
