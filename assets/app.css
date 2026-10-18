@@ -832,6 +832,14 @@ html.sky-night .card .status-badge.closed-badge {
   background: var(--text-soft);
   border-color: var(--text-soft);
 }
+/* 予約ボタン。淡いパステルだと夜のカードの中で明るすぎるので、深いローズの塗りに白い文字にする。
+   暗い塗りは暗いカードの地に沈むため、縁だけは温かいクリーム色にして輪郭を保つ（少しローズ寄りにして、
+   ボタンの赤みとなじませる）。青白い縁にしないのは、暗がりで輪郭が冷たく光ると不気味に見えるため */
+html.sky-night .card .go-btn {
+  background: #8f3a58;
+  color: #fff;
+  border-color: #edd3ca;
+}
 /* 地が --ink（縁の暗い色）の部品は、暗いカードでは見えないので生成りの地にする */
 html.sky-night .card :is(.ti-badge, .fac-tag) {
   background: var(--text);
