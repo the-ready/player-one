@@ -138,6 +138,8 @@ node tools/guest_filter_test.mjs            # 「出演あり」チップ：判�
 node tools/caladd_test.mjs                  # カレンダー追加の初期日付の分岐（DOM不要）
 node tools/fav_spots_test.mjs               # お気に入りスポット（★）の名寄せ・保存・先頭セクション（DOM不要）
 node tools/parking_badge_test.mjs           # 駐車場（P）バッジの組み合わせ表と絞り込み（DOM不要）
+node tools/grid_fit_test.mjs               # 「くわしく」を開いたカードだけ伸ばす位置計算（開いた列以外は動かない・重ならない・閉じると戻る。DOM不要）
+node tools/page_sky_test.mjs               # 空モードのページ背景色（地の上の文字が読める明るさ・夜への切り替え高度。DOM不要）
 node tools/sale_group_test.mjs              # バーゲンの同時開催カードと言い回し（DOM不要）
 python3 -m http.server 8000 &
 node tools/smoke_test.mjs                   # 画面全体（要 playwright）

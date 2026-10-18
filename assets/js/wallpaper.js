@@ -9,6 +9,8 @@
    temp/ で行ったプロトタイプ検証（audit-contrast.mjs 等）で
    648時点・3幅・3季節の組み合わせを実測して詰めたもの。同じ考え方はここでも変えていない。 */
 
+import { applyPageSky, clearPageSky } from "./page-sky.js";
+
 /* ==========================================================
    #region SKY-MATH
    明石の空を求める。SunCalc と同じ低精度式（Meeus 由来）。
@@ -924,6 +926,8 @@ export function paint(ms) {
   // 黒でも白でも読みにくい瞬間ができる。実際の事象（太陽高度）で切る。
   // -4°＝日の入りのおよそ20分後。「暗くなってきたな」と感じる頃。
   hdr.classList.toggle("wp-night", s.altDeg < -4);
+  // ページ全体の背景も同じ空の色に（第6.5.1節）
+  applyPageSky(pal.sky, s.altDeg);
   return { s, m, ph, sp, mp, starA, pal };
 }
 
@@ -963,7 +967,10 @@ export function setMode(next) {
   const dyn = next === "dynamic";
   wp.hidden = !dyn;
   hdr.classList.toggle("wp-on", dyn);
-  if (!dyn) hdr.classList.remove("wp-night");
+  if (!dyn) {
+    hdr.classList.remove("wp-night");
+    clearPageSky();
+  }
   document.querySelectorAll(".blob").forEach((b) => (b.hidden = dyn));
   toggleBtn.setAttribute("aria-pressed", String(dyn));
   toggleBtn.setAttribute(

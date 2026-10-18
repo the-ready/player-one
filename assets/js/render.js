@@ -49,6 +49,7 @@ import {
   chainNamesOf,
 } from "./spots.js";
 import { schedulePhase } from "./schedule.js";
+import { refitCard, watchGrid } from "./grid-fit.js";
 
 /* ---------- 通知（共有のフォールバックなど） ---------- */
 export function toast(msg) {
@@ -285,6 +286,8 @@ export function bindList(
     onChainFilter,
   },
 ) {
+  // 「くわしく」で開いたカードだけを伸ばすための詰め直し（grid-fit.js）
+  watchGrid(listEl);
   listEl.addEventListener("click", (e) => {
     const toggle = e.target.closest(".detail-toggle");
     if (toggle) {
@@ -299,6 +302,7 @@ export function bindList(
           : `${toggle.dataset.title}のくわしい説明を見る`,
       );
       toggle.textContent = open ? "とじる ▴" : "くわしく ▾";
+      refitCard(listEl, toggle.closest(".card"));
       return;
     }
     const star = e.target.closest("button[data-star]");

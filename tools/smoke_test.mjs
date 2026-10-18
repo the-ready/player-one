@@ -192,6 +192,66 @@ check(
     return !!actions && !!actions.closest(".detail-row");
   }),
 );
+// 「くわしく」を開いたカードだけが伸び、同じ行・ほかの列は動かない（第5.6.1節）
+{
+  const r = await page.evaluate(() => {
+    const grid = [...document.querySelectorAll(".grid")].find(
+      (g) => g.offsetWidth > 0,
+    );
+    const cards = [...grid.querySelectorAll(".card")].slice(0, 12);
+    const pos = () =>
+      cards.map((c) => ({
+        top: c.offsetTop,
+        left: c.offsetLeft,
+        h: c.offsetHeight,
+      }));
+    const cols = new Set(cards.map((c) => c.offsetLeft)).size;
+    const i = cards.findIndex(
+      (c, k) => k >= 3 && c.querySelector(".detail-toggle"),
+    );
+    if (cols < 2 || i < 0) return { skipped: true };
+    const before = pos();
+    cards[i].querySelector(".detail-toggle").click();
+    const open = pos();
+    cards[i].querySelector(".detail-toggle").click();
+    const closed = pos();
+    const grew = open[i].h - before[i].h;
+    return {
+      grew,
+      othersKeepHeight: open.every(
+        (p, k) => k === i || Math.abs(p.h - before[k].h) < 1.5,
+      ),
+      otherColumnsStay: open.every(
+        (p, k) =>
+          p.left === before[i].left || Math.abs(p.top - before[k].top) < 1.5,
+      ),
+      restored: closed.every(
+        (p, k) =>
+          Math.abs(p.top - before[k].top) < 1.5 &&
+          Math.abs(p.h - before[k].h) < 1.5,
+      ),
+    };
+  });
+  if (r.skipped)
+    check(
+      "「くわしく」で開いたカードだけが伸びる（複数列のときのみ）",
+      true,
+      "スキップ",
+    );
+  else {
+    check(
+      "「くわしく」を開くとそのカードが伸びる",
+      r.grew > 20,
+      `+${r.grew}px`,
+    );
+    check(
+      "「くわしく」を開いても他のカードの高さは変わらない",
+      r.othersKeepHeight,
+    );
+    check("「くわしく」を開いても他の列のカードは動かない", r.otherColumnsStay);
+    check("「くわしく」を閉じると元の配置に戻る", r.restored);
+  }
+}
 check(
   "出典名をメタ欄にプレーンテキストで出さない（予約ボタンのラベルと重複するため）",
   (await page.locator("#liveList .src").count()) === 0,

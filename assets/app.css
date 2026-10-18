@@ -664,6 +664,87 @@ header.pop-header.wp-night .stat-chip b {
   }
 }
 
+/* ---------- ページ背景（空モードのとき） ----------
+   ヘッダーの空と同じ太陽高度から page-sky.js が背景色を決める。水玉モードでは
+   .sky-page が付かないので、このブロックは何もしない（従来どおりの紙色）。
+   色は @property で登録して、薄明の切り替えをゆっくり移す（登録に未対応の
+   ブラウザでは即座に切り替わるだけ）。 */
+@property --page-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f2eee5;
+}
+@property --page-bg-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f2eee5;
+}
+@property --page-text {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6b6660;
+}
+/* 読み込み直後に紙色から空の色へ移る様子が見えないよう、遷移は最初の描画のあと（.sky-anim）から */
+html.sky-page {
+  --page-text: #3f3b36;
+}
+html.sky-page.sky-anim {
+  transition:
+    --page-bg 1.6s linear,
+    --page-bg-2 1.6s linear,
+    --page-text 1.6s linear;
+}
+html.sky-page body {
+  background: var(--page-bg);
+  background-image: linear-gradient(
+    180deg,
+    var(--page-bg-2) 0,
+    var(--page-bg) 700px
+  );
+}
+html.sky-page .controls {
+  background: color-mix(in srgb, var(--page-bg-2) 95%, transparent);
+}
+/* 夜は灰みの藍の地に、昼と同じ明るいカードを置く。カードも暗くすると不気味になるので、
+   カードの地は青みのある白のまま、色の道具（9色・インク）だけを夜空の藍で少し冷やす。
+   ヘッダーは自前の夜用の色を持つので対象にしない。 */
+html.sky-night {
+  --page-text: #e8e6f3;
+}
+html.sky-night body > :not(.pop-header) {
+  --card: #efeef6;
+  --ink: #232640;
+  --line: #232640;
+  --text: #2b2d42;
+  --pink: #a2536d;
+  --pink-tint: #daccd4;
+  --sunny: #846734;
+  --sunny-tint: #dbd2c0;
+  --sky: #4f7382;
+  --sky-tint: #cdd6dc;
+  --grape: #726594;
+  --grape-tint: #d3cfdf;
+  --lime: #5d7257;
+  --lime-tint: #d0d6d1;
+  --tangerine: #946149;
+  --tangerine-tint: #dacec8;
+  --coral: #9c5c5a;
+  --coral-tint: #d9cbce;
+  --teal: #497570;
+  --teal-tint: #cad6d8;
+  --sign: #235696;
+  --sign-tint: #ced6e5;
+}
+/* 地の上に直接のる文字。空の色は紙色より濃いので、灰色の補助色（--text-soft）のままだと
+   読めない。昼は濃い色、夜は明るい色にして、どちらも --page-text で切り替える */
+html.sky-page :is(.result-count, .list-divider, .fav-head, .empty-state),
+html.sky-page footer p {
+  color: var(--page-text);
+}
+html.sky-night :is(input[type="search"], .search-toggle, .sort-btn) {
+  background: var(--card);
+}
+
 /* ---------- locate feedback ---------- */
 @keyframes btnPulse {
   0%,
@@ -1211,9 +1292,18 @@ input[type="search"]:focus-visible {
   padding: 1.8rem clamp(1rem, 4vw, 3rem) 2.5rem;
 }
 .grid {
+  --row-gap: 1.6rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 1.6rem 1.4rem;
+  gap: var(--row-gap) 1.4rem;
+}
+/* 「くわしく」を開いたカードだけを伸ばすため、行を1pxに刻んでカードごとに使う行数を
+   JS（grid-fit.js）が指定する。行の間隔は span に含めるので row-gap は0にする。
+   JSが動かない・1列表示のときはこのクラスが付かず、上の素のグリッドのまま。 */
+.grid.is-packed {
+  grid-auto-rows: 1px;
+  row-gap: 0;
+  align-items: start;
 }
 .card {
   position: relative;
@@ -3521,6 +3611,19 @@ footer p {
   .grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.8rem;
+  }
+  /* 印刷では詰めない。JSが指定した行・列・高さを無効にして素のグリッドに戻す */
+  .grid.is-packed {
+    grid-auto-rows: auto;
+    row-gap: 0.8rem;
+    align-items: stretch;
+  }
+  .grid.is-packed > * {
+    grid-row: auto !important;
+    min-height: 0 !important;
+  }
+  .grid.is-packed > .card {
+    grid-column: auto !important;
   }
   .desc {
     display: block !important;
