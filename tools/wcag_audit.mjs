@@ -1,0 +1,640 @@
+/* WCAG 2.2（AA）の色・フォーカス・押しどころの点検。画面を順に開き、部品ごとに
+   「通常・触れた・フォーカス・押した」の4状態を測って、基準に届かない箇所を一覧する。
+   見つかれば終了コード1。smoke_test.mjs は「壊れていないか」を見る道具で、
+   こちらは「見えるか」を見る道具（1画面ごとに時間がかかるので run_all_tests.py には含めない）。
+
+   測る基準:
+     1.4.3  文字の対比（4.5:1。大きい文字 3:1）。::before/::after・半透明も実効の色で測る
+     1.4.11 アイコンの対比・入力欄の輪郭（3:1）
+     2.4.7 / 1.4.11  フォーカス表示（幅 2px 以上・周囲と 3:1）
+     2.4.11 フォーカスが操作バーに隠れない（Tab／Shift+Tab で全部通して確かめる）
+     2.5.8  押しどころ 24×24px（文中のリンク・★の当たり判定は例外。下の EXEMPT_SIZE）
+   押せない部品（disabled）の文字は 1.4.3 の対象外なので数えない。
+
+   使い方（要 playwright。smoke_test.mjs と同じく、先に静的サーバを立てる）:
+     python3 -m http.server 8000 &
+     node tools/wcag_audit.mjs <iso時刻> <名前> [幅] [高さ]
+     例: node tools/wcag_audit.mjs 2026-10-18T20:30:00+09:00 night          # 夜・PC幅
+         node tools/wcag_audit.mjs 2026-10-18T20:30:00+09:00 night-sp 390 844 # 夜・スマホ幅
+         node tools/wcag_audit.mjs 2026-10-18T12:00:00+09:00 noon
+         node tools/wcag_audit.mjs 2026-10-18T06:35:00+09:00 morning
+         node tools/wcag_audit.mjs 2026-10-18T17:08:00+09:00 dusk
+   BASE（既定 http://localhost:8000/）・PW_CHROME で場所を指定する。
+   結果は temp/wcag/<名前>.json と、画面ごとの画像（temp/wcag/<名前>/）に残る。
+   時刻は少しずつ進む時計にしてあるので、夕方の薄明は 17:08 から始めれば測っている間に夜へ変わらない。 */
+
+import { chromium } from "playwright";
+import fs from "fs";
+
+const BASE = process.env.BASE || "http://localhost:8000/";
+const launchOpts = process.env.PW_CHROME
+  ? { executablePath: process.env.PW_CHROME }
+  : {};
+const ISO = process.argv[2] || "2026-10-18T20:30:00+09:00";
+const NAME = process.argv[3] || "night";
+const W = +(process.argv[4] || 1280);
+const H = +(process.argv[5] || 900);
+const OUT = `temp/wcag`;
+fs.mkdirSync(`${OUT}/${NAME}`, { recursive: true });
+
+// 押しどころの例外。★は見た目が 24×22px だが、::after で当たり判定を広げてある（app.css の .star-btn::after）。
+// 会場名のリンクは文中の対象（2.5.8 の「文中」の例外）
+const EXEMPT_SIZE = /\.star-btn|\.place-link/;
+
+const browser = await chromium.launch(launchOpts);
+const ctx = await browser.newContext({
+  viewport: { width: W, height: H },
+  serviceWorkers: "block",
+});
+const page = await ctx.newPage();
+const errs = [];
+page.on("pageerror", (e) => errs.push(String(e)));
+// 時計は、指定の時刻から実時間の 1/20 の速さで進める（測っている間に昼夜が変わらないように）
+await page.addInitScript((t) => {
+  const real = Date.now.bind(Date);
+  const t0 = real();
+  Date.now = () => t + (real() - t0) * 0.05;
+}, Date.parse(ISO));
+await page.addInitScript({
+  path: new URL("./wcag_probe.js", import.meta.url).pathname,
+});
+await page.goto(BASE);
+await page.waitForSelector("#list .card", {
+  state: "attached",
+  timeout: 120000,
+});
+await page.evaluate(() => document.fonts.ready);
+await page.waitForTimeout(2500);
+await page.addStyleTag({
+  content: ".grid.is-entering .card{animation:none;opacity:1}",
+});
+const cdp = await ctx.newCDPSession(page);
+await cdp.send("DOM.enable");
+await cdp.send("CSS.enable");
+
+const report = {
+  iso: ISO,
+  cls: await page.evaluate(() => document.documentElement.className),
+  contexts: [],
+  extra: [],
+};
+async function audit(label, rootSel, shot = true) {
+  await page.waitForTimeout(400);
+  // ポップアップは開くとき不透明度が 0 → 1 に遷移する。負荷が高いと 400ms では終わらず、
+  // 透けた状態を測って「文字が地と同じ色」と誤検出するので、終わるまで待つ
+  for (let i = 0; i < 40; i++) {
+    if ((await page.evaluate((s) => window.__wc.settled(s), rootSel)) >= 0.99)
+      break;
+    await page.waitForTimeout(150);
+  }
+  const textAll = await page.evaluate(
+    (sel) =>
+      [...document.querySelectorAll(sel)].flatMap((r) =>
+        window.__wc.textIssues(r),
+      ),
+    rootSel,
+  );
+  const list = await page.evaluate((sel) => window.__wc.mark(sel), rootSel);
+  const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
+  const items = [];
+  // 状態を強制した直後は遷移の途中の値が返る（.go-btn の影は 0.12s かけて変わり、負荷が高いと
+  // 待っても終わらない）。測っている間だけ遷移を止めて、強制した状態の最終の値を読む
+  await page.evaluate(() => {
+    const st = document.createElement("style");
+    st.id = "__wc_nt";
+    st.textContent = "*,*::before,*::after{transition:none!important}";
+    document.head.append(st);
+  });
+  for (const it of list) {
+    const { nodeId } = await cdp.send("DOM.querySelector", {
+      nodeId: root.nodeId,
+      selector: `[data-wc="${it.i}"]`,
+    });
+    if (!nodeId) continue;
+    const r = { ...it, states: {} };
+    for (const state of ["default", "hover", "focus-visible", "active"]) {
+      await cdp.send("CSS.forcePseudoState", {
+        nodeId,
+        forcedPseudoClasses:
+          state === "default"
+            ? []
+            : state === "focus-visible"
+              ? ["focus", "focus-visible"]
+              : [state],
+      });
+      r.states[state] = await page.evaluate(
+        ([i, s]) => window.__wc.check(i, s),
+        [it.i, state],
+      );
+    }
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
+    items.push(r);
+  }
+  await page.evaluate(() => document.getElementById("__wc_nt")?.remove());
+  if (shot)
+    await page.screenshot({
+      path: `${OUT}/${NAME}/${String(report.contexts.length).padStart(2, "0")}-${label}.jpg`,
+      type: "jpeg",
+      quality: 62,
+    });
+  report.contexts.push({ label, rootSel, textAll, items });
+  console.log(`${label}: 部品 ${items.length}`);
+}
+const click = async (sel, wait = 500) => {
+  await page.evaluate((s) => document.querySelector(s)?.click(), sel);
+  await page.waitForTimeout(wait);
+};
+const top = async () => {
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(400);
+};
+// 地図は canvas に印を描くので、地図の上を格子状に押して吹き出しが開くところを探す
+async function openMapPopup(mapSel, popupSel, from = 20) {
+  const mb = await page.evaluate((s) => {
+    const r = document.querySelector(s)?.getBoundingClientRect();
+    return r && { x: r.x, y: r.y, w: r.width, h: r.height };
+  }, mapSel);
+  if (!mb) return false;
+  for (let y = mb.y + from; y < mb.y + mb.h - 34; y += 9)
+    for (let x = mb.x + 30; x < mb.x + mb.w - 30; x += 9) {
+      // 出典のリンク（同じタブで別のページへ移る）と拡大縮小ボタンは押さない
+      if (
+        await page.evaluate(
+          ([x, y]) =>
+            !!document.elementFromPoint(x, y)?.closest("a, .leaflet-control"),
+          [x, y],
+        )
+      )
+        continue;
+      await page.mouse.click(x, y);
+      await page.waitForTimeout(50);
+      if (await page.$(popupSel)) return true;
+    }
+  return false;
+}
+
+// 1. ヘッダー・操作バー・カード（閉じた状態）
+await audit("ヘッダー", "#hdr");
+await audit("操作バー", ".controls");
+await audit("カード", "#list > .card:nth-child(-n+9)");
+// 2. カードの状態：行きたい（押した）・くわしく（開いた）
+await page.evaluate(() => {
+  const cs = document.querySelectorAll("#list > .card");
+  for (let i = 0; i < 9; i++) cs[i]?.querySelector(".detail-toggle")?.click();
+  cs[0].querySelector('.act-btn[data-act="fav"]')?.click();
+});
+await page.waitForTimeout(600);
+await page.evaluate(() =>
+  document.querySelector("#favToast")?.setAttribute("hidden", ""),
+);
+await audit("カード（くわしく・行きたい）", "#list > .card:nth-child(-n+9)");
+await page.evaluate(() => {
+  const cs = document.querySelectorAll("#list > .card");
+  for (let i = 0; i < 9; i++) cs[i]?.querySelector(".detail-toggle")?.click();
+  cs[0].querySelector('.act-btn[data-act="fav"]')?.click();
+});
+// 3. ポップアップ
+await top();
+await click("#sortDateBtn", 900);
+await audit("日程", "#popoverPanel");
+await page.evaluate(() => {
+  const d = [
+    ...document.querySelectorAll("#popoverPanel .cal-day:not([disabled])"),
+  ];
+  d[8]?.click();
+});
+await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const d = [
+    ...document.querySelectorAll("#popoverPanel .cal-day:not([disabled])"),
+  ];
+  d[13]?.click();
+});
+await page.waitForTimeout(600);
+if (await page.$("#popoverPanel[hidden]")) await click("#sortDateBtn", 900);
+await audit("日程（期間を選んだ）", "#popoverPanel");
+await page.keyboard.press("Escape");
+await top();
+await click("#sortLocBtn", 900);
+await audit("エリア", "#popoverPanel");
+await page.evaluate(() =>
+  document.querySelector("#popoverPanel .region-chip")?.click(),
+);
+await page.waitForTimeout(600);
+if (await page.$("#popoverPanel[hidden]")) await click("#sortLocBtn", 900);
+await page.fill(".venue-search", "ホール").catch(() => {});
+await page.waitForTimeout(500);
+await audit("エリア（都県を選び会場を検索）", "#popoverPanel");
+await page.fill(".venue-search", "").catch(() => {});
+await page.keyboard.press("Escape");
+await top();
+await click("#catBtn", 900);
+await audit("絞り込み", "#popoverPanel");
+for (const i of [0, 3, 6, 9, 12, 15, 18]) {
+  await page
+    .locator("#catBody .chip:not([disabled])")
+    .nth(i)
+    .click({ timeout: 3000 })
+    .catch(() => {});
+  await page.waitForTimeout(200);
+}
+await audit("絞り込み（押した状態）", "#popoverPanel");
+// チップを1つずつ押して、押した状態の文字を測る（色つきのチップは地の色が変わる）
+report.extra.push(
+  ...(await page.evaluate(async () => {
+    const out = [];
+    const n = document.querySelectorAll("#catBody .chip").length;
+    for (let i = 0; i < n; i++) {
+      const c0 = document.querySelectorAll("#catBody .chip")[i];
+      if (!c0 || c0.disabled) continue;
+      c0.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const c = document.querySelectorAll("#catBody .chip")[i];
+      for (const t of window.__wc.textIssues(c))
+        out.push({ kind: "1.4.3 文字（押したチップ）", ...t });
+      c.click();
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    return out;
+  })),
+);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+await audit("操作バー（適用中）", ".controls");
+await click("#appliedClear", 800);
+// 4. カードのメニュー・シート
+await top();
+await page.evaluate(() =>
+  document.querySelector('#list .card .act-btn[data-act="cal"]').click(),
+);
+await page.waitForTimeout(500);
+await audit("カレンダー追加メニュー", ".cal-menu");
+await click('.cal-menu [data-cal="ics"]', 800);
+await audit("日時を選ぶシート", "#calAddSheet");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+await click("#list .card .place-link[data-place]", 1500);
+await audit("会場シート", "#placeSheet");
+// 会場シートの地図の吹き出し（Leaflet 標準）
+{
+  const b = await page.evaluate(() => {
+    const r = document
+      .querySelector("#placeSheet .leaflet-container")
+      ?.getBoundingClientRect();
+    return r && { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+  let opened = false;
+  if (b)
+    for (let dy = 0; dy <= 40 && !opened; dy += 5)
+      for (let dx = -20; dx <= 20 && !opened; dx += 5) {
+        await page.mouse.click(b.x + b.w / 2 + dx, b.y + b.h / 2 + dy);
+        await page.waitForTimeout(150);
+        opened = !!(await page.$("#placeSheet .leaflet-popup"));
+      }
+  if (opened) await audit("会場シートの吹き出し", "#placeSheet .leaflet-popup");
+  else console.log("会場シートの吹き出し: 開けず");
+}
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+await top();
+await click("#sortLocBtn", 800);
+await click("#openMapBtn", 1800);
+await audit("地図シート", "#mapSheet");
+// 範囲をえらぶ地図の吹き出し：読める色か、枠の中に収まっているか（上端のピンで切れない）
+if (
+  await openMapPopup("#mapSheet .leaflet-container", "#mapPopup:not([hidden])")
+) {
+  await audit("地図の吹き出し", "#mapPopup");
+  const bad = await page.evaluate(() => {
+    const p = document.querySelector("#mapPopup").getBoundingClientRect();
+    const c = document
+      .querySelector("#mapPopup")
+      .parentElement.getBoundingClientRect();
+    return p.top < c.top - 1 ||
+      p.bottom > c.bottom + 1 ||
+      p.left < c.left - 1 ||
+      p.right > c.right + 1
+      ? {
+          p: [p.top, p.right, p.bottom, p.left].map(Math.round),
+          c: [c.top, c.right, c.bottom, c.left].map(Math.round),
+        }
+      : null;
+  });
+  if (bad)
+    report.extra.push({
+      kind: "吹き出しが地図の枠から出ている",
+      el: "#mapPopup",
+      note: JSON.stringify(bad),
+    });
+} else console.log("地図の吹き出し: 開けず");
+// 上端に近いピンの吹き出し（上に収まらないので下に出る）
+if (
+  await openMapPopup(
+    "#mapSheet .leaflet-container",
+    "#mapPopup:not([hidden])",
+    4,
+  )
+) {
+  const bad = await page.evaluate(() => {
+    const p = document.querySelector("#mapPopup").getBoundingClientRect();
+    const c = document
+      .querySelector("#mapPopup")
+      .parentElement.getBoundingClientRect();
+    return p.top < c.top - 1 ||
+      p.bottom > c.bottom + 1 ||
+      p.left < c.left - 1 ||
+      p.right > c.right + 1
+      ? {
+          p: [p.top, p.right, p.bottom, p.left].map(Math.round),
+          c: [c.top, c.right, c.bottom, c.left].map(Math.round),
+        }
+      : null;
+  });
+  if (bad)
+    report.extra.push({
+      kind: "吹き出しが地図の枠から出ている（上端のピン）",
+      el: "#mapPopup",
+      note: JSON.stringify(bad),
+    });
+}
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+// 5. ライブ：出演者シート・カード
+await click("#tabLiveBtn", 1800);
+await audit("ライブのカード", "#liveList > .card:nth-child(-n+9)");
+await page.evaluate(() => {
+  document
+    .querySelectorAll("[data-wc-fest]")
+    .forEach((e) => e.removeAttribute("data-wc-fest"));
+  const b = document.querySelector("#liveList .lineup-btn");
+  b?.closest(".card")?.setAttribute("data-wc-fest", "1");
+});
+await audit("フェスのカード（出演者ボタン）", "#liveList [data-wc-fest]");
+if (await page.$("#liveList .lineup-btn")) {
+  await click("#liveList .lineup-btn", 1000);
+  await audit("出演者シート", "#lineupSheet");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+}
+await click("#tabMovieBtn", 1800);
+await audit("映画のカード", "#movieList > .card:nth-child(-n+9)");
+await click("#tabEventBtn", 1500);
+// 6. お気に入り
+await top();
+await page.evaluate(() =>
+  document.querySelectorAll("#list .star-btn")[12]?.click(),
+);
+await page.waitForSelector("#favToast.show", { timeout: 8000 }).catch(() => {});
+await audit("お気に入りのトースト", "#favToast");
+await page.evaluate(() =>
+  document.querySelector("#favToast button.primary")?.click(),
+);
+await page.waitForTimeout(1200);
+await audit("お気に入り先頭セクション", "#list .fav-head");
+await click('[data-fav-act="manage"]', 800);
+await audit("お気に入り管理シート", "#favSheet");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+// 6b. 共有のトースト・スクロールした操作バー・終了したものの表示
+await top();
+await page.evaluate(() => {
+  try {
+    delete navigator.share;
+  } catch {}
+  document.querySelector('#list .act-btn[data-act="share"]')?.click();
+});
+await page.waitForTimeout(400);
+if (await page.$("#toast.show")) await audit("共有のトースト", "#toast");
+await page.evaluate(() => scrollTo(0, 2400));
+await page.waitForTimeout(900);
+await audit("操作バー（スクロール後）", ".controls");
+await top();
+await click("#catBtn", 900);
+await page.evaluate(() =>
+  document.querySelector("#catBody .ended-chip")?.click(),
+);
+await page.waitForTimeout(500);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(600);
+await page.evaluate(() => {
+  document
+    .querySelectorAll("[data-wc-end]")
+    .forEach((e) => e.removeAttribute("data-wc-end"));
+  [...document.querySelectorAll("#list > .card")]
+    .filter(
+      (c) =>
+        c.querySelector(".closed-badge") ||
+        /終了/.test(c.querySelector(".status-badge")?.textContent || ""),
+    )
+    .slice(0, 12)
+    .forEach((c) => c.setAttribute("data-wc-end", "1"));
+});
+await audit("終了・状態バッジのあるカード", "#list [data-wc-end]");
+await click("#appliedClear", 800);
+// 7. 下部・空表示
+await page.evaluate(() =>
+  document.querySelector("section.directory").scrollIntoView(),
+);
+await page.waitForTimeout(500);
+await audit(
+  "調べたサイト一覧・注記",
+  "#eventPane section.directory, #eventPane footer",
+);
+await top();
+await page.fill('input[type="search"]', "zzzzzz");
+await page.waitForTimeout(1200);
+await audit("0件の表示", "#list");
+await page.fill('input[type="search"]', "");
+await page.waitForTimeout(800);
+
+// 7b. 全カードの文字（部品の4状態は先頭9枚だけ測るので、文字の対比だけは全カード・3タブで測る）
+for (const [tabBtn, listSel, label] of [
+  ["#tabEventBtn", "#list", "全カードの文字（イベント）"],
+  ["#tabMovieBtn", "#movieList", "全カードの文字（映画）"],
+  ["#tabLiveBtn", "#liveList", "全カードの文字（ライブ）"],
+]) {
+  await click(tabBtn, 1800);
+  const textAll = await page.evaluate((sel) => {
+    const out = [];
+    for (const c of document.querySelectorAll(`${sel} > .card`)) {
+      c.querySelectorAll(".desc").forEach((d) => d.classList.add("open"));
+      out.push(...window.__wc.textIssues(c));
+    }
+    return out;
+  }, listSel);
+  report.contexts.push({ label, rootSel: listSel, textAll, items: [] });
+  console.log(`${label}: 指摘 ${textAll.length}`);
+}
+await click("#tabEventBtn", 1500);
+
+// 8. 2.4.11：Tab／Shift+Tab で通したとき、フォーカスが操作バーの下に隠れないか
+{
+  await top();
+  await page.evaluate(() => document.activeElement?.blur());
+  const probe = () =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body || a.closest(".controls")) return null;
+      const r = a.getBoundingClientRect();
+      const bar = document.querySelector(".controls").getBoundingClientRect();
+      const covered = Math.max(
+        0,
+        Math.min(r.bottom, bar.bottom) - Math.max(r.top, bar.top),
+      );
+      if (covered <= 0) return null;
+      return {
+        el:
+          a.tagName +
+          "." +
+          [...a.classList].join(".") +
+          "「" +
+          (a.getAttribute("aria-label") || a.textContent).trim().slice(0, 14) +
+          "」",
+        hidden: covered >= r.height - 1 ? "すべて" : "一部",
+      };
+    });
+  // 操作バーは縮む・伸びるときに高さが遷移で変わる。途中の高さで測ると、遷移が終われば
+  // 隠れない部品まで「隠れた」と誤検出するので、高さが落ち着いてから測る
+  const settle = async () => {
+    let last = -1;
+    let same = 0;
+    for (let i = 0; i < 60 && same < 3; i++) {
+      const h = await page.evaluate(
+        () => document.querySelector(".controls").offsetHeight,
+      );
+      same = h === last ? same + 1 : 0;
+      last = h;
+      await page.waitForTimeout(100);
+    }
+  };
+  const hid = [];
+  for (const key of ["Tab", "Shift+Tab"])
+    for (let i = 0; i < 60; i++) {
+      await page.keyboard.press(key);
+      await settle();
+      const p = await probe();
+      if (p) hid.push(p);
+    }
+  for (const h of hid.slice(0, 6))
+    report.extra.push({
+      kind: `2.4.11 フォーカスが操作バーに${h.hidden}隠れる`,
+      el: h.el,
+    });
+  console.log(`2.4.11: 隠れた回数 ${hid.length}`);
+}
+
+report.errors = errs;
+fs.writeFileSync(`${OUT}/${NAME}.json`, JSON.stringify(report, null, 1));
+
+// ---- 集計：同じ種類・同じ部品・同じ色の指摘はまとめる ----
+const rows = [];
+for (const c of report.contexts) {
+  for (const t of c.textAll)
+    if (!t.dis)
+      rows.push({
+        ctx: c.label,
+        state: "通常",
+        kind: "1.4.3 文字",
+        el: t.el,
+        ratio: t.ratio,
+        need: t.need,
+        fg: t.fg,
+        bg: t.bg,
+      });
+  for (const it of c.items) {
+    if (it.disabled) continue;
+    for (const [st, res] of Object.entries(it.states)) {
+      if (!res) continue;
+      if (st !== "default")
+        for (const t of res.text)
+          if (!t.dis)
+            rows.push({
+              ctx: c.label,
+              state: st,
+              kind: "1.4.3 文字",
+              el: t.el,
+              ratio: t.ratio,
+              need: t.need,
+              fg: t.fg,
+              bg: t.bg,
+            });
+      for (const t of res.icon)
+        rows.push({
+          ctx: c.label,
+          state: st,
+          kind: "1.4.11 アイコン",
+          el: t.el,
+          ratio: t.ratio,
+          need: 3,
+          fg: t.fg,
+          bg: t.bg,
+        });
+      if (res.focus && !res.focus.ok)
+        rows.push({
+          ctx: c.label,
+          state: st,
+          kind: "2.4.7 フォーカス",
+          el: res.focus.el,
+          ratio: res.focus.vsParent,
+          need: 3,
+          fg: res.focus.color,
+          bg: `${res.focus.kind} 幅${res.focus.width}`,
+        });
+      const b = res.boundary;
+      if (
+        b &&
+        st === "default" &&
+        Math.max(b.fillC, b.borderC) < 3 &&
+        /^(input|textarea)/.test(it.desc)
+      )
+        rows.push({
+          ctx: c.label,
+          state: st,
+          kind: "1.4.11 入力欄の輪郭",
+          el: it.desc,
+          ratio: Math.max(b.fillC, b.borderC),
+          need: 3,
+          fg: b.fill,
+          bg: b.parent,
+        });
+    }
+    if (!it.inline && (it.w < 24 || it.h < 24) && !EXEMPT_SIZE.test(it.desc))
+      rows.push({
+        ctx: c.label,
+        state: "-",
+        kind: "2.5.8 押しどころ",
+        el: it.desc,
+        ratio: `${it.w}x${it.h}`,
+        need: "24x24",
+        fg: "",
+        bg: "",
+      });
+  }
+}
+for (const x of report.extra)
+  rows.push({
+    ctx: "-",
+    state: "-",
+    kind: x.kind,
+    el: x.el,
+    ratio: x.ratio ?? "",
+    need: x.need ?? "",
+    fg: x.fg ?? "",
+    bg: x.bg ?? x.note ?? "",
+  });
+const groups = new Map();
+for (const r of rows) {
+  const key = [r.kind, r.el.split("「")[0], r.state, r.fg, r.bg].join("|");
+  if (!groups.has(key)) groups.set(key, { ...r, ctxs: new Set() });
+  groups.get(key).ctxs.add(r.ctx);
+}
+console.log(`\nclasses: ${report.cls}  ページエラー: ${errs.length}`);
+for (const g of groups.values())
+  console.log(
+    `${g.kind} | ${g.state} | ${g.el} | ${g.ratio} (要${g.need}) | ${g.fg} on ${g.bg} | ${[...g.ctxs].join(", ").slice(0, 80)}`,
+  );
+console.log(
+  `\n指摘 ${groups.size}件（${NAME}）${errs.length ? " ページエラー: " + errs.join("|") : ""}`,
+);
+await browser.close();
+process.exit(groups.size || errs.length ? 1 : 0);

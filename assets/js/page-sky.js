@@ -4,7 +4,7 @@
 
    昼〜薄明は、空の色を紙色で薄めて使う。黒インクの文字がそのまま読める明るさを
    保つのが役目で、空の色そのものを塗るわけではない。
-   夜は灰みの藍で止める。真っ暗にすると、昼と同じ明るいカードが浮きすぎる。 */
+   夜は深い藍にし、カード・ポップアップはそれより明るい藍にする（カードのほうが明るい見た目）。 */
 
 const PAPER = "#fbf8f1";
 // 夜の切り替えは、ヘッダーの文字が白に変わる太陽高度（wallpaper.js の wp-night）と同じ
@@ -14,8 +14,8 @@ export const PAGE_TEXT_DAY = "#3f3b36";
 export const PAGE_TEXT_NIGHT = "#e8e6f3";
 // 昼〜薄明で、空の色を紙色へ寄せる追加の割合
 const PALE = 0.65;
-const NIGHT_BG = "#3a4066";
-const NIGHT_BG2 = "#2c3254";
+const NIGHT_BG = "#161b3a";
+const NIGHT_BG2 = "#11152f";
 
 const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const rgb2hex = (c) =>

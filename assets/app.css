@@ -86,12 +86,26 @@ button {
    以前は :focus-visible のスタイルが1つも無く、検索欄では outline:none で
    フォーカスリングを消したうえ、代替が「右下にずれた影」だけだった。
    白い面にもインク色の面にも見えるよう、白＋インクの二重リングにする
-   （選択中のチップは背景がインク色なので、単色のリングだと片方で消える）。 */
+   （選択中のチップは背景がインク色なので、単色のリングだと片方で消える）。
+   ボタンやタブは自前の box-shadow（右下にずらした影）を持つので、!important で
+   リングを優先する。優先しないと外側のインクのリングが消え、白い縁取りだけが
+   淡い地に溶けて、昼・朝・夕のフォーカスが見えなくなる（WCAG 2.2 の 1.4.11）。 */
 :focus-visible {
   outline: 3px solid #fff;
   outline-offset: 0;
-  box-shadow: 0 0 0 6px var(--ink);
+  box-shadow: 0 0 0 6px var(--ink) !important;
   border-radius: inherit;
+}
+/* フォーカスが操作バーの下に隠れないよう、バーの高さ（ui-controls.js の trackControlsHeight）
+   の分だけ、スクロールで止まる位置を下げる（WCAG 2.2 の 2.4.11） */
+html {
+  scroll-padding-top: calc(var(--controls-h, 0px) + 12px);
+}
+/* 入力欄の案内文字。ブラウザ既定の灰色（#757575）は淡い地で 4.5:1 に届かないので、
+   補助の文字色にそろえる（Firefox は既定で透明度も下げるので 1 にする） */
+::placeholder {
+  color: var(--text-soft);
+  opacity: 1;
 }
 /* マウス操作では出さない（クリックのたびにリングが出るのを避ける） */
 :focus:not(:focus-visible) {
@@ -721,7 +735,9 @@ html.sky-page .controls {
    ヘッダーは自前の夜用の色を持つので対象にしない。 */
 html.sky-night {
   --page-text: #e8e6f3;
-  --surface: #1f2548;
+  --surface: #2b3365;
+  /* 夜は背景をいちばん暗くし、カード・ポップアップ・シートはそれより明るい藍にする（カードが浮いて見える） */
+  --sheet: #2b3365;
 }
 html.sky-night body > :not(.pop-header) {
   --card: #efeef6;
@@ -785,6 +801,16 @@ html.sky-page
   --coral: #824f48;
   --teal: #436359;
 }
+/* 昼の空モードの日程・エリア・絞り込み。ページの背景よりさらに淡くして、開いた面が手前に浮くようにする */
+html.sky-page:not(.sky-night) .popover-panel {
+  --sheet: color-mix(in srgb, var(--page-bg) 40%, #fff);
+  --surface: color-mix(in srgb, var(--page-bg-2) 24%, #fff);
+}
+/* 夜のポップアップ・シートの中のボタンは、面（カードと同じ藍）よりさらに一段明るくする */
+html.sky-night
+  :is(.popover-panel, .map-sheet-inner, .cal-menu, .update-overlay-inner) {
+  --surface: #39427a;
+}
 /* 夜のカード・ポップアップ・シート。暗い藍の地に、色の道具を「暗くせず淡く」して置く。
    昼の色を夜空の藍で暗くすると、ピンクは赤黒く・黄色は茶色く濁って不気味に見えるため、
    タグとボタンは明るいパステルの塗りに濃い文字（--on-accent）にする。
@@ -803,33 +829,33 @@ html.sky-night
     .chain-row
   ) {
   --chip-count-bg: rgba(255, 255, 255, 0.4);
-  --neutral-bg: #272e55;
-  --neutral-bg-2: #2c3359;
-  --card: #1f2548;
-  --ink: #0d1128;
-  --line: #5d6598;
+  --neutral-bg: #383f6e;
+  --neutral-bg-2: #404774;
+  --card: #2b3365;
+  --ink: #080b1e;
+  --line: #6a73ad;
   --text: #f4efe4;
-  --text-soft: #c3c6dd;
-  --text-faint: #a9adc9;
+  --text-soft: #d0d3e6;
+  --text-faint: #bfc3da;
   --on-accent: #2a2438;
   --pink: #f2aec2;
-  --pink-tint: #3d3859;
+  --pink-tint: #474472;
   --sunny: #efd08a;
-  --sunny-tint: #3c3d51;
+  --sunny-tint: #46496a;
   --sky: #9ccfe0;
-  --sky-tint: #303d5d;
+  --sky-tint: #3b4976;
   --grape: #c6b6ee;
-  --grape-tint: #36395f;
+  --grape-tint: #414578;
   --lime: #b6d8a2;
-  --lime-tint: #343e55;
+  --lime-tint: #3e4a6e;
   --tangerine: #f1b693;
-  --tangerine-tint: #3c3952;
+  --tangerine-tint: #47456b;
   --coral: #efa59e;
-  --coral-tint: #3c3754;
+  --coral-tint: #46436d;
   --teal: #8fd4c1;
-  --teal-tint: #2f3e59;
+  --teal-tint: #394a72;
   --sign: #9bbdf0;
-  --sign-tint: #303a60;
+  --sign-tint: #3b4678;
 }
 /* 本文の色に --ink を使っている部品は、カードの中では生成りにする（--ink は縁の暗い色になるため） */
 html.sky-night
@@ -875,7 +901,7 @@ html.sky-night
     .ts-tag.closed,
     .ts-tag.limited
   ) {
-  background: #272e55;
+  background: #222951;
 }
 html.sky-night .card :is(.price-compare, .coupon-note) {
   border-color: var(--line);
@@ -888,7 +914,7 @@ html.sky-night .card .status-badge.closed-badge {
    暗い塗りは暗いカードの地に沈むため、縁だけは温かいクリーム色にして輪郭を保つ（少しローズ寄りにして、
    ボタンの赤みとなじませる）。青白い縁にしないのは、暗がりで輪郭が冷たく光ると不気味に見えるため */
 html.sky-night .card .go-btn {
-  background: #8f3a58;
+  background: #9a3f5e;
   color: #fff;
   border-color: #edd3ca;
 }
@@ -951,15 +977,15 @@ html.sky-night
     input[type="search"],
     .search-toggle
   ) {
-  border-color: #0d1128;
+  border-color: #080b1e;
   color: #f4efe4;
-  box-shadow: 3px 3px 0 #0d1128;
+  box-shadow: 3px 3px 0 #080b1e;
 }
 html.sky-night
   header.pop-header.wp-night
   :is(.tab-chip, .stat-chip, .wp-toggle) {
   background: var(--surface);
-  border-color: #0d1128;
+  border-color: #080b1e;
   color: #f4efe4;
 }
 html.sky-night header.pop-header.wp-night .stat-chip b {
@@ -973,7 +999,7 @@ html.sky-night .wp-toggle svg [stroke]:not([stroke="none"]) {
 }
 html.sky-night header.pop-header,
 html.sky-night .controls {
-  border-bottom-color: #0d1128;
+  border-bottom-color: #080b1e;
 }
 html.sky-night
   :is(
@@ -983,12 +1009,47 @@ html.sky-night
   ),
 html.sky-night header.pop-header.wp-night .tab-chip[aria-selected="true"] {
   background: #f4efe4;
-  color: #1f2548;
+  color: #2b3365;
 }
 html.sky-night .tab-chip[aria-selected="true"] .tab-count {
-  background: #1f2548;
+  background: #2b3365;
   color: #f4efe4;
 }
+/* 夜の入力欄。縁が黒に近い紺だと、塗りも地とほぼ同じ明るさのため、どこまでが入力欄か
+   分からない（WCAG 1.4.11 は 3:1）。入力欄の縁だけ灰みのモーブにする。予約ボタンの縁と同じく、
+   青白く光らない暖かい側の色にしている。color-scheme: dark は、端末が描く部品
+   （日付・時刻の📅🕑、検索欄の×）を明るい色で描かせる */
+html.sky-night :is(input[type="search"], .venue-search, .cal-add-field input) {
+  border-color: #a597a8;
+  color-scheme: dark;
+}
+/* 操作バーの補助の文字（絞り込み中・すべて解除）。バーは夜の面の外にあるので、
+   昼用の灰色（#6b6660）のままだと暗い地で 3.14:1 になる */
+html.sky-night .controls {
+  --text-soft: #d0d3e6;
+  --text-faint: #bfc3da;
+}
+/* 0件のときの解除ボタン。昼用の黒い文字（--ink）のままだと暗い地に沈む。他の夜のボタンと同じ組み合わせにする */
+html.sky-night .empty-reset {
+  background: var(--surface);
+  border-color: #080b1e;
+  color: #f4efe4;
+  box-shadow: 3px 3px 0 #080b1e;
+}
+/* 選んだ期間の帯（--sunny-tint）の中の日曜・祝日。サンゴ色は帯の上で 4.36:1 に届かないので一段明るくする */
+html.sky-night
+  :is(.popover-panel, .map-sheet-inner, .cal-menu)
+  .cal-day.in-range:is(.is-sun, .is-holiday) {
+  color: #f5b8b2;
+}
+/* 押せない部品（0件のチップ・範囲を解除）は、薄くして「押せない」を示す。夜は薄すぎて
+   読めないので、昼より濃くする（35% → 50% で 2.4:1 → 3.4:1） */
+html.sky-night
+  :is(.popover-panel, .map-sheet-inner)
+  :is(.chip[disabled], .map-btn[disabled]) {
+  opacity: 0.5;
+}
+
 /* 夜のポップアップ・シートの中で「選んでいる」状態の部品。--ink は縁の暗い色なので、
    塗りが --ink の部品は生成りの塗りに濃い文字へ置き換える */
 html.sky-night
@@ -1005,8 +1066,8 @@ html.sky-night
     .locate-cta
   ) {
   background: #f4efe4;
-  color: #1f2548;
-  border-color: #0d1128;
+  color: #2b3365;
+  border-color: #080b1e;
 }
 html.sky-night
   :is(.popover-panel, .map-sheet-inner, .cal-menu)
@@ -1776,6 +1837,7 @@ mark {
 .lineup-btn {
   display: inline-block;
   margin-left: 0.45rem;
+  min-height: 24px; /* 押しどころの下限（WCAG 2.2 の 2.5.8） */
   padding: 0.05rem 0.45rem;
   border: 1.5px solid var(--teal);
   border-radius: 999px;
@@ -1790,7 +1852,12 @@ mark {
 .lineup-btn:hover,
 .lineup-btn:focus-visible {
   background: var(--teal);
-  color: #fff;
+  color: var(--on-accent);
+}
+/* 昼の淡い緑の地（--teal-tint）に --teal の文字は 3.76:1 で 4.5:1 に届かないので、黒へ寄せる。
+   夜は --teal がパステルで、暗い地の上の対比は足りているので対象外 */
+:where(html:not(.sky-night)) .lineup-btn {
+  color: color-mix(in srgb, var(--teal) 75%, #000);
 }
 /* フェスは出演者を列挙せずボタンだけを出す（第12.12節）ので、
    ボタンがこの行の最初（かつ唯一）の要素になったときは、文中リンクとして
@@ -2215,7 +2282,8 @@ mark {
 }
 .ti-sub {
   font-weight: 500;
-  color: var(--text-soft);
+  /* サンゴ色の帯（--coral-tint）の上では --text-soft だと 4.37:1 で届かないので、本文色へ少し寄せる */
+  color: color-mix(in srgb, var(--text-soft) 75%, var(--text));
 }
 .ti-limited {
   font-weight: 700;
@@ -2688,8 +2756,15 @@ mark {
   left: 0;
   top: 0;
   z-index: 3;
+  /* 幅を中身で決める。決めないと（absolute の幅は左端から右端までの残りで決まるため）
+     ピンが右寄りのとき幅が縮んで背が高くなり、位置の計算が実際の高さとずれる */
+  width: max-content;
   max-width: min(15em, 78%);
-  transform: translate(-50%, calc(-100% - 16px));
+  /* 縦の位置は ui-map.js の positionPopup が決める（上に収まらないときは下、どちらも無理なら枠の中）。
+     枠より高いタイトルのときは、吹き出しの中でスクロールさせる */
+  max-height: calc(100% - 12px);
+  overflow-y: auto;
+  transform: translateX(-50%);
   background: var(--sheet);
   border: 2.5px solid var(--ink);
   border-radius: 12px;
@@ -2808,6 +2883,11 @@ mark {
 .popup-goto-item:hover,
 .popup-goto-item:focus-visible {
   color: var(--pink);
+}
+
+/* 会場シートの地図の吹き出しの×。Leaflet 既定の #757575 は灰色の地（#ddd）の上で 3.4:1 になる */
+.leaflet-container .leaflet-popup a.leaflet-popup-close-button {
+  color: #555;
 }
 
 /* 会場シートの情報欄 */
@@ -2977,8 +3057,8 @@ mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px; /* 押しどころの下限（WCAG 2.2 の 2.5.8） */
+  height: 24px;
   border: 1.5px solid var(--grape);
   border-radius: 50%;
   color: var(--grape);
@@ -3012,7 +3092,7 @@ mark {
 .lu-am:hover,
 .lu-am:focus-visible {
   background: var(--grape);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* ---------- カレンダー追加シート（第5.10節） ----------

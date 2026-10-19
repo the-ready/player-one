@@ -70,6 +70,7 @@ export function initControls() {
   });
 
   initScroll();
+  trackControlsHeight();
 }
 
 /* すべての絞り込みを解除する。
@@ -243,4 +244,25 @@ function initScroll() {
     },
     { passive: true },
   );
+}
+
+/* ---------- 操作バーの高さ（--controls-h） ----------
+   .controls は position:sticky で画面の上に張り付く。キーボードで上へ戻ると、
+   ブラウザはフォーカスのある部品を「画面の上端」まで動かして止めるため、
+   部品がバーの真下に入り、フォーカスの枠ごと隠れる（WCAG 2.2 の 2.4.11）。
+   app.css の html に scroll-padding-top を持たせれば、ブラウザがバーの下までで
+   止めてくれる。バーの高さは縮小・適用中の帯・折り返しで変わるので、
+   固定値ではなく実測の高さを変数に渡す。 */
+function trackControlsHeight() {
+  const set = () =>
+    document.documentElement.style.setProperty(
+      "--controls-h",
+      `${el.controls.offsetHeight}px`,
+    );
+  set();
+  // 縮小は padding の遷移でも高さが変わる。既定の content-box では padding だけの変化を拾えず、
+  // 遷移の途中の高さで止まるため、border-box で見る
+  if (typeof ResizeObserver === "function")
+    new ResizeObserver(set).observe(el.controls, { box: "border-box" });
+  else window.addEventListener("resize", set);
 }

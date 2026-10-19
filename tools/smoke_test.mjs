@@ -386,7 +386,20 @@ async function scanCards(isoTime) {
     await p.click(tab);
     await p.waitForTimeout(1200);
     const r = await p.evaluate(() => {
+      // color-mix() は computed value が rgb() ではなく color(srgb 0.85 0.85 0.9) で返る。
+      // 数字を r,g,b としてそのまま読むと 0〜1 の値になり「ほぼ黒」と誤判定するので、canvas で rgb に直す
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 1;
+      const cx = cv.getContext("2d", { willReadFrequently: true });
       const parse = (c) => {
+        if (!/^rgba?\(/.test(c)) {
+          cx.clearRect(0, 0, 1, 1);
+          cx.fillStyle = "#000";
+          cx.fillStyle = c;
+          cx.fillRect(0, 0, 1, 1);
+          const d = cx.getImageData(0, 0, 1, 1).data;
+          return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
+        }
         const m = c.match(/[\d.]+/g).map(Number);
         return { r: m[0], g: m[1], b: m[2], a: m[3] ?? 1 };
       };
@@ -464,7 +477,11 @@ async function scanCards(isoTime) {
     night.bad.length === 0,
     `${night.n}要素を走査 ${night.bad.join(" / ")}`,
   );
-  check("夜: カードは暗い地", night.cardBg === "rgb(31, 37, 72)", night.cardBg);
+  check(
+    "夜: カードは暗い藍（背景より明るい）",
+    night.cardBg === "rgb(43, 51, 101)",
+    night.cardBg,
+  );
   const day = await scanCards("2026-10-18T12:00:00+09:00");
   check(
     "昼: カードは白のまま",
@@ -658,6 +675,14 @@ async function scanPanels(isoTime) {
   await scan("調べたサイト一覧", "section.directory");
   await scan("注記", "footer");
   res.cls = await p.evaluate(() => document.documentElement.className);
+  // フォーカスが操作バーの下に隠れないよう、スクロールで止まる位置をバーの高さの分だけ下げてある（2.4.11）
+  await p.waitForTimeout(600);
+  res.scrollPad = await p.evaluate(() => ({
+    pad: parseFloat(
+      getComputedStyle(document.documentElement).scrollPaddingTop,
+    ),
+    bar: document.querySelector(".controls").offsetHeight,
+  }));
   await ctx.close();
   return res;
 }
@@ -683,6 +708,11 @@ async function scanPanels(isoTime) {
       `${name}: 操作部品・ポップアップ・シート・先頭セクション・一覧の文字が読める`,
       r.bad.length === 0,
       `${r.n}要素を走査 ${r.bad.slice(0, 4).join(" / ")}`,
+    );
+    check(
+      `${name}: スクロール位置が操作バーの高さ+12px だけ下がっている（フォーカスが隠れない）`,
+      Math.abs(r.scrollPad.pad - (r.scrollPad.bar + 12)) <= 1,
+      JSON.stringify(r.scrollPad),
     );
     check(`${name}: ページエラーが無い`, r.errs.length === 0, r.errs.join("|"));
   }

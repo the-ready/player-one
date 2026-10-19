@@ -247,6 +247,8 @@ function gotoItemFromMap(key) {
 /* ---- ピンの吹き出し（.map-ringと同じく地図の外側に持つ自前のポップアップ） ---- */
 
 let popupItem = null; // 開いている吹き出しの対象。無ければ null
+const GAP = 16; // 吹き出しとピンの間隔
+const EDGE = 6; // 吹き出しを地図の左右の端から離す余白
 
 function openMarkerPopup(it) {
   popupItem = it;
@@ -267,8 +269,20 @@ function closeMarkerPopup() {
 function positionPopup() {
   if (!popupItem || !map) return;
   const p = map.latLngToContainerPoint([popupItem.lat, popupItem.lng]);
-  el.popup.style.left = `${p.x}px`;
-  el.popup.style.top = `${p.y}px`;
+  const box = el.popup.parentElement;
+  const w = el.popup.offsetWidth;
+  const h = el.popup.offsetHeight;
+  // 吹き出しは既定でピンの上に出る。地図の上端に近いピンでは上に収まらず、
+  // 見出しの裏に隠れてイベント名が読めなくなるため、広いほうの側に出す。
+  // タイトルが長いと（幅が狭いので）どちら側にも収まらないことがあるため、
+  // 最後に地図の枠の中へ寄せる（ピンに少し重なってもよい）。横も同じ
+  const above = p.y - GAP;
+  const below = box.clientHeight - p.y - GAP;
+  const top = h > above && below > above ? p.y + GAP : p.y - GAP - h;
+  const half = w / 2 + EDGE;
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  el.popup.style.left = `${clamp(p.x, half, box.clientWidth - half)}px`;
+  el.popup.style.top = `${clamp(top, EDGE, box.clientHeight - h - EDGE)}px`;
 }
 
 function refreshMarkers() {

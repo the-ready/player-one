@@ -143,6 +143,7 @@ node tools/page_sky_test.mjs               # 空モードのページ背景色�
 node tools/sale_group_test.mjs              # バーゲンの同時開催カードと言い回し（DOM不要）
 python3 -m http.server 8000 &
 node tools/smoke_test.mjs                   # 画面全体（要 playwright）
+node tools/wcag_audit.mjs <iso時刻> <名前> [幅] [高さ] # 色・フォーカス・押しどころの WCAG 2.2 点検。配色（app.css の夜・昼・薄明）やフォーカス表示を変えた回は、夜と昼を回すこと（要 playwright。詳細は先頭のコメント）
 ```
 
 ## 破ってはいけない規則

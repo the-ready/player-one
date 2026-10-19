@@ -61,7 +61,11 @@ for (const [name, [alt, sky]] of Object.entries(SKIES)) {
 // 朝・昼・夕・薄明の背景は、ポップアップやボタンが載る面として十分淡い（紙色に近い）
 for (const [name, [alt, sky]] of Object.entries(SKIES)) {
   const p = pageSky(sky, alt);
-  check(`${name}: 背景は淡い（相対輝度 0.7 以上）`, lum(p.bg) >= 0.7 && lum(p.bg2) >= 0.7, `${lum(p.bg).toFixed(2)} / ${lum(p.bg2).toFixed(2)}`);
+  check(
+    `${name}: 背景は淡い（相対輝度 0.7 以上）`,
+    lum(p.bg) >= 0.7 && lum(p.bg2) >= 0.7,
+    `${lum(p.bg).toFixed(2)} / ${lum(p.bg2).toFixed(2)}`,
+  );
 }
 
 // 夜への切り替えは、ヘッダーの文字が白に変わる高度と同じ
@@ -76,7 +80,7 @@ check(
 );
 check("切り替え: wallpaper.js の wp-night と同じ高度", NIGHT_ALT === -4);
 
-// 夜: 地の上の明るい文字が読め、昼と同じ明るいカードとの差がある
+// 夜: 地の上の明るい文字が読め、カード（夜の藍 #2b3365）が背景より明るい
 const n = pageSky(sky, -30);
 check(
   "夜: 地の上の文字（#e8e6f3）が読める（4.5:1 以上）",
@@ -85,9 +89,9 @@ check(
   `${contrast(n.bg, PAGE_TEXT_NIGHT).toFixed(1)}`,
 );
 check(
-  "夜: 明るいカード（#efeef6）との明るさの差がある（3:1 以上）",
-  contrast(n.bg, "#efeef6") >= 3,
-  `${contrast(n.bg, "#efeef6").toFixed(1)}`,
+  "夜: カード（#2b3365）は背景より明るい（カードが浮いて見える）",
+  lum("#2b3365") > lum(n.bg) && contrast(n.bg, "#2b3365") >= 1.3,
+  `${contrast(n.bg, "#2b3365").toFixed(2)}:1`,
 );
 check(
   "夜: 高度が変わっても色は一定",
