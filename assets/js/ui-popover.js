@@ -114,8 +114,19 @@ export function initPopover({ onOpen, onClose }) {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !el.panel.hidden) closePopover();
   });
+  // 操作バーが小さくなるアニメーションが終わったら、パネルの上端が動いているので高さを引き直す
+  // （負荷の高い端末では、決め打ちの待ち時間より遅れることがある）
+  const bar = document.querySelector(".controls");
+  bar.addEventListener("transitionend", (e) => {
+    if (e.target === bar && currentPopover) {
+      fitPopover();
+      openScrollY = window.scrollY;
+    }
+  });
   window.addEventListener("resize", () => {
-    if (currentPopover) positionPopover(currentPopover);
+    if (!currentPopover) return;
+    positionPopover(currentPopover);
+    fitPopover();
   });
 
   if (onOpen) initPopover._onOpen = onOpen;
@@ -162,10 +173,49 @@ export function openPopover(which) {
   Object.entries(el.arrows).forEach(([k, a]) => {
     a.textContent = k === which ? "▴" : "▾";
   });
+  // 絞り込みだけ幅を広げる（第5.5節）。幅が決まってから位置を決める
+  el.panel.classList.toggle("wide", which === "cat");
   positionPopover(which);
   if (initPopover._onOpen) initPopover._onOpen(which);
   const first = focusableIn(el.bodies[which])[0];
-  if (first) first.focus();
+  // 開いた直後のフォーカスでページが勝手にスクロールすると、下の revealPopover の
+  // 計算が狂い、スクロール量の判定（handleScrollForPopover）で閉じてしまう
+  if (first) first.focus({ preventScroll: true });
+  revealPopover();
+}
+
+/* ポップアップを、スクロールしなくても全部見える大きさ・位置にする（第5.5節）。
+   高さは「画面の残り」までに抑え、収まる分は中でスクロールさせない。
+   ページの上端付近で開いたときは、操作バーが画面上端に貼りつく位置までページを送って
+   場所を作る（操作バーはスクロールすると小さくなり、その下に十分な高さが空く）。
+   そのスクロールで閉じてしまわないよう、基準位置（openScrollY）も合わせて動かす。 */
+const SETTLE_MS = 380; // 操作バーが小さくなるアニメーション（0.32s）が終わるまで
+let settleTimer = null;
+function fitPopover() {
+  const top = el.panel.getBoundingClientRect().top;
+  el.panel.style.maxHeight = `${Math.max(120, window.innerHeight - top - 12)}px`;
+}
+function revealPopover() {
+  clearTimeout(settleTimer);
+  el.panel.style.maxHeight = "";
+  const controls = document.querySelector(".controls");
+  const compact = controls.classList.contains("compact");
+  const top = el.panel.getBoundingClientRect().top;
+  const need = el.panel.scrollHeight + 6; // 枠線ぶん
+  if (!compact && top + need > window.innerHeight - 12) {
+    // 操作バーが画面上端に来る位置まで。以後、バーが縮んでパネルの上端が上がる
+    const y = window.scrollY + controls.getBoundingClientRect().top;
+    window.scrollTo({ top: y, behavior: "instant" });
+    // ページが短いと目標まで送れず、行き着いた位置が y より手前になる。実際の位置を基準にする
+    openScrollY = window.scrollY;
+    fitPopover(); // 縮む前の暫定。内側スクロールの出っぱなしを避けるため、下で引き直す
+    settleTimer = setTimeout(() => {
+      openScrollY = window.scrollY;
+      if (currentPopover) fitPopover();
+    }, SETTLE_MS);
+    return;
+  }
+  fitPopover();
 }
 
 export function closePopover() {
@@ -178,9 +228,11 @@ export function closePopover() {
       ? returnFocus
       : el.btns[currentPopover];
   currentPopover = null;
+  clearTimeout(settleTimer);
   el.backdrop.hidden = true;
   el.panel.hidden = true;
   el.panel.classList.remove("show");
+  el.panel.style.maxHeight = "";
   Object.values(el.btns).forEach((b) =>
     b.setAttribute("aria-expanded", "false"),
   );

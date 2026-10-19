@@ -12,6 +12,8 @@ export const NIGHT_ALT = -4;
 // 地の上に直接のる文字の色（app.css の --page-text。昼は #3f3b36）
 export const PAGE_TEXT_DAY = "#3f3b36";
 export const PAGE_TEXT_NIGHT = "#e8e6f3";
+// 昼〜薄明で、空の色を紙色へ寄せる追加の割合
+const PALE = 0.65;
 const NIGHT_BG = "#3a4066";
 const NIGHT_BG2 = "#2c3254";
 
@@ -34,10 +36,14 @@ export function pageSky(sky, altDeg) {
   const hi = clamp(altDeg / 25, 0, 1);
   // 薄明は空そのものが暗いので、そのぶん紙色を多く混ぜる。地の上の文字が読める下限を守るため
   const paper = 0.42 + 0.14 * clamp((8 - altDeg) / 12, 0, 1);
+  // ページ全体の背景は、その上にポップアップ・ボタン・カードが載る面なので、空の色みは
+  // うっすら残る程度にとどめる。紙色へさらに6割5分寄せる（空の色 c に対し、
+  // mix(mix(c, 紙, paper), 紙, 0.65) = mix(c, 紙, 1 - (1 - paper) * 0.35)）
+  const faint = (p) => 1 - (1 - p) * (1 - PALE);
   return {
     night: false,
-    bg: mix(mix(mid, top, hi), PAPER, paper),
-    bg2: mix(mix(bot, mid, hi), PAPER, paper + 0.08),
+    bg: mix(mix(mid, top, hi), PAPER, faint(paper)),
+    bg2: mix(mix(bot, mid, hi), PAPER, faint(paper + 0.08)),
   };
 }
 

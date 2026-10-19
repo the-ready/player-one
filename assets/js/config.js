@@ -7,7 +7,7 @@ import { txt, num, int, list, bool, isFreePrice } from "./util.js";
 
 /* ---------- 共有の見た目テーブル ---------- */
 
-export const NEUTRAL_BADGE = { c: "var(--ink)", bg: "#EFEFF2" };
+export const NEUTRAL_BADGE = { c: "var(--text)", bg: "var(--neutral-bg)" };
 
 export const CATS = {
   art: { label: "展示・アート", c: "var(--grape)" },
@@ -75,8 +75,8 @@ export const EVENT_STATUS_STYLE = {
   発売中: { c: "var(--on-accent)", bg: "var(--sky)" },
   // セール（CAT_WORDING.sale）が「まだ先」のときの呼び方。予約も発売も無いので「発売中」とは言わない。
   開催予定: { c: "var(--on-accent)", bg: "var(--sky)" },
-  通年予約可: { c: "var(--text)", bg: "#EFEFF2" },
-  終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
+  通年予約可: { c: "var(--text)", bg: "var(--neutral-bg)" },
+  終了: { c: "var(--text-soft)", bg: "var(--neutral-bg-2)" },
 };
 export const MOVIE_STATUS_STYLE = {
   本日が最終上映: { c: "var(--on-accent)", bg: "var(--coral)" },
@@ -85,7 +85,7 @@ export const MOVIE_STATUS_STYLE = {
   上映中: { c: "var(--on-accent)", bg: "var(--grape)" },
   本日は上映なし: { c: "var(--text)", bg: "var(--sunny-tint)" },
   前売り券発売中: { c: "var(--on-accent)", bg: "var(--sky)" },
-  上映終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
+  上映終了: { c: "var(--text-soft)", bg: "var(--neutral-bg-2)" },
 };
 export const LIVE_STATUS_STYLE = {
   本日開催: { c: "var(--on-accent)", bg: "var(--coral)" },
@@ -94,7 +94,7 @@ export const LIVE_STATUS_STYLE = {
   開催中: { c: "var(--on-accent)", bg: "var(--grape)" },
   本日は公演なし: { c: "var(--text)", bg: "var(--sunny-tint)" },
   公演予定: { c: "var(--on-accent)", bg: "var(--sky)" },
-  終了: { c: "var(--text-soft)", bg: "#E6E6EA" },
+  終了: { c: "var(--text-soft)", bg: "var(--neutral-bg-2)" },
 };
 
 /* 日程から求めた「いまどの段階か」（schedule.js の schedulePhase が返す）を、
@@ -392,7 +392,7 @@ function facet(id, label, get, meta, keys) {
 }
 const pillMeta = (tbl) => (k) => {
   const m = tableMeta(tbl, k);
-  return { text: m.label, c: m.c, tx: "#fff" };
+  return { text: m.label, c: m.c, tx: "var(--on-accent)" };
 };
 const statusChipMeta = (tbl) => (k) => {
   const m = statusMeta(tbl, k);

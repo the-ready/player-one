@@ -58,6 +58,12 @@ for (const [name, [alt, sky]] of Object.entries(SKIES)) {
   );
 }
 
+// 朝・昼・夕・薄明の背景は、ポップアップやボタンが載る面として十分淡い（紙色に近い）
+for (const [name, [alt, sky]] of Object.entries(SKIES)) {
+  const p = pageSky(sky, alt);
+  check(`${name}: 背景は淡い（相対輝度 0.7 以上）`, lum(p.bg) >= 0.7 && lum(p.bg2) >= 0.7, `${lum(p.bg).toFixed(2)} / ${lum(p.bg2).toFixed(2)}`);
+}
+
 // 夜への切り替えは、ヘッダーの文字が白に変わる高度と同じ
 const sky = SKIES.dusk[1];
 check(

@@ -478,6 +478,216 @@ async function scanCards(isoTime) {
   );
 }
 
+/* ポップアップ・シート・操作部品（第5.5節・第6.6節）。
+   1) 日程・エリア・絞り込みは、ページの上端で開いても、スクロールしなくても全部見える
+      （エリアは会場の一覧だけが中でスクロールする）。
+   2) 空モードの昼と夜で、操作バー・3つのポップアップ・カードのメニュー・会場シート・
+      お気に入り先頭セクション・調べたサイト一覧の文字が、実際の地の色との対比で読める。
+      地の色は color-mix() が返す rgb() ではない形式のこともあるので、canvas で rgb に直して測る。 */
+async function scanPanels(isoTime) {
+  const ctx = await browser.newContext({
+    serviceWorkers: "block",
+    viewport: { width: 1280, height: 800 },
+  });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on("pageerror", (e) => errs.push(e.message));
+  const t = Date.parse(isoTime);
+  await p.addInitScript((t) => {
+    const real = Date.now.bind(Date);
+    const off = t - real();
+    Date.now = () => real() + off;
+  }, t);
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.waitForSelector("#list .card");
+  await p.waitForTimeout(1500);
+  const res = { bad: [], n: 0, fit: [], errs };
+  const scan = async (label, sel) => {
+    await p.waitForTimeout(400);
+    const r = await p.evaluate((rootSel) => {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 1;
+      const cx = cv.getContext("2d", { willReadFrequently: true });
+      const parse = (c) => {
+        if (!c || c === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+        if (!/^rgba?\(/.test(c)) {
+          cx.clearRect(0, 0, 1, 1);
+          cx.fillStyle = "#000";
+          cx.fillStyle = c;
+          cx.fillRect(0, 0, 1, 1);
+          const d = cx.getImageData(0, 0, 1, 1).data;
+          return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 };
+        }
+        const n = c.match(/[\d.]+/g).map(Number);
+        return { r: n[0], g: n[1], b: n[2], a: n[3] ?? 1 };
+      };
+      const lin = (v) =>
+        (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      const lum = (c) =>
+        0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+      const over = (t, b) => ({
+        r: t.r * t.a + b.r * (1 - t.a),
+        g: t.g * t.a + b.g * (1 - t.a),
+        b: t.b * t.a + b.b * (1 - t.a),
+        a: 1,
+      });
+      const bgOf = (el) => {
+        const st = [];
+        for (let e = el; e; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor);
+          if (c.a > 0) st.push(c);
+          if (c.a >= 1) break;
+        }
+        let acc = parse(getComputedStyle(document.body).backgroundColor);
+        if (acc.a === 0) acc = { r: 255, g: 255, b: 255, a: 1 };
+        for (let i = st.length - 1; i >= 0; i--) acc = over(st[i], acc);
+        return acc;
+      };
+      const root = document.querySelector(rootSel);
+      if (!root) return { n: 0, bad: ["要素が見つからない " + rootSel] };
+      const bad = [];
+      let n = 0;
+      for (const el of root.querySelectorAll("*")) {
+        if (
+          ![...el.childNodes].some(
+            (c) => c.nodeType === 3 && c.textContent.trim(),
+          )
+        )
+          continue;
+        if (el.closest(".sr-only,[hidden],[disabled],[aria-disabled='true']"))
+          continue;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const cs = getComputedStyle(el);
+        if (cs.visibility === "hidden") continue;
+        const bg = bgOf(el);
+        const f0 = parse(cs.color);
+        const f = f0.a < 1 ? over(f0, bg) : f0;
+        const [hi, lo] = [lum(f), lum(bg)].sort((a, b) => b - a);
+        const size = parseFloat(cs.fontSize);
+        const need =
+          size >= 24 || (size >= 18.66 && parseInt(cs.fontWeight) >= 700)
+            ? 3
+            : 4.5;
+        n++;
+        const cr = (hi + 0.05) / (lo + 0.05);
+        if (cr < need)
+          bad.push(
+            `${cr.toFixed(1)}:1 .${[...el.classList].join(".")} "${el.textContent.trim().slice(0, 10)}"`,
+          );
+      }
+      return { n, bad: [...new Set(bad)].slice(0, 4) };
+    }, sel);
+    res.n += r.n;
+    for (const b of r.bad) res.bad.push(`${label}: ${b}`);
+  };
+  const fits = async (label, expectInnerScroll = false) => {
+    await p.waitForTimeout(700);
+    const m = await p.evaluate(() => {
+      const pn = document.getElementById("popoverPanel");
+      const r = pn.getBoundingClientRect();
+      return {
+        open: !pn.hidden,
+        ok: r.bottom <= innerHeight && r.top >= 0,
+        inner: pn.scrollHeight - pn.clientHeight,
+      };
+    });
+    if (!m.open || !m.ok || (!expectInnerScroll && m.inner > 1))
+      res.fit.push(`${label}: ${JSON.stringify(m)}`);
+  };
+  await scan("ヘッダー", "#hdr");
+  await scan("操作バー", ".controls");
+  for (const [label, btn] of [
+    ["日程", "#sortDateBtn"],
+    ["エリア", "#sortLocBtn"],
+    ["絞り込み", "#catBtn"],
+  ]) {
+    await p.evaluate(() => scrollTo(0, 0));
+    await p.waitForTimeout(400);
+    await p.click(btn);
+    await fits(label, label === "エリア");
+    await scan(label, "#popoverPanel");
+    if (label === "絞り込み") {
+      // 押した状態（色つきのチップは地の色が変わる）も測る。押すたびに作り直されるので番号で押す
+      for (const i of [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20]) {
+        await p
+          .locator("#catBody .chip:not([disabled])")
+          .nth(i)
+          .click({ timeout: 3000 })
+          .catch(() => {});
+        await p.waitForTimeout(150);
+      }
+      await scan("絞り込み（押した状態）", "#popoverPanel");
+    }
+    await p.keyboard.press("Escape");
+    await p.waitForTimeout(300);
+  }
+  await p.evaluate(() => document.getElementById("appliedClear")?.click());
+  // 番号で押したチップの中に「お気に入りスポットを先頭にまとめる」の切り替えが含まれ、
+  // 設定が変わっている。後の先頭セクションの確認のため、設定を消して読み込み直す
+  await p.evaluate(() => localStorage.clear());
+  await p.reload({ waitUntil: "networkidle" });
+  await p.waitForSelector("#list .card");
+  await p.waitForTimeout(1200);
+  await p.evaluate(() =>
+    document.querySelector('#list .card .act-btn[data-act="cal"]').click(),
+  );
+  await scan("カレンダー追加メニュー", ".cal-menu");
+  await p.keyboard.press("Escape");
+  await p.evaluate(() =>
+    document.querySelector("#list .card .place-link[data-place]")?.click(),
+  );
+  await p.waitForTimeout(1200);
+  await scan("会場シート", "#placeSheet");
+  await p.keyboard.press("Escape");
+  await p.waitForTimeout(300);
+  // 先頭の会場は、すでに一覧の先頭にあると「先頭にまとめる」が出ない。離れた会場を選ぶ
+  await p.evaluate(() =>
+    document.querySelectorAll("#list .star-btn")[12].click(),
+  );
+  // 負荷の高い環境では、トーストが出る前に押すと何も起きないので、出るのを待つ
+  await p.waitForSelector("#favToast.show", { timeout: 8000 }).catch(() => {});
+  await p.evaluate(() =>
+    document.querySelector("#favToast button.primary")?.click(),
+  );
+  await p.waitForSelector("#list .fav-head", { timeout: 8000 }).catch(() => {});
+  await scan("お気に入り先頭セクション", "#list .fav-head");
+  await p.evaluate(() =>
+    document.querySelector("section.directory").scrollIntoView(),
+  );
+  await scan("調べたサイト一覧", "section.directory");
+  await scan("注記", "footer");
+  res.cls = await p.evaluate(() => document.documentElement.className);
+  await ctx.close();
+  return res;
+}
+{
+  for (const [name, iso, expectNight] of [
+    ["昼", "2026-10-18T12:00:00+09:00", false],
+    ["夕方（薄明）", "2026-10-18T17:36:00+09:00", false],
+    ["朝", "2026-10-18T06:35:00+09:00", false],
+    ["夜", "2026-10-18T20:30:00+09:00", true],
+  ]) {
+    const r = await scanPanels(iso);
+    check(
+      `${name}: 空モードの${expectNight ? "夜" : "昼"}になっている`,
+      /sky-page/.test(r.cls) && /sky-night/.test(r.cls) === expectNight,
+      r.cls,
+    );
+    check(
+      `${name}: 日程・エリア・絞り込みが、先頭で開いてもスクロールなしで全部見える`,
+      r.fit.length === 0,
+      r.fit.join(" / "),
+    );
+    check(
+      `${name}: 操作部品・ポップアップ・シート・先頭セクション・一覧の文字が読める`,
+      r.bad.length === 0,
+      `${r.n}要素を走査 ${r.bad.slice(0, 4).join(" / ")}`,
+    );
+    check(`${name}: ページエラーが無い`, r.errs.length === 0, r.errs.join("|"));
+  }
+}
+
 check(
   "コンソールエラーが無い",
   consoleErrors.length === 0,

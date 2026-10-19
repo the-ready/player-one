@@ -10,6 +10,12 @@
   --card: #ffffff;
   /* 色つきの塗り（タグ・ボタン）の上の文字。夜のカードでは淡い塗りに合わせて濃い色になる */
   --on-accent: #ffffff;
+  /* 操作部品（ボタン・チップ・入力欄）の塗りと、ポップアップ・シートの地。空モードでは時間帯の色になる */
+  --surface: #ffffff;
+  --sheet: #ffffff;
+  /* 色のない状態バッジ（終了・通年など）の地。夜の暗い面では暗い灰藍に差し替える */
+  --neutral-bg: #efeff2;
+  --neutral-bg-2: #e6e6ea;
   --line: #33302b;
   --text: #33302b;
   --text-soft: #6b6660;
@@ -206,7 +212,7 @@ h1.pop-title {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  background: #fff;
+  background: var(--surface);
   border: 3px solid var(--ink);
   border-radius: 999px;
   padding: 0.4rem 1rem;
@@ -228,7 +234,7 @@ h1.pop-title {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  background: #fff;
+  background: var(--surface);
   border: 3px solid var(--ink);
   border-radius: 999px;
   color: var(--ink);
@@ -639,7 +645,7 @@ header.pop-header.wp-night .stat-chip b {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
+  background: var(--surface);
   border: 3px solid var(--ink);
   border-radius: 50%;
   box-shadow: 3px 3px 0 var(--ink);
@@ -689,6 +695,9 @@ header.pop-header.wp-night .stat-chip b {
 /* 読み込み直後に紙色から空の色へ移る様子が見えないよう、遷移は最初の描画のあと（.sky-anim）から */
 html.sky-page {
   --page-text: #3f3b36;
+  /* 操作部品の塗りは、ページの背景を白で薄めた色。ポップアップ・シートの地はページの背景そのもの */
+  --surface: color-mix(in srgb, var(--page-bg-2) 40%, #fff);
+  --sheet: var(--page-bg);
 }
 html.sky-page.sky-anim {
   transition:
@@ -712,6 +721,7 @@ html.sky-page .controls {
    ヘッダーは自前の夜用の色を持つので対象にしない。 */
 html.sky-night {
   --page-text: #e8e6f3;
+  --surface: #1f2548;
 }
 html.sky-night body > :not(.pop-header) {
   --card: #efeef6;
@@ -739,20 +749,62 @@ html.sky-night body > :not(.pop-header) {
 }
 /* 地の上に直接のる文字。空の色は紙色より濃いので、灰色の補助色（--text-soft）のままだと
    読めない。昼は濃い色、夜は明るい色にして、どちらも --page-text で切り替える */
-html.sky-page :is(.result-count, .list-divider, .fav-head, .empty-state),
+html.sky-page :is(.result-count, .list-divider, .empty-state),
 html.sky-page footer p {
   color: var(--page-text);
 }
-html.sky-night :is(input[type="search"], .search-toggle, .sort-btn) {
-  background: var(--card);
-}
 
-/* 夜のカード。暗い藍の地に、色の道具を「暗くせず淡く」して置く。
+html.sky-page section.directory {
+  --text-soft: #5f5a54;
+  --text-faint: #5f5a54;
+}
+html.sky-page .stat-chip b {
+  color: #a04d65;
+}
+/* 昼の空モードのポップアップ・シート。地がページの背景（白より暗い淡い色）になるぶん、
+   アクセントの色を文字に使う部品（土日・リンク・★）や、補助の灰色の文字の対比が
+   4.0〜4.4 まで下がる。アクセントはインクへ3割5分寄せ、灰色は濃くして 4.5:1 以上に戻す
+   （夕方の薄明でも保てる値）。ヘッダーの更新日のピンクも同じ理由で濃くしている */
+html.sky-page
+  :is(
+    .popover-panel,
+    .map-sheet-inner,
+    .cal-menu,
+    .update-overlay-inner,
+    .fav-head,
+    .chain-row
+  ) {
+  --text-soft: #5f5a54;
+  --text-faint: #5f5a54;
+  --pink: #864957;
+  --sunny: #6f582c;
+  --sky: #476166;
+  --grape: #625674;
+  --lime: #526046;
+  --tangerine: #7c533b;
+  --coral: #824f48;
+  --teal: #436359;
+}
+/* 夜のカード・ポップアップ・シート。暗い藍の地に、色の道具を「暗くせず淡く」して置く。
    昼の色を夜空の藍で暗くすると、ピンクは赤黒く・黄色は茶色く濁って不気味に見えるため、
    タグとボタンは明るいパステルの塗りに濃い文字（--on-accent）にする。
    縁と影は黒に近い紺（昼の黒インクと同じ関係）で、青白く光らせない。文字は温かい生成り。
-   ここで上書きするのは .card の中だけ。検索欄・絞り込み・各シートは上の冷やした明るい色のまま */
-html.sky-night .card {
+   ポップアップ・シートの地は ページの背景（--sheet）、その中の部品の塗りは --surface */
+html.sky-night
+  :is(
+    .card,
+    .popover-panel,
+    .map-sheet-inner,
+    .cal-menu,
+    .update-overlay-inner,
+    section.directory,
+    .fav-head,
+    .fav-note,
+    .chain-row
+  ) {
+  --chip-count-bg: rgba(255, 255, 255, 0.4);
+  --neutral-bg: #272e55;
+  --neutral-bg-2: #2c3359;
   --card: #1f2548;
   --ink: #0d1128;
   --line: #5d6598;
@@ -845,6 +897,129 @@ html.sky-night .card :is(.ti-badge, .fac-tag) {
   background: var(--text);
 }
 
+/* 夜の暗い面（ポップアップ・シート・先頭セクションなど）の中の文字。
+   文字色は親から「計算済みの色」で継承されるため、面ごとに色を明示する。
+   --ink は縁の暗い色なので、文字色に --ink を使っている部品は --text に置き換える。
+   面の指定は :where() で詳細度を 0 にしてある。押した状態・淡い塗りのボタン（.map-btn.primary）は
+   この下の規則か個別の規則が決めるので、ここでは除く */
+html.sky-night
+  :is(
+    .popover-panel,
+    .map-sheet-inner,
+    .cal-menu,
+    .update-overlay-inner,
+    section.directory,
+    .fav-head,
+    .fav-note,
+    .chain-row
+  ) {
+  color: var(--text);
+}
+html.sky-night
+  :where(
+    .popover-panel,
+    .map-sheet-inner,
+    .cal-menu,
+    .update-overlay-inner,
+    section.directory
+  )
+  :is(
+    .popover-close,
+    .cal-nav button,
+    .map-btn:not(.primary),
+    .map-hits,
+    .cal-menu button,
+    .map-area-status button,
+    .lu-tab,
+    .dir-name,
+    .chip-btn,
+    .empty-reset,
+    p
+  ) {
+  color: var(--text);
+}
+
+/* 夜の操作部品（タブ・検索・絞り込みのボタン）。カードと同じ「暗い藍の塗り・黒に近い紺の縁・
+   生成りの文字」にそろえる。選んでいるタブと押した状態のボタンは、生成りの塗りに濃い文字にして、
+   夜でも「選んでいるほうが目立つ」を保つ（昼は黒の塗りで目立たせている） */
+html.sky-night
+  :is(
+    .tab-chip,
+    .stat-chip,
+    .wp-toggle,
+    .sort-btn,
+    input[type="search"],
+    .search-toggle
+  ) {
+  border-color: #0d1128;
+  color: #f4efe4;
+  box-shadow: 3px 3px 0 #0d1128;
+}
+html.sky-night
+  header.pop-header.wp-night
+  :is(.tab-chip, .stat-chip, .wp-toggle) {
+  background: var(--surface);
+  border-color: #0d1128;
+  color: #f4efe4;
+}
+html.sky-night header.pop-header.wp-night .stat-chip b {
+  color: #f2aec2;
+}
+html.sky-night input[type="search"]::placeholder {
+  color: #c3c6dd;
+}
+html.sky-night .wp-toggle svg [stroke]:not([stroke="none"]) {
+  stroke: #f4efe4;
+}
+html.sky-night header.pop-header,
+html.sky-night .controls {
+  border-bottom-color: #0d1128;
+}
+html.sky-night
+  :is(
+    .tab-chip[aria-selected="true"],
+    .sort-btn[aria-pressed="true"],
+    .sort-btn[aria-expanded="true"]
+  ),
+html.sky-night header.pop-header.wp-night .tab-chip[aria-selected="true"] {
+  background: #f4efe4;
+  color: #1f2548;
+}
+html.sky-night .tab-chip[aria-selected="true"] .tab-count {
+  background: #1f2548;
+  color: #f4efe4;
+}
+/* 夜のポップアップ・シートの中で「選んでいる」状態の部品。--ink は縁の暗い色なので、
+   塗りが --ink の部品は生成りの塗りに濃い文字へ置き換える */
+html.sky-night
+  :is(.popover-panel, .map-sheet-inner, .cal-menu)
+  :is(
+    .chip[aria-pressed="true"]:not([style*="--chip-c"]),
+    .preset-chip[aria-pressed="true"],
+    .region-chip[aria-pressed="true"],
+    .venue-opt[aria-pressed="true"],
+    .venue-kind[aria-pressed="true"],
+    .sort-btn[aria-pressed="true"],
+    .lu-tab[aria-selected="true"],
+    .cal-day.edge,
+    .locate-cta
+  ) {
+  background: #f4efe4;
+  color: #1f2548;
+  border-color: #0d1128;
+}
+html.sky-night
+  :is(.popover-panel, .map-sheet-inner, .cal-menu)
+  .cal-day.is-today {
+  outline-color: #f4efe4;
+}
+/* 画面が低いとき（スマホの小型機種・横向き）は、日程のポップアップが収まるよう日付の高さを詰める */
+@media (max-height: 700px) {
+  .cal-day {
+    min-height: 32px;
+  }
+}
+
 /* ---------- locate feedback ---------- */
 @keyframes btnPulse {
   0%,
@@ -903,7 +1078,7 @@ html.sky-night .card :is(.ti-badge, .fac-tag) {
 .region-chip {
   min-height: 40px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   padding: 0.38rem 0.9rem;
   font-size: 12.5px;
@@ -970,7 +1145,7 @@ input[type="search"] {
   min-height: 46px;
   border: 3px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   padding: 0.5rem 1.2rem;
   font-size: 16px;
   color: var(--text);
@@ -1000,7 +1175,7 @@ input[type="search"]:focus-visible {
   min-height: 44px;
   padding: 0;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 50%;
 }
@@ -1072,7 +1247,7 @@ input[type="search"]:focus-visible {
   gap: 0.3rem;
   min-height: 44px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   color: var(--text-soft);
   border-radius: 999px;
   padding: 0.4rem 0.5rem;
@@ -1196,12 +1371,14 @@ input[type="search"]:focus-visible {
   left: 0;
   right: 0;
   z-index: 30;
-  background: #fff;
+  background: var(--sheet);
   border: 3px solid var(--ink);
   border-radius: 18px;
   padding: 1.1rem 1.15rem 1rem;
   box-shadow: 6px 6px 0 var(--ink);
-  max-height: min(70vh, 520px);
+  /* 高さは ui-popover.js の fitPopover が「画面の残り」に合わせて決める。日程・エリアは
+     中身が収まる高さになり、収まらない端末だけが中でスクロールする */
+  max-height: calc(100dvh - 140px);
   overflow-y: auto;
 }
 /* デスクトップでは呼び出しボタンの真下に幅を固定して置く（位置は positionPopover が決める）。
@@ -1211,6 +1388,10 @@ input[type="search"]:focus-visible {
     right: auto;
     width: 100%;
     max-width: 380px;
+  }
+  /* 絞り込みは項目が多く、380pxでは縦に1,000px超になる。幅を広げて縦を詰め、1画面に収める */
+  .popover-panel.wide {
+    max-width: 640px;
   }
 }
 .popover-panel.show {
@@ -1248,7 +1429,7 @@ input[type="search"]:focus-visible {
 }
 /* 閉じるボタンは以前26pxで、画面内で最も小さい押しどころだった */
 .popover-close {
-  background: var(--paper);
+  background: var(--surface);
   border: 2px solid var(--ink);
   border-radius: 50%;
   width: 44px;
@@ -1287,7 +1468,7 @@ input[type="search"]:focus-visible {
   gap: 0.35rem;
   min-height: 40px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border-radius: 999px;
   padding: 0.4rem 0.8rem;
@@ -1317,8 +1498,10 @@ input[type="search"]:focus-visible {
   min-width: 1.6em;
   text-align: center;
 }
+/* 押した状態の件数。白文字の塗りの上で白く明るくすると対比が 3 前後まで落ちる（「発売中」など）ため、
+   昼は暗く沈める。夜は濃い文字の淡い塗りなので、白く持ち上げる（--chip-count-bg） */
 .chip[aria-pressed="true"] .chip-count {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--chip-count-bg, rgba(0, 0, 0, 0.22));
 }
 .deal-chip[aria-pressed="true"] {
   --chip-c: var(--coral);
@@ -1798,7 +1981,7 @@ mark {
   position: fixed;
   z-index: 90;
   min-width: 15em;
-  background: #fff;
+  background: var(--sheet);
   border: 3px solid var(--ink);
   border-radius: 14px;
   box-shadow: 4px 4px 0 var(--ink);
@@ -2102,7 +2285,7 @@ mark {
   min-height: 44px;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   padding: 0.4rem 0.9rem;
   font-size: 16px;
   font-family: var(--font-body);
@@ -2123,7 +2306,7 @@ mark {
 .venue-kind {
   min-height: 40px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   padding: 0.2rem 0.7rem;
   font-size: 12px;
@@ -2137,7 +2320,8 @@ mark {
 /* 会場ピッカーを足したぶんエリアpopover全体が縦に伸びる。都県チップが
    パネルのスクロール外に押し出されすぎないよう、候補リスト側の高さを抑える。 */
 .venue-list {
-  max-height: 180px;
+  /* 画面が低いときは、エリアのポップアップ全体が収まるよう候補リストを縮める（下限96px） */
+  max-height: clamp(96px, calc(100dvh - 530px), 180px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -2151,7 +2335,7 @@ mark {
   width: 100%;
   min-height: 44px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 0.35rem 0.7rem;
   font-size: 12.5px;
@@ -2197,7 +2381,7 @@ mark {
   text-align: center;
   min-height: 40px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   padding: 0.35rem 0.3rem;
   font-size: 12.5px;
@@ -2219,7 +2403,7 @@ mark {
   width: 40px;
   height: 40px;
   border: 2px solid var(--ink);
-  background: #fff;
+  background: var(--surface);
   border-radius: 50%;
   font-size: 16px;
   line-height: 1;
@@ -2370,7 +2554,7 @@ mark {
   padding: 0.5rem 1.2rem;
   border: 3px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   font-size: 13.5px;
   font-weight: 700;
@@ -2416,7 +2600,7 @@ mark {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--paper);
+  background: var(--sheet);
   overflow: hidden;
 }
 @media (min-width: 641px) {
@@ -2454,7 +2638,7 @@ mark {
   font-size: 12px;
   color: var(--text-soft);
   border-bottom: 2px dashed var(--line);
-  background: #fff;
+  background: var(--sheet);
 }
 .map-canvas-wrap {
   position: relative;
@@ -2506,7 +2690,7 @@ mark {
   z-index: 3;
   max-width: min(15em, 78%);
   transform: translate(-50%, calc(-100% - 16px));
-  background: #fff;
+  background: var(--sheet);
   border: 2.5px solid var(--ink);
   border-radius: 12px;
   box-shadow: 3px 3px 0 var(--ink);
@@ -2523,7 +2707,7 @@ mark {
   margin: 0;
   max-width: min(20em, 88%);
   text-align: center;
-  background: #fff;
+  background: var(--sheet);
   border: 3px solid var(--ink);
   border-radius: 14px;
   box-shadow: 3px 3px 0 var(--ink);
@@ -2533,7 +2717,7 @@ mark {
 }
 .map-sheet-foot {
   border-top: 3px solid var(--ink);
-  background: #fff;
+  background: var(--sheet);
   padding: 0.7rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
 }
 .map-readout {
@@ -2570,14 +2754,14 @@ mark {
   padding: 0.45rem 1rem;
   font-size: 13px;
   font-weight: 700;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 .map-btn.primary {
   flex: 1;
   min-width: 11em;
   background: var(--pink);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
   box-shadow: 3px 3px 0 var(--ink);
 }
@@ -2629,7 +2813,7 @@ mark {
 /* 会場シートの情報欄 */
 .venue-info {
   border-top: 3px solid var(--ink);
-  background: #fff;
+  background: var(--sheet);
   padding: 0.75rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
   max-height: 42vh;
   overflow-y: auto;
@@ -2663,7 +2847,7 @@ mark {
   padding: 0.02rem 0.4rem;
   border-radius: 999px;
   border: 1.5px solid var(--ink);
-  background: var(--paper);
+  background: var(--surface);
   font-size: var(--fs-tag);
   font-weight: 700;
 }
@@ -2682,7 +2866,7 @@ mark {
   padding: 0.6rem 1rem;
   overflow-x: auto;
   border-bottom: 3px solid var(--ink);
-  background: var(--paper);
+  background: var(--sheet);
   scrollbar-width: thin;
 }
 .lu-tabs[hidden] {
@@ -2696,7 +2880,7 @@ mark {
   padding: 0.3rem 0.7rem;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  background: var(--card);
+  background: var(--surface);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 800;
@@ -2719,7 +2903,7 @@ mark {
 .lu-body {
   flex: 1;
   overflow-y: auto;
-  background: var(--card);
+  background: var(--sheet);
   padding: 0.85rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
 }
 .lu-day-head {
@@ -2805,7 +2989,7 @@ mark {
 }
 .lu-am.verified {
   background: var(--grape);
-  color: #fff;
+  color: var(--on-accent);
 }
 /* 説明文の中の凡例。♪ の塗り分けと同じ見た目を、小さくして文中に置く。 */
 .lu-legend {
@@ -2823,7 +3007,7 @@ mark {
 }
 .lu-legend.verified {
   background: var(--grape);
-  color: #fff;
+  color: var(--on-accent);
 }
 .lu-am:hover,
 .lu-am:focus-visible {
@@ -2852,7 +3036,7 @@ mark {
   }
 }
 .cal-add-body {
-  background: var(--card);
+  background: var(--sheet);
   padding: 0.9rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
 }
 .cal-add-help {
@@ -2887,7 +3071,7 @@ mark {
   min-height: 44px;
   border: 2.5px solid var(--ink);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   padding: 0.4rem 0.7rem;
   font-size: 15px;
   font-family: var(--font-body);
@@ -2909,7 +3093,7 @@ mark {
 
 /* ---------- directory / footer ---------- */
 section.directory {
-  background: var(--card);
+  background: var(--sheet);
   border-top: 4px solid var(--ink);
   padding: 2.2rem clamp(1rem, 4vw, 3rem) 2.6rem;
 }
@@ -3137,7 +3321,7 @@ footer p {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--paper);
+  background: var(--sheet);
 }
 .update-overlay[hidden] {
   display: none;
@@ -3147,7 +3331,7 @@ footer p {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  background: #fff;
+  background: var(--sheet);
   border: 3px solid var(--ink);
   border-radius: 20px;
   box-shadow: 5px 5px 0 var(--ink);
@@ -3325,12 +3509,6 @@ footer p {
 
 /* 会場名の左の☆。見た目は小さく、押せる範囲は ::after で広げる（隣の会場名リンクを
    押し間違えないよう、広げるのは上下と左だけで右には出さない）。 */
-.place-item {
-  white-space: nowrap;
-}
-.place-item .place-link {
-  white-space: normal;
-}
 .star-btn {
   position: relative;
   display: inline-flex;
@@ -3385,7 +3563,7 @@ footer p {
   padding: 0.25rem 0.9rem 0.25rem 0.7rem;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
@@ -3446,7 +3624,7 @@ footer p {
   padding: 0.15rem 0.6rem 0.15rem 0.3rem;
   border: 2px solid var(--ink);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
 }
 .vr-main {
   display: flex;
@@ -3470,7 +3648,7 @@ footer p {
 .fav-sheet-body {
   flex: 1;
   overflow-y: auto;
-  background: var(--card);
+  background: var(--sheet);
   padding: 0.85rem 1rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -3525,20 +3703,20 @@ footer p {
   padding: 0.15rem 0.85rem;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-size: 12.5px;
   font-weight: 700;
 }
 .mini-btn:hover {
-  background: var(--paper);
+  background: color-mix(in srgb, var(--surface) 82%, var(--ink));
 }
 .fav-note {
   margin: 0;
   padding: 0.55rem 0.8rem;
   border: 2px dashed var(--ink);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
   font-size: 12.5px;
   color: var(--text-soft);
 }
@@ -3575,7 +3753,7 @@ footer p {
   padding: 0.8rem 0.95rem;
   border: 3px dashed var(--ink);
   border-radius: 16px;
-  background: #fff;
+  background: var(--surface);
 }
 .chain-head {
   font-family: var(--font-display);
@@ -3607,14 +3785,14 @@ footer p {
   padding: 0.2rem 0.85rem;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   font-size: 12.5px;
   font-weight: 700;
   text-decoration: none;
 }
 .chip-btn:hover {
-  background: var(--paper);
+  background: color-mix(in srgb, var(--surface) 82%, var(--ink));
 }
 
 /* ★を付け外ししたときの案内（ボタン付き）。文字だけの .toast とは別。 */
