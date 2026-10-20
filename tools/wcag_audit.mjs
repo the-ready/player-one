@@ -19,6 +19,7 @@
          node tools/wcag_audit.mjs 2026-10-18T12:00:00+09:00 noon
          node tools/wcag_audit.mjs 2026-10-18T06:35:00+09:00 morning
          node tools/wcag_audit.mjs 2026-10-18T17:08:00+09:00 dusk
+         WALL=static node tools/wcag_audit.mjs 2026-10-18T12:00:00+09:00 static # 壁紙を水玉にした画面
    BASE（既定 http://localhost:8000/）・PW_CHROME で場所を指定する。
    結果は temp/wcag/<名前>.json と、画面ごとの画像（temp/wcag/<名前>/）に残る。
    時刻は少しずつ進む時計にしてあるので、夕方の薄明は 17:08 から始めれば測っている間に夜へ変わらない。 */
@@ -47,6 +48,8 @@ const ctx = await browser.newContext({
   serviceWorkers: "block",
 });
 const page = await ctx.newPage();
+// 何本か並べて回すと、遅い端末では最初の読み込みが既定の30秒を超える
+page.setDefaultNavigationTimeout(120000);
 const errs = [];
 page.on("pageerror", (e) => errs.push(String(e)));
 // 時計は、指定の時刻から実時間の 1/20 の速さで進める（測っている間に昼夜が変わらないように）
@@ -58,6 +61,13 @@ await page.addInitScript((t) => {
 await page.addInitScript({
   path: new URL("./wcag_probe.js", import.meta.url).pathname,
 });
+// WALL=static で、壁紙を水玉（空の色を使わない紙色の画面）にして測る
+if (process.env.WALL === "static")
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("eventboard.wallpaper.v1", "static");
+    } catch {}
+  });
 await page.goto(BASE);
 await page.waitForSelector("#list .card", {
   state: "attached",
@@ -408,6 +418,13 @@ if (await page.$("#toast.show")) await audit("共有のトースト", "#toast");
 await page.evaluate(() => scrollTo(0, 2400));
 await page.waitForTimeout(900);
 await audit("操作バー（スクロール後）", ".controls");
+// スマホ幅で縮んだバーから検索欄だけを開いた状態（PC幅では検索の入口が出ないので測らない）
+if (await page.isVisible(".search-toggle")) {
+  await click(".search-toggle", 700);
+  await audit("操作バー（縮んだまま検索を開いた）", ".controls");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+}
 await top();
 await click("#catBtn", 900);
 await page.evaluate(() =>
@@ -465,6 +482,21 @@ for (const [tabBtn, listSel, label] of [
   report.contexts.push({ label, rootSel: listSel, textAll, items: [] });
   console.log(`${label}: 指摘 ${textAll.length}`);
 }
+// 映画・ライブの「調べたサイト一覧・注記」（イベントの分は 7. で部品ごとに測っている）
+for (const [tabBtn, pane, noun] of [
+  ["#tabMovieBtn", "#moviePane", "映画"],
+  ["#tabLiveBtn", "#livePane", "ライブ"],
+]) {
+  await click(tabBtn, 1200);
+  await page.evaluate(
+    (p) => document.querySelector(`${p} section.directory`)?.scrollIntoView(),
+    pane,
+  );
+  await audit(
+    `調べたサイト一覧・注記（${noun}）`,
+    `${pane} section.directory, ${pane} footer`,
+  );
+}
 await click("#tabEventBtn", 1500);
 
 // 8. 2.4.11：Tab／Shift+Tab で通したとき、フォーカスが操作バーの下に隠れないか
@@ -521,6 +553,156 @@ await click("#tabEventBtn", 1500);
       el: h.el,
     });
   console.log(`2.4.11: 隠れた回数 ${hid.length}`);
+}
+
+// 9. 場所を★にした人にだけ出る部品（先頭セクションの見出し・「ほか◯件を表示」・チェーンの新作の
+//    まとめ行・「そのほか」の区切り・条件で隠れたときの注記）。ここまでの画面には出てこないので、
+//    ★を付けた状態で開き直して3タブとも測る。点検の漏れで、夜のまとめ行のボタンが読めないまま残っていた
+const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: what });
+{
+  const names = await page.evaluate(async () => {
+    const { THEATERS } = await import(
+      new URL("assets/js/data.js", location.href).href
+    );
+    // 劇場はチェーンを2つ（まとめ行が2本並ぶ）
+    const chains = new Map();
+    for (const t of THEATERS)
+      if (t.chain && !chains.has(t.chain)) chains.set(t.chain, t.name);
+    // イベント・ライブは、カードの★の多い場所から。イベントは先頭の上限（6件）を超えるまで足す
+    const ranked = (sel) => {
+      const n = new Map();
+      document
+        .querySelectorAll(`${sel} .star-btn[data-star]`)
+        .forEach((b) =>
+          n.set(b.dataset.star, (n.get(b.dataset.star) || 0) + 1),
+        );
+      return [...n.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    const ev = [];
+    let sum = 0;
+    for (const [name, c] of ranked("#list")) {
+      if (sum > 8) break;
+      ev.push(name);
+      sum += c;
+    }
+    return [
+      ...[...chains.values()].slice(0, 2),
+      ...ev,
+      ...ranked("#liveList")
+        .slice(0, 1)
+        .map((x) => x[0]),
+    ];
+  });
+  await page.evaluate((n) => {
+    localStorage.setItem("eventboard.favspots.v1", JSON.stringify(n));
+    localStorage.removeItem("eventboard.favfold.v1");
+    localStorage.removeItem("eventboard.favpin.v1");
+  }, names);
+  await page.goto(BASE);
+  await page.waitForSelector("#list .card", {
+    state: "attached",
+    timeout: 120000,
+  });
+  await page.waitForTimeout(2500);
+  await page.addStyleTag({
+    content: ".grid.is-entering .card{animation:none;opacity:1}",
+  });
+  for (const [btn, list, noun] of [
+    ["#tabMovieBtn", "#movieList", "映画"],
+    ["#tabLiveBtn", "#liveList", "ライブ"],
+    ["#tabEventBtn", "#list", "イベント"],
+  ]) {
+    await click(btn, 1800);
+    await top();
+    if (!(await page.$(`${list} > .fav-head`))) {
+      cantCheck(`${noun}: ★を付けても先頭セクションが出ない`);
+      continue;
+    }
+    if (noun === "映画" && !(await page.$(`${list} > .chain-row`)))
+      cantCheck("映画: チェーンの劇場を★にしてもまとめ行が出ない");
+    await audit(
+      `お気に入り先頭（${noun}）`,
+      `${list} > :not(.card), ${list} > .card:nth-child(-n+4)`,
+    );
+  }
+  if (await page.$("#list > .fav-more")) {
+    await click('#list [data-fav-act="more"]', 900);
+    await audit("お気に入り先頭（ほかも表示）", "#list > .fav-more");
+    await click('#list [data-fav-act="more"]', 900);
+  } else cantCheck("イベント: 先頭の上限を超えても「ほか◯件を表示」が出ない");
+  await click('#list [data-fav-act="fold"]', 900);
+  await audit("お気に入り先頭（たたんだ）", "#list > .fav-head");
+  await click('#list [data-fav-act="fold"]', 900);
+  // 条件で★の場所の催しが全部隠れたときの注記。★の無いカードの題名で検索して作る
+  const q = await page.evaluate(
+    () =>
+      document
+        .querySelector("#list > .list-divider ~ .card .title")
+        ?.textContent.trim()
+        .slice(0, 10) || "",
+  );
+  await page.fill('input[type="search"]', q);
+  await page.waitForTimeout(1200);
+  if (await page.$("#list > .fav-note"))
+    await audit("お気に入り先頭（条件で隠れた注記）", "#list > .fav-note");
+  else cantCheck(`イベント: 「${q}」で検索しても注記が出ない`);
+  await page.fill('input[type="search"]', "");
+  await page.waitForTimeout(800);
+}
+
+// 10. 現在地の案内（さがしている・失敗・取得できた）。位置情報は端末と許可に左右されるので、
+//     getCurrentPosition を差し替えて3つの状態を順に作る
+{
+  await top();
+  await page.evaluate(() => {
+    navigator.geolocation.getCurrentPosition = (ok, err) => {
+      window.__geo = { ok, err };
+    };
+  });
+  await click("#sortLocBtn", 900);
+  await click("#useMyLocationBtn", 600);
+  if (await page.$("#locateMsg.show")) {
+    await audit("エリア（現在地をさがしている）", "#popoverPanel");
+    await page.evaluate(() =>
+      window.__geo.err({ code: 1, PERMISSION_DENIED: 1, TIMEOUT: 3 }),
+    );
+    await page.waitForTimeout(400);
+    await audit("エリア（現在地を取得できない）", "#popoverPanel");
+    await page.evaluate(() => {
+      navigator.geolocation.getCurrentPosition = (ok) =>
+        ok({ coords: { latitude: 35.681, longitude: 139.767 } });
+    });
+    await click("#useMyLocationBtn", 1200);
+    if (await page.$("#popoverPanel[hidden]")) await click("#sortLocBtn", 900);
+    if (await page.$("#locateMsg.ok.show")) {
+      await audit("エリア（現在地を取得した）", "#popoverPanel");
+      await click("#clearLoc", 800);
+    } else cantCheck("現在地: 取得できた案内が出ない");
+  } else cantCheck("現在地: 「現在地から探す」を押しても案内が出ない");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+}
+
+// 11. データの読み込み中・読み込めなかったときの表示（ライブのCSVを止めてから失敗させる）
+{
+  const held = [];
+  await page.route("**/data/lives.csv*", (r) => held.push(r));
+  await page.goto(BASE);
+  await page.waitForSelector("#list .card", {
+    state: "attached",
+    timeout: 120000,
+  });
+  await page.waitForTimeout(1500);
+  await click("#tabLiveBtn", 1200);
+  if (await page.$("#liveList .empty-state"))
+    await audit("ライブ（読み込み中）", "#liveList");
+  else cantCheck("ライブ: CSVを止めても読み込み中の表示が出ない");
+  for (const r of held.splice(0)) await r.abort();
+  await page.unroute("**/data/lives.csv*");
+  await page.waitForTimeout(1500);
+  if (await page.$("#liveList .empty-state"))
+    await audit("ライブ（読み込めなかった）", "#liveList");
+  else cantCheck("ライブ: CSVの取得に失敗しても失敗の表示が出ない");
 }
 
 report.errors = errs;

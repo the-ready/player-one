@@ -717,6 +717,53 @@ async function scanPanels(isoTime) {
       return r.bottom > b.top && r.top < b.bottom ? 1 : 0;
     });
   }
+  // ★を付けた人・現在地を使った人にだけ出る部品（チェーンの新作のまとめ行・「ほか◯件を表示」・
+  // 現在地の案内）。文字色に --ink を使う部品が多く、夜は暗い地に暗い文字になりやすい
+  const favNames = await p.evaluate(async () => {
+    const { THEATERS } = await import(
+      new URL("assets/js/data.js", location.href).href
+    );
+    const n = new Map();
+    document
+      .querySelectorAll("#list .star-btn[data-star]")
+      .forEach((b) => n.set(b.dataset.star, (n.get(b.dataset.star) || 0) + 1));
+    return [
+      THEATERS.find((t) => t.chain)?.name,
+      ...[...n.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map((x) => x[0]),
+    ].filter(Boolean);
+  });
+  await p.evaluate(
+    (n) => localStorage.setItem("eventboard.favspots.v1", JSON.stringify(n)),
+    favNames,
+  );
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.waitForSelector("#list .fav-head", { timeout: 8000 }).catch(() => {});
+  await p.waitForTimeout(800);
+  res.favMore = await p.locator("#list > .fav-more").count();
+  await scan("先頭セクションの「ほか◯件を表示」", "#list > .fav-more");
+  await p.evaluate(() => document.querySelector("#tabMovieBtn").click());
+  await p
+    .waitForSelector("#movieList > .chain-row", { timeout: 8000 })
+    .catch(() => {});
+  res.chain = await p.locator("#movieList > .chain-row").count();
+  await scan("チェーンの新作のまとめ行", "#movieList > .chain-row");
+  await p.evaluate(() => {
+    document.querySelector("#tabEventBtn").click();
+    navigator.geolocation.getCurrentPosition = (ok) =>
+      ok({ coords: { latitude: 35.681, longitude: 139.767 } });
+  });
+  await p.waitForTimeout(800);
+  await p.evaluate(() => document.querySelector("#sortLocBtn").click());
+  await p.waitForTimeout(700);
+  await p.evaluate(() => document.querySelector("#useMyLocationBtn").click());
+  await p
+    .waitForSelector("#locateMsg.ok.show", { timeout: 5000 })
+    .catch(() => {});
+  res.locate = await p.locator("#locateMsg.ok.show").count();
+  await scan("エリア（現在地を取得した）", "#popoverPanel");
   await ctx.close();
   return res;
 }
@@ -742,6 +789,11 @@ async function scanPanels(isoTime) {
       `${name}: 操作部品・ポップアップ・シート・先頭セクション・一覧の文字が読める`,
       r.bad.length === 0,
       `${r.n}要素を走査 ${r.bad.slice(0, 4).join(" / ")}`,
+    );
+    check(
+      `${name}: ★を付けた状態の部品（まとめ行・ほか◯件を表示）と現在地の案内が出る（文字の走査の対象になっている）`,
+      r.chain > 0 && r.favMore > 0 && r.locate > 0,
+      `まとめ行 ${r.chain}・ほか◯件 ${r.favMore}・現在地 ${r.locate}`,
     );
     check(
       `${name}: キーボードで上へ戻っても、フォーカスが操作バーの下に隠れない`,

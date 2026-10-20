@@ -821,6 +821,7 @@ html.sky-night
     section.directory,
     .fav-head,
     .fav-note,
+    .fav-more,
     .chain-row
   ) {
   --chip-count-bg: rgba(255, 255, 255, 0.4);
@@ -932,6 +933,7 @@ html.sky-night
     section.directory,
     .fav-head,
     .fav-note,
+    .fav-more,
     .chain-row
   ) {
   color: var(--text);
@@ -1030,6 +1032,18 @@ html.sky-night .empty-reset {
   border-color: #080b1e;
   color: #f4efe4;
   box-shadow: 3px 3px 0 #080b1e;
+}
+/* 映画の先頭セクションの、チェーンの新作のまとめ行のボタン（上映スケジュール・この◯本でしぼる）。
+   昼用の黒い文字（--ink）のままだと暗い地に沈むので、生成りの文字にする。塗りは、ポップアップの中の
+   ボタンと同じく面より一段明るい藍にして、まとめ行の地から浮かせる（触れたときの色もこの塗りから作られる） */
+html.sky-night .chain-row .chip-btn {
+  --surface: #39427a;
+  color: var(--text);
+}
+/* 現在地を取得したときの「現在地をクリア」。文中のリンクの形で、昼用の黒い文字（--ink）のままだと
+   暗いポップアップに沈む。同じ詳細度の昼の規則があとに書かれているので、ここで詳細度を上げて決める */
+html.sky-night .locate-msg button.inline-link {
+  color: var(--text);
 }
 /* 選んだ期間の帯（--sunny-tint）の中の日曜・祝日。サンゴ色は帯の上で 4.36:1 に届かないので一段明るくする */
 html.sky-night
@@ -2588,6 +2602,15 @@ mark {
   background: var(--sunny-tint);
   border-radius: 0;
 }
+/* 水玉の壁紙（空の色を使わない画面）では、選んだ期間の帯（--sunny-tint）の上の土日・祝日が
+   水色・サンゴ色のままだと 3.7:1 に落ちるので、インクへ2割寄せて 5:1 以上にする。
+   空モードは昼の面の規則（アクセントを3割5分寄せる）と夜用の規則で決まるので対象にしない */
+:where(html:not(.sky-page)) .cal-day.in-range.is-sat {
+  color: color-mix(in srgb, var(--sky) 80%, #000);
+}
+:where(html:not(.sky-page)) .cal-day.in-range:is(.is-sun, .is-holiday) {
+  color: color-mix(in srgb, var(--coral) 80%, #000);
+}
 .cal-day.edge {
   background: var(--ink);
   color: #fff;
@@ -3813,6 +3836,10 @@ footer p {
 .fh-star {
   color: var(--sunny);
   margin-right: 0.3rem;
+}
+/* 水玉の壁紙では、見出しの地（--sunny-tint）の上の★が 3.8:1 になるので、空モードの昼の面と同じ濃さにする */
+:where(html:not(.sky-page)) .fh-star {
+  color: #6f582c;
 }
 .fh-count {
   font-family: var(--font-mono);
