@@ -175,7 +175,7 @@ DIC川村記念美術館,museum,chiba,千葉県・佐倉市,35.7148,140.1673,htt
 国立歴史民俗博物館,museum,chiba,千葉県・佐倉市,35.7186,140.2258,https://www.rekihaku.ac.jp/,yes,active,,2026-08-02,2026-10-21,19,
 佐倉市立美術館,museum,chiba,千葉県・佐倉市,35.7217,140.2261,https://www.city.sakura.lg.jp/section/museum/,yes,active,,2026-08-02,2026-10-21,19,
 千葉市美術館,museum,chiba,千葉県・千葉市中央区,35.6086,140.1233,https://www.ccma-net.jp/,yes,active,,2026-08-02,2026-10-21,19,
-幕張メッセ,hall,chiba,千葉県・千葉市美浜区,35.6478,140.0328,https://www.m-messe.co.jp/,,active,,2026-08-02,2026-09-16,7,
+幕張メッセ,hall,chiba,千葉県・千葉市美浜区,35.6478,140.0328,https://www.m-messe.co.jp/,yes,active,,2026-08-02,2026-10-21,8,
 ZOZOマリンスタジアム,hall,chiba,千葉県・千葉市美浜区,35.6453,140.0309,https://www.marines.co.jp/,,active,,2026-08-02,2026-08-23,3,
 千葉ポートアリーナ,hall,chiba,千葉県・千葉市中央区,35.6031,140.1118,https://chibacity.spo-sin.or.jp/shisetu/arena-top/,,active,,2026-08-02,,0,
 LaLa arena TOKYO-BAY,hall,chiba,千葉県・船橋市,35.6838,139.9897,https://lalaarenatokyo-bay.com/,,active,,2026-08-02,2026-08-22,2,
@@ -308,3 +308,4 @@ THE MOVEUM YOKOHAMA,science,kanagawa,神奈川県・横浜市中区,,,https://gl
 ららテラス川口,mall,saitama,埼玉県・川口市,35.8031,139.7186,https://mitsui-shopping-park.com/lalat-kawaguchi/,,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
 ららテラス武蔵小杉,mall,kanagawa,神奈川県・川崎市中原区,35.5752,139.6600,https://mitsui-shopping-park.com/lalat-musashikosugi/,,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
 ららテラス北綾瀬,mall,tokyo,東京都・足立区,35.7779,139.8316,https://mitsui-shopping-park.com/lalat-kitaayase/,,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
+KARIMOKU RESEARCH CENTER,museum,tokyo,東京都・港区,35.6614,139.7211,https://www.karimoku-research.com/jp,,candidate,,2026-10-21,2026-10-21,1,カリモク家具の展示・研究拠点(西麻布)。企画展が期間ごとに入れ替わり、開館時間・料金は展覧会ごとに確認する
