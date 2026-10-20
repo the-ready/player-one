@@ -70,7 +70,8 @@ export function initControls() {
   });
 
   initScroll();
-  trackControlsHeight();
+  trackBarBox();
+  keepFocusVisible();
 }
 
 /* すべての絞り込みを解除する。
@@ -147,11 +148,13 @@ function removeFilter(type, facetId, key) {
    「入力欄が消えた」と受け取られるうえ、タッチ目標としても小さすぎた。
    縮んだときは虫めがねボタンを出し、押したら入力欄を開く形にする。 */
 function openSearch() {
-  el.controls.classList.add("search-open");
-  el.q.focus();
+  if (!el.controls.classList.contains("search-open"))
+    morphBar(() => el.controls.classList.add("search-open"));
+  el.q.focus({ preventScroll: true });
 }
 function closeSearch() {
-  el.controls.classList.remove("search-open");
+  if (el.controls.classList.contains("search-open"))
+    morphBar(() => el.controls.classList.remove("search-open"));
 }
 
 /* ---------- ボタンの状態 ----------
@@ -199,32 +202,39 @@ export function syncSearchForTab() {
    .controls.compact .search-row が display:none になり、入力欄ごと消えて
    フォーカスが外れる（＝キーボードが一瞬で引っ込む）。
 
-   .controls は position:sticky で自分の分だけ文書の高さを占めているため、
-   compact の付け外し（padding とレイアウトが 0.32s かけて変わる）はページ全体の
-   scrollHeight を連続的に変化させる。最下部付近でバーが縮むと、ブラウザは
-   scrollY をその新しい上限へ複数フレームに分けてクランプしていき、この
-   クランプそのものが scroll イベントを連発させる。y が段階的に減っていく
-   その過程を「ユーザーが逆方向にスクロールした」と誤認して compact を
-   付け外しし直すと、縮む→伸びる→縮む…が閉じなくなり、最下部まで到達
-   できないまま振動し続ける。トランジションが収まるまで方向判定を止めて、
-   この自己誘発ループを断つ。 */
+   .controls は position:sticky で自分の分だけ文書の高さを占めている。縮んだ分を
+   下の余白（syncBarBox）で埋めて文書の高さを保つので、縮んでも下の一覧はずれず、
+   最下部付近で scrollY が新しい上限へクランプされることもない（以前はこのクランプが
+   scroll イベントを連発させ、「逆方向にスクロールした」と誤認して縮む→伸びる…を
+   繰り返していた）。それでも縮んでいる間に帯が増えるとバーの高さは変わるので、
+   形を変えている最中（MORPH_MS）は方向判定を止めておく。 */
 function initScroll() {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const TRANSITION_MS = 320;
   let lastY = window.scrollY;
   let lockUntil = 0;
   let ticking = false;
+  // Tab でフォーカスを移したときのスクロールでは、バーの形を変えない。上へ戻るスクロールで
+  // バーが伸びると、伸びた分がちょうどフォーカスのある部品を覆ってしまう（keepFocusVisible）
+  let keyNavUntil = 0;
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Tab") keyNavUntil = performance.now() + 600;
+    },
+    true,
+  );
   const setCompact = (add) => {
     if (el.controls.classList.contains("compact") === add) return;
-    el.controls.classList.toggle("compact", add);
-    lockUntil = performance.now() + TRANSITION_MS + 40;
+    morphBar(() => el.controls.classList.toggle("compact", add));
+    lockUntil = performance.now() + MORPH_MS + 40;
   };
   const onScroll = () => {
     const y = window.scrollY;
     if (
       !reduced &&
       document.activeElement !== el.q &&
-      performance.now() >= lockUntil
+      performance.now() >= lockUntil &&
+      performance.now() >= keyNavUntil
     ) {
       if (y < 32) setCompact(false);
       else if (y > lastY + 2) setCompact(true);
@@ -246,23 +256,224 @@ function initScroll() {
   );
 }
 
-/* ---------- 操作バーの高さ（--controls-h） ----------
-   .controls は position:sticky で画面の上に張り付く。キーボードで上へ戻ると、
-   ブラウザはフォーカスのある部品を「画面の上端」まで動かして止めるため、
-   部品がバーの真下に入り、フォーカスの枠ごと隠れる（WCAG 2.2 の 2.4.11）。
-   app.css の html に scroll-padding-top を持たせれば、ブラウザがバーの下までで
-   止めてくれる。バーの高さは縮小・適用中の帯・折り返しで変わるので、
-   固定値ではなく実測の高さを変数に渡す。 */
-function trackControlsHeight() {
-  const set = () =>
-    document.documentElement.style.setProperty(
-      "--controls-h",
-      `${el.controls.offsetHeight}px`,
-    );
-  set();
-  // 縮小は padding の遷移でも高さが変わる。既定の content-box では padding だけの変化を拾えず、
-  // 遷移の途中の高さで止まるため、border-box で見る
+/* ---------- 操作バーの形の切り替え（縮小・検索欄の開閉） ----------
+   形（縦横の並び・大きさ）は一度に切り替え、見た目だけを前の形から transform と
+   opacity でつなぐ（FLIP）。以前は padding・min-height・幅を CSS の遷移で動かしていたため、
+   毎コマ バーとその下のページ全体のレイアウトと描画をやり直してカクつき、縦→横の並びの
+   切り替えや検索欄の表示・非表示は遷移できずに瞬間移動していた。transform と opacity は
+   描き直さずに合成だけで動かせるので、遅い端末でも滑らかに動く。
+   - 地（.controls-bg）は縦に伸縮、下線（.controls-line）は上下に動かす
+   - 残る部品は前の位置・大きさから動かす。ボタンは文字が伸び縮みしないよう、中身を逆向きに縮める
+   - 消える部品（描いたまま見えない形にしてある）はその場でフェードアウト、現れる部品はフェードイン
+   - 大きさが大きく変わる部品（PC の検索欄 全幅→200px）は伸縮させると文字が潰れるので、フェードインにする
+   動いている途中で次の切り替えが来たら、その時点の見た目から次の形へつなぐ。 */
+const MORPH_MS = 320;
+const MORPH_EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
+const MORPH_PARTS =
+  ".search-row, .search-toggle, .sort-btn, .applied-bar, .result-count, .popover-panel";
+let morphs = [];
+let morphSeq = 0;
+
+// 見えている部品の矩形。見えていなければ null
+function shownRect(n) {
+  if (n.hidden || !n.isConnected) return null;
+  const cs = getComputedStyle(n);
+  if (cs.display === "none" || cs.visibility === "hidden") return null;
+  if (parseFloat(cs.opacity) < 0.05) return null;
+  const r = n.getBoundingClientRect();
+  return r.width && r.height ? r : null;
+}
+
+// 検索欄の見た目の写し（ふるまいは持たない飾り）。PC 幅で全幅 ⇔ 200px と大きさが大きく変わるとき、
+// 前の検索欄が一瞬で消えないよう、写しをその場でフェードアウトさせる。
+// cloneNode にしないのは、写しにも .controls.compact … の規則が当たって形が変わってしまうため
+function snapshotInput(rowRect) {
+  const q = el.q;
+  if (!rowRect || !q) return null;
+  const r = q.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  const cs = getComputedStyle(q);
+  const g = document.createElement("div");
+  g.className = "bar-ghost";
+  g.setAttribute("aria-hidden", "true");
+  g.textContent = q.value || q.placeholder;
+  Object.assign(g.style, {
+    width: `${r.width}px`,
+    height: `${r.height}px`,
+    border: cs.border,
+    borderRadius: cs.borderRadius,
+    background: cs.backgroundColor,
+    color: q.value ? cs.color : getComputedStyle(q, "::placeholder").color,
+    font: cs.font,
+    padding: cs.padding,
+  });
+  return { el: g, r };
+}
+
+function morphBar(apply) {
+  const bar = el.controls;
+  const bg = bar.querySelector(".controls-bg");
+  const line = bar.querySelector(".controls-line");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || typeof bar.animate !== "function" || !bg || !line) {
+    apply();
+    syncBarBox();
+    return;
+  }
+  // 前の形（動いている途中なら、その時点の見た目）を測ってから、動きを止めて切り替える
+  const parts = [...bar.querySelectorAll(MORPH_PARTS)];
+  const first = new Map(parts.map((n) => [n, shownRect(n)]));
+  const h0 = bg.getBoundingClientRect().height;
+  const line0 = line.getBoundingClientRect().top;
+  const ghost = snapshotInput(first.get(bar.querySelector(".search-row")));
+  morphs.forEach((a) => a.cancel());
+  morphs = [];
+  bar.querySelectorAll(".bar-ghost").forEach((g) => g.remove());
+  apply();
+  syncBarBox();
+  const h1 = bg.getBoundingClientRect().height;
+  const line1 = line.getBoundingClientRect().top;
+  const opts = { duration: MORPH_MS, easing: MORPH_EASE };
+  const run = (n, kf, o = opts) => morphs.push(n.animate(kf, o));
+  const fadeIn = (n) =>
+    run(n, [{ opacity: 0 }, { opacity: 1 }], {
+      duration: MORPH_MS * 0.6,
+      delay: MORPH_MS * 0.4,
+      easing: "ease-out",
+      fill: "backwards",
+    });
+  if (h1 > 0 && Math.abs(h0 - h1) > 0.5)
+    run(bg, [{ transform: `scaleY(${h0 / h1})` }, { transform: "none" }]);
+  if (Math.abs(line0 - line1) > 0.5)
+    run(line, [
+      { transform: `translateY(${line0 - line1}px)` },
+      { transform: "none" },
+    ]);
+  for (const n of parts) {
+    const a = first.get(n);
+    const b = shownRect(n);
+    if (a && b) {
+      const sx = a.width / b.width;
+      const sy = a.height / b.height;
+      if (Math.abs(sx - 1) > 0.25) {
+        // 伸縮させると文字が潰れるので、前の見た目を写しにしてその場で消し、新しい形はフェードインする
+        if (ghost) {
+          const br = bar.getBoundingClientRect();
+          Object.assign(ghost.el.style, {
+            left: `${ghost.r.left - br.left}px`,
+            top: `${ghost.r.top - br.top}px`,
+          });
+          bar.append(ghost.el);
+          const g = ghost.el.animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: MORPH_MS * 0.5,
+            easing: "ease-in",
+          });
+          morphs.push(g);
+          const drop = () => ghost.el.remove();
+          g.finished.then(drop, drop);
+        }
+        fadeIn(n);
+        continue;
+      }
+      const dx = a.left + a.width / 2 - (b.left + b.width / 2);
+      const dy = a.top + a.height / 2 - (b.top + b.height / 2);
+      const scaled = n.matches(".sort-btn, .search-toggle");
+      if (
+        Math.abs(dx) < 0.5 &&
+        Math.abs(dy) < 0.5 &&
+        (!scaled || (Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01))
+      )
+        continue;
+      if (!scaled) {
+        // 地の位置だけを合わせる（中身の伸び縮みは要らない）
+        const tx = a.left - b.left;
+        const ty = a.top - b.top;
+        run(n, [
+          { transform: `translate(${tx}px, ${ty}px)` },
+          { transform: "none" },
+        ]);
+        continue;
+      }
+      run(n, [
+        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+        { transform: "none" },
+      ]);
+      for (const c of n.children)
+        run(c, [
+          { transform: `scale(${1 / sx}, ${1 / sy})` },
+          { transform: "none" },
+        ]);
+    } else if (a && !b) {
+      // 消える部品：見えない形（並びから外れた位置）から、前の位置へ戻してフェードアウト
+      const r = n.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const tx = a.left - r.left;
+      const ty = a.top - r.top;
+      const at = `translate(${tx}px, ${ty}px)`;
+      run(
+        n,
+        [
+          { transform: at, opacity: 1, visibility: "visible" },
+          { transform: at, opacity: 0, visibility: "visible" },
+        ],
+        { duration: MORPH_MS * 0.5, easing: "ease-in" },
+      );
+    } else if (!a && b) {
+      fadeIn(n);
+    }
+  }
+  // 動き終わったら知らせる（ポップアップが高さを引き直す。ui-popover.js）。
+  // 途中で次の切り替えが来たときは、最後の切り替えの分だけ知らせる
+  const seq = ++morphSeq;
+  Promise.allSettled(morphs.map((m) => m.finished)).then(() => {
+    if (seq === morphSeq) bar.dispatchEvent(new Event("barmorphend"));
+  });
+}
+
+/* ---------- 縮んだ分を下の余白で埋める ----------
+   縮んだ分を margin-bottom で埋めて、文書の中でバーが占める高さを保つ。保たないと、
+   縮むたびに下の一覧が一度に120pxほど上へずれ（スクロールしている指と関係なく中身が動く）、
+   ページ全体の配置と描画もやり直しになる。 */
+let expandedH = 0;
+function syncBarBox() {
+  const bar = el.controls;
+  // 小数まで測る（offsetHeight の整数だと、縮むたびに一覧が 1px ずれる）
+  const h = bar.getBoundingClientRect().height;
+  if (!bar.classList.contains("compact")) {
+    expandedH = h;
+    bar.style.marginBottom = "";
+  } else {
+    bar.style.marginBottom = expandedH > h ? `${expandedH - h}px` : "";
+  }
+}
+function trackBarBox() {
+  syncBarBox();
+  // 縮んでいる間に帯が増えたり、画面幅が変わって折り返したりしても追いつかせる
   if (typeof ResizeObserver === "function")
-    new ResizeObserver(set).observe(el.controls, { box: "border-box" });
-  else window.addEventListener("resize", set);
+    new ResizeObserver(syncBarBox).observe(el.controls, { box: "border-box" });
+  else window.addEventListener("resize", syncBarBox);
+}
+
+/* ---------- キーボードのフォーカスを操作バーの下に隠さない（WCAG 2.2 の 2.4.11） ----------
+   .controls は画面の上に張り付く。Tab で上へ戻ると、ブラウザはフォーカスのある部品を
+   「画面の上端」まで動かして止めるため、部品がバーの真下に入り、枠ごと隠れる。
+   ブラウザが動かしたあとで、隠れていればバーの下まで戻す。
+   html の scroll-padding-top で済ませないのは、バーの中の部品（検索欄・ボタン・ポップアップ）に
+   フォーカスが移るたびに「上の余白に隠れている」と見なされ、ページが先頭まで戻ってしまうため。
+   バーの中・全画面のシートの中の部品と、マウス・指で押したときは動かさない。 */
+function keepFocusVisible() {
+  document.addEventListener("focusin", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || el.controls.contains(t)) return;
+    if (t.closest(".map-sheet, .cal-menu, .update-overlay, .fav-toast, .toast"))
+      return;
+    if (!t.matches(":focus-visible")) return;
+    requestAnimationFrame(() => {
+      if (document.activeElement !== t) return;
+      const r = t.getBoundingClientRect();
+      const b = el.controls.getBoundingClientRect();
+      if (r.bottom > b.top && r.top < b.bottom + 8)
+        window.scrollBy({ top: r.top - b.bottom - 12, behavior: "instant" });
+    });
+  });
 }

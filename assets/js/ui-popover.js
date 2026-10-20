@@ -115,10 +115,10 @@ export function initPopover({ onOpen, onClose }) {
     if (e.key === "Escape" && !el.panel.hidden) closePopover();
   });
   // 操作バーが小さくなるアニメーションが終わったら、パネルの上端が動いているので高さを引き直す
-  // （負荷の高い端末では、決め打ちの待ち時間より遅れることがある）
+  // （負荷の高い端末では、決め打ちの待ち時間より遅れることがある。ui-controls.js の morphBar が知らせる）
   const bar = document.querySelector(".controls");
-  bar.addEventListener("transitionend", (e) => {
-    if (e.target === bar && currentPopover) {
+  bar.addEventListener("barmorphend", () => {
+    if (currentPopover) {
       fitPopover();
       openScrollY = window.scrollY;
     }

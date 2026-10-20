@@ -100,6 +100,9 @@
     const els = [root, ...root.querySelectorAll("*")];
     for (const el of els) {
       if (el.closest(".sr-only") || !visible(el)) continue;
+      // 透明にして隠してある文字（縮んだ操作バーの件数など。読み上げのために残している）は、
+      // 見える文字ではないので測らない
+      if (opOf(el) < 0.05) continue;
       if (
         [...el.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())
       ) {

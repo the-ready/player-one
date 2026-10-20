@@ -21,6 +21,23 @@ const launchOpts = process.env.PW_CHROME
   : {};
 
 const failures = [];
+// 表示中でないタブのデータは、表示のあとの空き時間に読み、読み終えると一覧を描き直す（main.js）。
+// 描き直しは★のトーストを消すので、★を押す確認は読み終えてから行う（Pi では読み込みから約6秒かかり、
+// 待たずに押すと、押した直後にトーストが消えて「先頭にまとめる」が押せなくなっていた）
+const waitAllTabs = (p) =>
+  p
+    .waitForFunction(
+      () =>
+        ["movies.csv", "lives.csv", "lineups.csv"].every((f) =>
+          performance
+            .getEntriesByType("resource")
+            .some((e) => e.name.includes(f) && e.responseEnd > 0),
+        ),
+      null,
+      { timeout: 30000 },
+    )
+    .catch(() => {})
+    .then(() => p.waitForTimeout(800));
 const check = (name, ok, detail = "") => {
   console.log(
     `${ok ? "  ok  " : "  NG  "} ${name}${detail ? "  — " + detail : ""}`,
@@ -297,6 +314,7 @@ await page.goto(BASE + "?tab=event", { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.clear());
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
+await waitAllTabs(page);
 check(
   "会場名の左に☆が出る",
   (await page.locator("#list .star-btn").count()) > 0,
@@ -646,6 +664,7 @@ async function scanPanels(isoTime) {
   await p.reload({ waitUntil: "networkidle" });
   await p.waitForSelector("#list .card");
   await p.waitForTimeout(1200);
+  await waitAllTabs(p);
   await p.evaluate(() =>
     document.querySelector('#list .card .act-btn[data-act="cal"]').click(),
   );
@@ -675,14 +694,29 @@ async function scanPanels(isoTime) {
   await scan("調べたサイト一覧", "section.directory");
   await scan("注記", "footer");
   res.cls = await p.evaluate(() => document.documentElement.className);
-  // フォーカスが操作バーの下に隠れないよう、スクロールで止まる位置をバーの高さの分だけ下げてある（2.4.11）
-  await p.waitForTimeout(600);
-  res.scrollPad = await p.evaluate(() => ({
-    pad: parseFloat(
-      getComputedStyle(document.documentElement).scrollPaddingTop,
-    ),
-    bar: document.querySelector(".controls").offsetHeight,
-  }));
+  // キーボードで上へ戻っても、フォーカスが操作バーの下に隠れない（2.4.11）。
+  // 縮んだバーのまま、一覧の途中から Shift+Tab で戻り、隠れた回数を数える
+  await p.evaluate(() => scrollTo(0, 2400));
+  await p.waitForTimeout(800);
+  await p.evaluate(() => {
+    const t = [...document.querySelectorAll("#list .detail-toggle")].find(
+      (e) => e.getBoundingClientRect().top > innerHeight / 2,
+    );
+    t?.focus({ preventScroll: true });
+  });
+  res.hidden = 0;
+  for (let i = 0; i < 12; i++) {
+    await p.keyboard.press("Shift+Tab");
+    await p.waitForTimeout(250);
+    res.hidden += await p.evaluate(() => {
+      const a = document.activeElement;
+      const bar = document.querySelector(".controls");
+      if (!a || a === document.body || bar.contains(a)) return 0;
+      const r = a.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      return r.bottom > b.top && r.top < b.bottom ? 1 : 0;
+    });
+  }
   await ctx.close();
   return res;
 }
@@ -710,9 +744,9 @@ async function scanPanels(isoTime) {
       `${r.n}要素を走査 ${r.bad.slice(0, 4).join(" / ")}`,
     );
     check(
-      `${name}: スクロール位置が操作バーの高さ+12px だけ下がっている（フォーカスが隠れない）`,
-      Math.abs(r.scrollPad.pad - (r.scrollPad.bar + 12)) <= 1,
-      JSON.stringify(r.scrollPad),
+      `${name}: キーボードで上へ戻っても、フォーカスが操作バーの下に隠れない`,
+      r.hidden === 0,
+      `隠れた ${r.hidden}回`,
     );
     check(`${name}: ページエラーが無い`, r.errs.length === 0, r.errs.join("|"));
   }

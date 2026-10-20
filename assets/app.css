@@ -96,11 +96,6 @@ button {
   box-shadow: 0 0 0 6px var(--ink) !important;
   border-radius: inherit;
 }
-/* フォーカスが操作バーの下に隠れないよう、バーの高さ（ui-controls.js の trackControlsHeight）
-   の分だけ、スクロールで止まる位置を下げる（WCAG 2.2 の 2.4.11） */
-html {
-  scroll-padding-top: calc(var(--controls-h, 0px) + 12px);
-}
 /* 入力欄の案内文字。ブラウザ既定の灰色（#757575）は淡い地で 4.5:1 に届かないので、
    補助の文字色にそろえる（Firefox は既定で透明度も下げるので 1 にする） */
 ::placeholder {
@@ -728,7 +723,7 @@ html.sky-page body {
   );
 }
 html.sky-page .controls {
-  background: color-mix(in srgb, var(--page-bg-2) 95%, transparent);
+  --bar-bg: var(--page-bg-2);
 }
 /* 夜は灰みの藍の地に、昼と同じ明るいカードを置く。カードも暗くすると不気味になるので、
    カードの地は青みのある白のまま、色の道具（9色・インク）だけを夜空の藍で少し冷やす。
@@ -997,8 +992,7 @@ html.sky-night input[type="search"]::placeholder {
 html.sky-night .wp-toggle svg [stroke]:not([stroke="none"]) {
   stroke: #f4efe4;
 }
-html.sky-night header.pop-header,
-html.sky-night .controls {
+html.sky-night header.pop-header {
   border-bottom-color: #080b1e;
 }
 html.sky-night
@@ -1028,6 +1022,7 @@ html.sky-night :is(input[type="search"], .venue-search, .cal-add-field input) {
 html.sky-night .controls {
   --text-soft: #d0d3e6;
   --text-faint: #bfc3da;
+  --bar-line: #080b1e;
 }
 /* 0件のときの解除ボタン。昼用の黒い文字（--ink）のままだと暗い地に沈む。他の夜のボタンと同じ組み合わせにする */
 html.sky-night .empty-reset {
@@ -1152,22 +1147,59 @@ html.sky-night
 }
 
 /* ---------- controls ---------- */
+/* 縮小・展開は ui-controls.js の morphBar が動かす。形（縦横の並び・大きさ）は一度に切り替え、
+   見た目だけを transform と opacity で前の形から滑らかにつなぐ。以前は padding・min-height・幅を
+   CSS の遷移で動かしていたため、毎コマ バーとその下のページ全体のレイアウトと描画をやり直し、
+   並びの切り替え（縦→横・検索欄の表示）は瞬間移動になっていた。
+   バーの地と下線は、バー自身ではなく子の要素（.controls-bg / .controls-line）で描く。
+   バー自身を伸び縮みさせずに、地だけを縦に伸縮・下線だけを上下させられるようにするため。
+   地は不透明にする（以前の半透明＋ぼかしは、スクロールのたびに背後をぼかし直す重い処理だった） */
 .controls {
+  --bar-bg: #f2eee5;
+  --bar-line: var(--ink);
   position: sticky;
   top: 0;
   z-index: 35;
-  background: rgba(242, 238, 229, 0.95);
-  backdrop-filter: blur(6px);
-  border-bottom: 4px solid var(--ink);
+  border-bottom: 4px solid transparent;
   padding: 0.9rem clamp(1rem, 4vw, 3rem);
-  transition:
-    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.32s ease;
 }
 .controls.compact {
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
+}
+.controls-bg,
+.controls-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.controls-bg {
+  top: 0;
+  bottom: -4px;
+  background: var(--bar-bg);
+  transform-origin: top;
+}
+.controls-line {
+  bottom: -4px;
+  height: 4px;
+  background: var(--bar-line);
+  transition: box-shadow 0.32s ease;
+}
+.controls.compact .controls-line {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+/* 形を変える間だけ出す、前の検索欄の写し（ui-controls.js の snapshotInput） */
+.bar-ghost {
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .controls-inner {
   max-width: 1100px;
@@ -1177,7 +1209,6 @@ html.sky-night
 .controls-flex {
   display: flex;
   flex-direction: column;
-  transition: gap 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .controls.compact .controls-flex {
   flex-direction: row;
@@ -1187,7 +1218,6 @@ html.sky-night
 .search-row {
   display: flex;
   margin-bottom: 0.6rem;
-  transition: margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .controls.compact .search-row {
   margin-bottom: 0;
@@ -1211,10 +1241,6 @@ input[type="search"] {
   font-size: 16px;
   color: var(--text);
   font-family: var(--font-body);
-  transition:
-    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 input[type="search"]:focus {
   box-shadow: 3px 3px 0 var(--ink);
@@ -1226,8 +1252,16 @@ input[type="search"]:focus-visible {
 /* 縮んだときに出す虫めがねボタン。
    以前は入力欄そのものを32pxに潰してアイコンのように見せていたが、
    「入力欄が消えた」と受け取られるうえ、タッチ目標としても小さすぎた。 */
+/* 出していないときは display:none ではなく「描いたまま見えない・押せない」にする。
+   消えるときに morphBar がフェードで消せるようにするため（display:none は描かれないので動かせない） */
 .search-toggle {
-  display: none;
+  display: inline-flex;
+  position: absolute;
+  top: 0;
+  right: 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   flex: none;
   align-items: center;
   justify-content: center;
@@ -1255,14 +1289,25 @@ input[type="search"]:focus-visible {
 }
 @media (max-width: 640px) {
   .controls.compact .search-toggle {
-    display: inline-flex;
+    position: static;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
     order: 3;
     width: 36px;
     height: 36px;
     min-height: 36px;
   }
+  /* 縮んだ狭い画面では検索欄を隠す。虫めがねと同じく、描いたまま見えない・押せない・
+     並びから外れる形にして、消えるところをフェードで見せる */
   .controls.compact .search-row {
-    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
   /* 開いている間は横1行に詰め込まず、検索欄を上・ボタンを下に積む。
      以前は検索欄を絶対配置でバーに重ね、下敷きになる日程・エリア・絞り込みを
@@ -1274,7 +1319,10 @@ input[type="search"]:focus-visible {
     gap: 0;
   }
   .controls.compact.search-open .search-row {
-    display: flex;
+    position: static;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
     order: 1;
     margin-bottom: 0.45rem;
   }
@@ -1284,7 +1332,10 @@ input[type="search"]:focus-visible {
   }
   /* 入力欄が出ているあいだは虫めがねは要らない */
   .controls.compact.search-open .search-toggle {
-    display: none;
+    position: absolute;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
   .controls.compact.search-open input[type="search"] {
     min-height: 38px;
@@ -1317,9 +1368,7 @@ input[type="search"]:focus-visible {
   white-space: nowrap;
   transition:
     background 0.15s,
-    color 0.15s,
-    min-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    color 0.15s;
 }
 .controls.compact .sort-btn {
   min-height: 36px;
@@ -1605,17 +1654,14 @@ input[type="search"]:focus-visible {
   margin-top: 0.5rem;
   font-weight: 700;
   max-height: 30px;
-  opacity: 1;
   overflow: hidden;
-  transition:
-    max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s ease,
-    margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* 縮んだら件数は並びから外して透明にする（読み上げの対象には残す。role="status" なので、
+   縮んでいる間に絞り込んでも件数の変化が伝わるように visibility:hidden にはしない） */
 .controls.compact .result-count {
-  max-height: 0;
+  position: absolute;
   opacity: 0;
-  margin: 0;
+  pointer-events: none;
 }
 
 /* 並び順の切り替え（3タブ共通） */
