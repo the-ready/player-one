@@ -220,6 +220,7 @@ h1.pop-title {
 .stat-chip {
   display: inline-flex;
   align-items: center;
+  column-gap: 0.4em;
   min-height: 44px;
   background: var(--surface);
   border: 3px solid var(--ink);
@@ -3526,7 +3527,7 @@ footer p {
 
 @media (max-width: 520px) {
   .stat-chips {
-    gap: 0.4rem;
+    gap: 0.9rem 0.6rem;
   }
   .stat-chip {
     font-size: 11px;
