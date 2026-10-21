@@ -6,6 +6,40 @@
    操作バー(.controls)は背景(.popover-backdrop)より上に置いてあるので、
    背面クリックで閉じつつ、3つのボタンだけは押せる状態を保つ。 */
 
+import { barCompactScrollY } from "./ui-controls.js";
+
+/* ---------- 閉じたときにフォーカスを戻す先 ----------
+   シートやポップアップは、開いた時点の document.activeElement を「開いた元」として覚え、
+   閉じたらそこへフォーカスを戻す。ところが iOS の Safari はボタンを指で押してもフォーカスを
+   移さないため、activeElement は body（か、前に触った別の部品）のままになる。戻し先が
+   見つからないと代わりの部品へ逃がすが、それが検索欄だと閉じた途端に検索欄が開いて
+   キーボードまで上がり、前に触った部品がページの上のほうにあると、そこまでページが飛ぶ。
+   押された部品を click の捕捉段階で覚えておき、activeElement が当てにならないときはそれを使う。 */
+let lastPressed = null;
+let lastPressedAt = 0;
+document.addEventListener(
+  "click",
+  (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    lastPressed = t && t.closest("button, a[href], input, [tabindex]");
+    lastPressedAt = performance.now();
+  },
+  true,
+);
+export function openerElement() {
+  const a = document.activeElement;
+  // いま押された部品と activeElement が食い違うのは、押してもフォーカスが移らなかったとき。
+  // 少し前の押下は使わない（キーボードで開いたときに、前にマウスで押した部品へ戻してしまう）
+  if (
+    lastPressed &&
+    lastPressed.isConnected &&
+    performance.now() - lastPressedAt < 1000 &&
+    !(a && a !== document.body && a.contains(lastPressed))
+  )
+    return lastPressed;
+  return a;
+}
+
 /** 表示中でフォーカスを受け取れる要素だけを、DOM順で拾う。 */
 export function focusableIn(root) {
   return Array.from(
@@ -157,7 +191,7 @@ export function currentPopoverName() {
 }
 
 export function openPopover(which) {
-  if (!currentPopover) returnFocus = document.activeElement;
+  if (!currentPopover) returnFocus = openerElement();
   currentPopover = which;
   openScrollY = window.scrollY;
   el.backdrop.hidden = false;
@@ -203,8 +237,9 @@ function revealPopover() {
   const top = el.panel.getBoundingClientRect().top;
   const need = el.panel.scrollHeight + 6; // 枠線ぶん
   if (!compact && top + need > window.innerHeight - 12) {
-    // 操作バーが画面上端に来る位置まで。以後、バーが縮んでパネルの上端が上がる
-    const y = window.scrollY + controls.getBoundingClientRect().top;
+    // バーを縮めても、縮んだ分の余白が張り付いたバーの裏に隠れる位置まで（ui-controls.js の
+    // initScroll はそこより上では縮めない）。以後、バーが縮んでパネルの上端が上がる
+    const y = Math.max(window.scrollY, barCompactScrollY());
     window.scrollTo({ top: y, behavior: "instant" });
     // ページが短いと目標まで送れず、行き着いた位置が y より手前になる。実際の位置を基準にする
     openScrollY = window.scrollY;

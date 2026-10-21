@@ -10,7 +10,12 @@
 
 import { esc, safeUrl, fmtDateWd, WD } from "./util.js";
 import { lineupRows, lineupCount } from "./data.js";
-import { setBackgroundInert, trapTab, closePopover } from "./ui-popover.js";
+import {
+  setBackgroundInert,
+  trapTab,
+  closePopover,
+  openerElement,
+} from "./ui-popover.js";
 import { TODAY } from "./schedule.js";
 
 const el = {};
@@ -206,7 +211,7 @@ export function initLineupSheet() {
 export function openLineupSheet(item) {
   const rows = lineupRows(item && item.lineupId);
   if (!el.sheet || !rows.length) return;
-  returnFocus = document.activeElement;
+  returnFocus = openerElement();
   closePopover();
 
   groups = groupRows(rows);
@@ -237,11 +242,12 @@ export function closeLineupSheet() {
   document.body.style.overflow = "";
   setBackgroundInert(false, [document.querySelector(".controls")]);
   // 開いている間に一覧が再描画されると元のボタンはDOMから消えている
-  // （closePlaceSheet と同じ事情）。行き場が無ければ検索窓へ逃がす。
+  // （closePlaceSheet と同じ事情）。行き場が無ければ操作バーの「絞り込み」へ逃がす。
+  // 検索窓へ逃がすと、フォーカスで検索欄が開き、スマホではキーボードまで上がる
   const back =
     returnFocus && returnFocus.offsetParent !== null
       ? returnFocus
-      : document.getElementById("q");
+      : document.getElementById("catBtn");
   if (back && typeof back.focus === "function") back.focus();
   returnFocus = null;
 }

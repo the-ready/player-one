@@ -12,7 +12,13 @@ import { hasEnded } from "./filters.js";
 import { activeTab, toggleFavSpot, isFavSpot, pinFavSpots } from "./state.js";
 import { spotByName, spotsOfItem, favSpotEntries, spotFacts } from "./spots.js";
 import { visibleItems, refreshNow, onRefresh } from "./render.js";
-import { setBackgroundInert, trapTab, closePopover } from "./ui-popover.js";
+import {
+  setBackgroundInert,
+  trapTab,
+  closePopover,
+  openerElement,
+} from "./ui-popover.js";
+import { barExpandedHeight } from "./ui-controls.js";
 
 const el = {};
 let pendingReorder = false; // ★の状態に、画面の並びがまだ追いついていない
@@ -78,15 +84,18 @@ function showToast(text, actions) {
 }
 
 /** 先頭セクションが見える位置へ。操作バー（sticky）の高さは画面幅と縮み具合で変わるので、
-    固定の余白ではなく、いまの操作バーの下端に合わせる。 */
+    固定の余白ではなく、伸びたときの操作バーの高さに合わせる。先頭セクションは一覧の最上部に
+    あり、そこへ戻るのは上へのスクロールなので、着いたときのバーは伸びている
+    （縮んだときの高さで合わせると、伸びたバーが見出しを覆っていた） */
 function revealFavHead() {
   const list = document.getElementById(TABS[activeTab].listId);
   const target = list && list.querySelector(".fav-head");
   if (!target) return;
-  const bar = document.querySelector(".controls");
-  const barBottom = bar ? bar.getBoundingClientRect().bottom : 0;
   const top =
-    target.getBoundingClientRect().top + window.scrollY - barBottom - 12;
+    target.getBoundingClientRect().top +
+    window.scrollY -
+    barExpandedHeight() -
+    12;
   const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   window.scrollTo({
     top: Math.max(0, top),
@@ -194,7 +203,7 @@ function renderSheetBody() {
 const STAR_SVG = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8L3.6 9.6l5.8-.8z"/></svg>`;
 
 export function openFavSheet() {
-  returnFocus = document.activeElement;
+  returnFocus = openerElement();
   hideToast();
   renderSheetBody();
   el.sheet.hidden = false;

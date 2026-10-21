@@ -37,7 +37,12 @@ import {
   branchesOfChain,
   spotFacts,
 } from "./spots.js";
-import { closePopover, trapTab, setBackgroundInert } from "./ui-popover.js";
+import {
+  closePopover,
+  trapTab,
+  setBackgroundInert,
+  openerElement,
+} from "./ui-popover.js";
 import {
   geoPrecheckError,
   geoErrorMessage,
@@ -379,7 +384,7 @@ function initMap() {
 }
 
 export function openMapSheet() {
-  mapReturnFocus = document.activeElement;
+  mapReturnFocus = openerElement();
   closePopover();
   el.sheet.hidden = false;
   document.body.style.overflow = "hidden";
@@ -619,7 +624,7 @@ function placeStars(name, chain) {
 }
 
 export function openPlaceSheet(name) {
-  placeReturnFocus = document.activeElement;
+  placeReturnFocus = openerElement();
   closePopover();
   if (!el.sheet.hidden) closeMapSheet();
   ps.sheet.hidden = false;

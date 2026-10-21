@@ -15,7 +15,12 @@
 import { buildIcs, gcalUrl } from "./cards.js";
 import { suggestedVisitDate } from "./schedule.js";
 import { toast } from "./render.js";
-import { setBackgroundInert, trapTab, closePopover } from "./ui-popover.js";
+import {
+  setBackgroundInert,
+  trapTab,
+  closePopover,
+  openerElement,
+} from "./ui-popover.js";
 
 const el = {};
 let currentItem = null;
@@ -93,7 +98,7 @@ export function openCalAddSheet(item, target) {
   closePopover();
   currentItem = item;
   currentTarget = target;
-  returnFocus = document.activeElement;
+  returnFocus = openerElement();
 
   el.title.textContent = `${item.title} をカレンダーに追加`;
   el.help.textContent =

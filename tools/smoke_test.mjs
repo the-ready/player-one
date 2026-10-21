@@ -804,6 +804,80 @@ async function scanPanels(isoTime) {
   }
 }
 
+/* 操作バーの縮小（第4.4節）。縮んだ分を埋める余白が、バーと一覧の間の空白として見えないこと。
+   余白はバーの元の位置（ヘッダーの真下）の下に付くので、バーがまだ張り付いていないうちに
+   縮めたり、縮んだまま上へ戻ったりすると見える。描かれたコマごとに測る（rAF のあとの
+   setTimeout で、そのコマの処理が終わった状態を見る）。縮小・復元で一覧がずれないことも併せて見る */
+{
+  const ctx = await browser.newContext({
+    serviceWorkers: "block",
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const p = await ctx.newPage();
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.waitForSelector("#list .card");
+  await p.waitForTimeout(1500);
+  await p.evaluate(() => {
+    window.__gaps = [];
+    window.__shifts = [];
+    const bar = document.querySelector(".controls");
+    const main = document.getElementById("mainContent");
+    let last = null;
+    const tick = () => {
+      const b = bar.getBoundingClientRect();
+      const m = main.getBoundingClientRect().top;
+      if (m - b.bottom > 1.5 && b.bottom < innerHeight)
+        window.__gaps.push(`y=${scrollY} 空白${Math.round(m - b.bottom)}px`);
+      const doc = m + scrollY;
+      if (last !== null && Math.abs(doc - last) > 1.5)
+        window.__shifts.push(`y=${scrollY} ${Math.round(doc - last)}px`);
+      last = doc;
+      requestAnimationFrame(() => setTimeout(tick, 0));
+    };
+    tick();
+  });
+  const wheel = async (dy, n, ms = 40) => {
+    for (let i = 0; i < n; i++) {
+      await p.mouse.wheel(0, dy);
+      await p.waitForTimeout(ms);
+    }
+  };
+  await wheel(30, 10); // バーが張り付く前後
+  await wheel(-30, 5);
+  await wheel(60, 20);
+  await wheel(-3, 50, 20); // 指でゆっくり戻す
+  await wheel(60, 20);
+  await p.evaluate(() => scrollTo(0, 240)); // 縮んだまま一度に上へ飛ぶ
+  await p.waitForTimeout(500);
+  await wheel(5, 40, 20);
+  await p.waitForTimeout(400);
+  const r = await p.evaluate(() => ({ g: window.__gaps, s: window.__shifts }));
+  check(
+    "スマホ: 操作バーが縮んでも、バーと一覧の間に空白が出ない",
+    r.g.length === 0,
+    r.g.slice(0, 3).join(" / "),
+  );
+  check(
+    "スマホ: 操作バーの縮小・復元で一覧がずれない",
+    r.s.length === 0,
+    r.s.slice(0, 3).join(" / "),
+  );
+  // 先頭で開いたポップアップは、ページを送ってバーを縮め、パネルの高さを確保する
+  await p.evaluate(() => scrollTo(0, 0));
+  await p.waitForTimeout(600);
+  await p.click("#catBtn");
+  await p.waitForTimeout(900);
+  check(
+    "スマホ: 先頭で開いたポップアップでは操作バーが縮む",
+    await p.evaluate(() =>
+      document.querySelector(".controls").classList.contains("compact"),
+    ),
+  );
+  await ctx.close();
+}
+
 check(
   "コンソールエラーが無い",
   consoleErrors.length === 0,

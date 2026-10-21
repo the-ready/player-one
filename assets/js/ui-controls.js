@@ -207,7 +207,12 @@ export function syncSearchForTab() {
    最下部付近で scrollY が新しい上限へクランプされることもない（以前はこのクランプが
    scroll イベントを連発させ、「逆方向にスクロールした」と誤認して縮む→伸びる…を
    繰り返していた）。それでも縮んでいる間に帯が増えるとバーの高さは変わるので、
-   形を変えている最中（MORPH_MS）は方向判定を止めておく。 */
+   形を変えている最中（MORPH_MS）は方向判定を止めておく。
+
+   埋めた余白は、バーが元の位置（ヘッダーの真下）にあるあいだはバーの下の空白としてそのまま見える。
+   画面の上に張り付いたバーの裏へ余白が隠れきるまで（barHiddenGapY）は縮めず、余白が見える位置まで
+   戻ったら、方向や入力中かどうかに関係なく伸ばす。伸ばしても埋めていた余白をバーが覆い直すだけで、
+   一覧は動かず、フォーカスのある部品も覆わない。 */
 function initScroll() {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let lastY = window.scrollY;
@@ -223,22 +228,41 @@ function initScroll() {
     },
     true,
   );
-  const setCompact = (add) => {
+  const setCompact = (add, instant = false) => {
     if (el.controls.classList.contains("compact") === add) return;
-    morphBar(() => el.controls.classList.toggle("compact", add));
+    morphBar(() => el.controls.classList.toggle("compact", add), instant);
     lockUntil = performance.now() + MORPH_MS + 40;
   };
+  // 向きが変わった位置からどれだけ進んだかで判定する。1コマごとの差で見ると、指でゆっくり
+  // 動かしたとき（1コマ 1〜2px）は何度戻っても伸びず、縮んだまま余白の見える位置まで戻れてしまう
+  let dir = 0;
+  let turnY = lastY;
   const onScroll = () => {
     const y = window.scrollY;
-    if (
+    if (y !== lastY) {
+      const d = y > lastY ? 1 : -1;
+      if (d !== dir) {
+        dir = d;
+        turnY = lastY;
+      }
+    }
+    const compact = el.controls.classList.contains("compact");
+    const gapY = barHiddenGapY(barGap());
+    // scrollY は端末によって整数に丸められるので、1px 未満の差は見えている余白と見なさない
+    if (compact && y < gapY - 1) {
+      // 埋めた余白が見えている。少しだけなら形を変える動きで埋め、大きく見えている（一度に
+      // 飛んできた）ときは動かすあいだ空白が残るので、その場で伸ばす
+      setCompact(false, gapY - y > 24);
+    } else if (
       !reduced &&
       document.activeElement !== el.q &&
       performance.now() >= lockUntil &&
       performance.now() >= keyNavUntil
     ) {
-      if (y < 32) setCompact(false);
-      else if (y > lastY + 2) setCompact(true);
-      else if (y < lastY - 2) setCompact(false);
+      // 縮める前の余白の高さはまだ分からないので、伸びたバーの高さぶん（＝余白の上限）を見込む
+      if (dir > 0 && y - turnY > 6 && y >= barHiddenGapY(expandedH) - 1)
+        setCompact(true);
+      else if (dir < 0 && turnY - y > 6) setCompact(false);
     }
     handleScrollForPopover();
     lastY = y;
@@ -310,14 +334,19 @@ function snapshotInput(rowRect) {
   return { el: g, r };
 }
 
-function morphBar(apply) {
+function morphBar(apply, instant = false) {
   const bar = el.controls;
   const bg = bar.querySelector(".controls-bg");
   const line = bar.querySelector(".controls-line");
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduced || typeof bar.animate !== "function" || !bg || !line) {
+  if (instant || reduced || typeof bar.animate !== "function" || !bg || !line) {
+    morphs.forEach((a) => a.cancel());
+    morphs = [];
+    bar.querySelectorAll(".bar-ghost").forEach((g) => g.remove());
     apply();
     syncBarBox();
+    morphSeq++;
+    bar.dispatchEvent(new Event("barmorphend"));
     return;
   }
   // 前の形（動いている途中なら、その時点の見た目）を測ってから、動きを止めて切り替える
@@ -442,9 +471,35 @@ function syncBarBox() {
   if (!bar.classList.contains("compact")) {
     expandedH = h;
     bar.style.marginBottom = "";
-  } else {
-    bar.style.marginBottom = expandedH > h ? `${expandedH - h}px` : "";
+    return;
   }
+  // 縮んでいる間に帯が増減したり折り返しが変わったりすると、伸びたときの高さも変わる。
+  // 縮める前に測った値のままだと、伸ばした瞬間に差の分だけ一覧がずれるので、その場で測り直す。
+  // 同じ処理の中で戻すので、外した形が描かれることは無い
+  bar.classList.remove("compact");
+  expandedH = bar.getBoundingClientRect().height;
+  bar.classList.add("compact");
+  bar.style.marginBottom = expandedH > h ? `${expandedH - h}px` : "";
+}
+// いま埋めている余白の高さ
+function barGap() {
+  return parseFloat(el.controls.style.marginBottom) || 0;
+}
+/** 伸びたときのバーの高さ。縮んでいても「いまの高さ＋埋めている余白」で分かる */
+export function barExpandedHeight() {
+  return el.controls.getBoundingClientRect().height + barGap();
+}
+/** ここより下ならバーを縮めても余白が見えない、最初の scrollY */
+export function barCompactScrollY() {
+  return Math.ceil(barHiddenGapY(barExpandedHeight()));
+}
+// 高さ gap の余白が、画面の上に張り付いたバーの裏へ隠れきる scrollY。
+// 余白は文書の中でバーの元の位置（ヘッダーの真下）の下に付くので、
+// そこから gap だけ進むと、余白の下端が張り付いたバーの下端より上へ抜ける
+function barHiddenGapY(gap) {
+  const prev = el.controls.previousElementSibling;
+  const top = prev ? prev.getBoundingClientRect().bottom + window.scrollY : 0;
+  return top + gap;
 }
 function trackBarBox() {
   syncBarBox();
