@@ -71,6 +71,9 @@ WATCH = [
     # 出演者の追加・降板・出演日の変更。利用者の来場の目的そのものが変わる事実なので、
     # QUIET ではなく変化を毎回見せる。降板（guests が消える）はここでしか気づけない。
     "guests", "guest_dates", "guest_note",
+    # 映画の上映フォーマット。IMAX が外れた・4DX が始まったは、作品を観に行く理由が
+    # 変わる変化なので、本文と同じ扱い（QUIET）にはしない。
+    "formats",
 ]
 QUIET = ["desc", "note", "official_url", "apple_music_url"]   # 変わった事実だけ出す
 

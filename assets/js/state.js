@@ -384,6 +384,7 @@ const FACET_PARAM = {
   statuses: "status",
   genres: "genre",
   screeningTypes: "screen",
+  formats: "fmt",
   liveTypes: "ltype",
 };
 const FLAG_PARAM = {

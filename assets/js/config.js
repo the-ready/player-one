@@ -40,6 +40,18 @@ export const SCREENING_TYPES = {
   special: { label: "特別上映", c: "var(--sunny)" },
   festival: { label: "映画祭", c: "var(--coral)" },
 };
+/* 上映フォーマット（movies.csv の formats）。上映形態（新作・名画座…）とは別の軸で、
+   同じ新作でも IMAX で観るか通常で観るかは体験がまったく違うため、独立した列にしている。
+   劇場ごとの呼び名（「IMAXレーザー/GT」「4DX with ScreenX」）はここで1つに畳む。
+   畳まないとチップが劇場の数だけ割れて、「IMAX で観られる作品」で絞れなくなる。
+   空欄は「確かめていない」であり「通常上映だけ」ではないので、ピルも出さない。 */
+export const MOVIE_FORMATS = {
+  imax: { label: "IMAX", c: "var(--sky)" },
+  dolby: { label: "ドルビーシネマ", c: "var(--grape)" },
+  "4dx": { label: "4DX", c: "var(--coral)" },
+  screenx: { label: "ScreenX", c: "var(--teal)" },
+  mx4d: { label: "MX4D", c: "var(--tangerine)" },
+};
 
 // ライブ・フェス。ジャンル(genre)と公演形態(live_type)を直交する2軸に分けるのは
 // 映画の「ジャンル×上映形態」と同じ理由で、同じロックバンドでもワンマンと
@@ -358,6 +370,7 @@ const MOVIE_COLUMNS = {
   ...GUEST_COLUMNS,
   genre: ["genre", list],
   screeningType: ["screening_type", list],
+  formats: ["formats", list],
   venue: ["theater", txt],
   venues: ["theater", list],
   startDate: ["release_date", txt],
@@ -612,6 +625,8 @@ export const TABS = {
     statusTable: MOVIE_STATUS_STYLE,
     cat: { field: "genre", table: MOVIE_GENRES },
     type: { field: "screeningType", table: SCREENING_TYPES },
+    // カードのピルに上映形態の次に並べる（cards.js）。絞り込みは facets の formats。
+    formats: { field: "formats", table: MOVIE_FORMATS },
     cta: {
       suffix: "で上映情報を見る",
       fallback: "上映情報を見る",
@@ -654,6 +669,15 @@ export const TABS = {
         (it) => it.screeningType,
         pillMeta(SCREENING_TYPES),
         () => Object.keys(SCREENING_TYPES),
+      ),
+      /* 載っているフォーマットだけをチップにする。ほとんどの行は空欄（未確認）なので、
+         全キーを並べると0件のチップ（ドルビーシネマ・MX4D など）が並ぶ。 */
+      facet(
+        "formats",
+        "上映フォーマット",
+        (it) => it.formats,
+        pillMeta(MOVIE_FORMATS),
+        presentKeys(MOVIE_FORMATS, (it) => it.formats),
       ),
       facet(
         "statuses",

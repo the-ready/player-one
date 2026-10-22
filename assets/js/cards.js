@@ -706,11 +706,13 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
 
   /* 左上のバッジは主カテゴリ（tab.cat が指す列の先頭）。同じ値を本文のピル一覧にも
      出すとバッジと本文で同じタグが二重に見えるので、ピルは2件目以降だけにする。
-     形態（上映形態・公演形態）はカテゴリとは別軸なので、あるタブでは先頭に足す。 */
+     形態（上映形態・公演形態）はカテゴリとは別軸なので、あるタブでは先頭に足す。
+     映画の上映フォーマット（IMAX・4DX）も別軸で、形態の次に置く。 */
   const catKeys = it[tab.cat.field] || [];
   const mainCat = catKeys.length ? tableMeta(tab.cat.table, catKeys[0]) : null;
   const pills =
     (tab.type ? pillList(it[tab.type.field], tab.type.table) : "") +
+    (tab.formats ? pillList(it[tab.formats.field], tab.formats.table) : "") +
     pillList(catKeys.slice(mainCat ? 1 : 0), tab.cat.table);
 
   /* お金の話（価格比較・料金の原文・クーポン）は説明のすぐ下に置く。

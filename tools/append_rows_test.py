@@ -615,6 +615,28 @@ def _():
     return (not carried and rows2[0]["guests"] == "監督太郎") or f"carried={carried} 書けた={rows2[0]['guests']!r}"
 
 
+@check("movies: formats は持ち越されない・_carry で求めても落ちる・劇場の呼び名は書く前に落ちる")
+def _():
+    mv = dict(title="大作", release_date="2026-10-01", screening_type="new",
+              theater="TOHOシネマズ", pref="tokyo")
+    # 前回 imax の行を、formats を書かずに書き直す → IMAX は消える（もう明け渡したかもしれない）
+    with Sandbox() as s:
+        rows, _m = _send_ds(s, "movies.csv", [dict(id="1", formats="imax", **mv)],
+                            [dict(price="一般2,000円", **mv)])
+        if rows[0]["formats"]:
+            return f"formats が持ち越された: {rows[0]['formats']!r}"
+    for bad in ([dict(mv, _carry="formats")], [dict(mv, formats="IMAXレーザー/GT")]):
+        try:
+            with Sandbox() as s:
+                _send_ds(s, "movies.csv", [dict(id="1", formats="imax", **mv)], bad)
+        except SystemExit:
+            continue
+        return f"通ってはいけない書き込みが通った: {bad}"
+    with Sandbox() as s:
+        rows2, _m = _send_ds(s, "movies.csv", [dict(id="1", **mv)], [dict(formats="imax|4dx", **mv)])
+    return rows2[0]["formats"] == "imax|4dx" or f"書けない: {rows2[0]['formats']!r}"
+
+
 @check("lives: 出演者の列は無く、書いても落ちる（lives は artists を使う）")
 def _():
     try:

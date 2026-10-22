@@ -73,7 +73,7 @@ EXPECTED_HEADERS = {
         "onsale_label","onsale_start","onsale_start_time","onsale_end","onsale_end_time","limited_sale",
         "price","price_official","price_best","discount_pct","best_source","coupon_note","price_checked",
         "price_condition","source","url","official_url","lat","lng","desc","note",
-        "guests","guest_dates","guest_note"],
+        "guests","guest_dates","guest_note","formats"],
     "lives.csv": ["id","tour_id","title","kana","artists","genre","live_type","area","venue","venue_url",
         "pref","start_date","end_date","date","dates","open_time","start_time","end_time","date_note",
         "backup_date","status","rank","announced_date","is_additional",
@@ -275,6 +275,7 @@ def load_enums():
         "cats": keys_of("CATS"),
         "movie_genre": keys_of("MOVIE_GENRES"),
         "screening_type": keys_of("SCREENING_TYPES"),
+        "movie_format": keys_of("MOVIE_FORMATS"),
         "live_genre": keys_of("LIVE_GENRES"),
         "live_type": keys_of("LIVE_TYPES"),
         "venue_kind": keys_of("VENUE_KINDS"),
@@ -378,6 +379,24 @@ def check_enum(rep, where, col, raw, allowed, sep="|"):
     for v in [x.strip() for x in raw.split(sep) if x.strip()]:
         if v not in allowed:
             rep.error(where, f"{col} に未知の値 {v!r}（表示側では「その他」に落ちて、絞り込みからも漏れます）")
+
+
+def check_formats(rep, where, r, allowed):
+    """映画の上映フォーマット（`formats`。設計書 第3.4.6節）。
+
+    空は「確かめていない」で、「通常上映だけ」ではない。だから空には何も言わない。
+    値は config.js の MOVIE_FORMATS のキーだけを `|` 区切りで持つ。「IMAXレーザー/GT」の
+    ような劇場ごとの呼び名をそのまま書くと、絞り込みのチップが劇場の数だけ割れる。
+    """
+    raw = (r.get("formats") or "").strip()
+    if not raw:
+        return
+    check_enum(rep, where, "formats", raw, allowed)
+    vals = [x.strip() for x in raw.split("|")]
+    if any(not v for v in vals):
+        rep.warn(where, f"formats に空の要素があります（`||` や末尾の `|`）: {raw!r}")
+    if len(set(vals)) != len(vals):
+        rep.warn(where, f"formats に同じ値が2回あります: {raw!r}")
 
 
 def check_num(rep, where, col, raw, lo=None, hi=None):
@@ -617,6 +636,7 @@ def validate_main(name, rows, enums, rep):
         elif name == "movies.csv":
             check_enum(rep, where, "genre", (r.get("genre") or "").strip(), enums["movie_genre"])
             check_enum(rep, where, "screening_type", (r.get("screening_type") or "").strip(), enums["screening_type"])
+            check_formats(rep, where, r, enums["movie_format"])
             check_status(rep, where, r, enums["movie_status"], start, end)
         else:
             check_enum(rep, where, "genre", (r.get("genre") or "").strip(), enums["live_genre"])

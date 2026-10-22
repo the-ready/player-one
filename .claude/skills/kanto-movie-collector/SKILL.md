@@ -212,10 +212,10 @@ EOF
 ### CSV列（この順序・この列名を厳守）
 
 ```
-id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,guests,guest_dates,guest_note
+id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,guests,guest_dates,guest_note,formats
 ```
 
-全47列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
+全48列。列名・順序ともに厳守すること。**空欄でよい列は多いが、列そのものを省いてはいけない**（ヘッダーが1列でもずれると検証で落ちる）。
 
 書き終えたら `python3 tools/validate_data.py` を実行し、ERROR が0件であることを確認すること。
 
@@ -292,6 +292,7 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 | `onsale_*` / `limited_sale`             | 前売り券（ムビチケ等）の販売期間（下記「前売り券」参照）                                                                                                                                                                               |
 | `price_official` 〜 `price_condition`   | 料金の比較レイヤー（下記「料金」参照）。**条件付き割引は `price_condition` が必須**                                                                                                                                                    |
 | `guests` / `guest_dates` / `guest_note` | 舞台挨拶・トーク・サイン会などで**劇場に来る人**の氏名・実施日・劇場と形式の補足（下記「登壇者の書き方」参照）。**作品のキャスト一覧は書かない**。毎週書き直す（前回値の持ち越しは `append_rows.py` が拒否する）。大半の行は空欄でよい |
+| `formats`                               | 上映フォーマット（IMAX・4DX など）。下記「上映フォーマットキー」から `\|` 区切りで。**劇場の上映スケジュールにその表記の回があると確かめた作品だけ**に書く。毎週書き直す（持ち越しは `append_rows.py` が拒否する）。大半の行は空欄でよい |
 
 ### 登壇者（`guests` / `guest_dates` / `guest_note`）の書き方
 
@@ -384,6 +385,25 @@ id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,en
 | `outdoor`  | 野外上映・ドライブインシアター                               |
 | `special`  | 特別上映（爆音上映・オールナイト・舞台挨拶付き・応援上映等） |
 | `festival` | 映画祭                                                       |
+
+### 上映フォーマットキー
+
+`formats` 列に書く。上映形態（新作・名画座…）とは別の軸で、**同じ作品でも IMAX で観るかどうかで体験がまったく違う**ので独立させている。
+劇場ごとの呼び名は、次のキーに畳んで書く（呼び名のまま書くと、絞り込みのチップが劇場の数だけ割れる）。
+
+| キー      | 劇場での呼び名の例                                                  |
+| --------- | ------------------------------------------------------------------- |
+| `imax`    | IMAX・IMAXレーザー・IMAXレーザー/GTテクノロジー・IMAX with Laser    |
+| `dolby`   | ドルビーシネマ（Dolby Cinema）。**Dolby Atmos（音響だけ）は書かない** |
+| `4dx`     | 4DX・ULTRA 4DX・4DX with ScreenX（ScreenX も併せて書く）・「4D」     |
+| `screenx` | ScreenX・4DX with ScreenX（4DX も併せて書く）                        |
+| `mx4d`    | MX4D                                                                |
+
+- **空欄は「確かめていない」**で、「通常上映だけ」ではない。確かめていない作品に書かない（推測で書かない）
+- **劇場の上映スケジュール（今日以降の回）にその表記があることを確かめたときだけ**書く。「IMAX同時公開」のような宣伝文句や、作品公式の「対応フォーマット」一覧だけでは書かない——IMAX のスクリーンは次の大作に毎週のように明け渡されるので、公開時の対応表は今週の上映を保証しない
+- **新作行（`theater` がチェーン名）では、`theater` に並べたチェーンのどこか1館で確かめたら書いてよい。** どの劇場の上映かは `desc` に書く（例：`グランドシネマサンシャイン池袋ではIMAXレーザー/GTで上映`）
+- 今日が最終回の上映は書かない（翌日には案内として誤りになる）
+- **毎週書き直す（持ち越さない）**。再確認できなかった行は、`--carry-rest` が空にして書き戻す
 
 ### `theater` 列の書き方（重要）
 
@@ -531,7 +551,7 @@ python3 tools/roster.py theaters --list --urls | awk -F'\t' '$2==""'   # 名画�
 | 区分                           | 列                                                                                                               | 扱い                                                                                                                                                                |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **これが揃ったら終わり**       | `title` `genre` `screening_type` `area` `theater` `pref` `release_date`/`end_date` `price` `source` `url` `desc` | 揃った時点で次の行へ移る                                                                                                                                            |
-| **ついでに拾うだけ**           | `kana` `note` `theater_url` `series_id` `announced_date` `is_additional` `guests` `guest_dates` `guest_note`     | 開いたページに書いてあれば書く。**このために追加でページを開かない**                                                                                                |
+| **ついでに拾うだけ**           | `kana` `note` `theater_url` `series_id` `announced_date` `is_additional` `guests` `guest_dates` `guest_note` `formats` | 開いたページに書いてあれば書く。**このために追加でページを開かない**                                                                                                |
 | **調べない（臨時会場を除く）** | `lat` / `lng`                                                                                                    | `theaters.csv` と前回値から自動で補完される。**空欄で渡す**。ただし名簿にも前回にも無い臨時会場（野外上映・ドライブイン）は、その会場のページを開いたついでに埋める |
 
 **具体的にやってはいけないこと**
@@ -690,8 +710,8 @@ python3 tools/prev_rows.py movies --worklist --summary   # tier A/B の件数を
    指示には「**`temp/worklist-movies-<担当都県>.md` を Read し、この一覧の行を再確認しながら新規を探すこと**」と書く。**出力を指示に貼らない**——抜粋を貼らないのと同じ理由で、貼ると親が「その字数 × 体数」を出力トークンで払い、しかも同じ内容が親の文脈にも載る（実測: events の全県ぶんで28,922字）。渡すこと自体は省略しない。前回分の照合をサブエージェント任せにすると、実行時には素通りされる
 
 3. **このスキルの中核工程を名指しする**——**前売り（`onsale_*`）の有無確認**。「今週かならず産む成果」章にあるとおり、公開前の新作は前売りの有無を確認するのが下限の成果である
-4. **「開いたページに書いてあれば拾う」補助列を列挙する**——`kana` `note` `series_id` `announced_date` `is_additional` `guests` `guest_dates` `guest_note`。書かなければ0%のまま埋まらない（**登壇者の3列は毎週書き直す列で、前回値の持ち越しはできない**。舞台挨拶の氏名と日が書かれていない行は空欄のままでよい。**作品のキャスト一覧は書かない**）
-5. **有効なキーの一覧と対象期間を明記する。** `genre` は `anime` `jp-live` `foreign` `doc` `fam` `tokusatsu` `music` の7キー、`screening_type` は `new` `revival` `outdoor` `special` `festival` の5キーのみ（それ以外は `append_rows.py` が拒否する）。対象地域は関東1都6県、対象期間は実行日から6ヶ月以内に公開・上映が始まるもの・または実行日時点で上映中のもの
+4. **「開いたページに書いてあれば拾う」補助列を列挙する**——`kana` `note` `series_id` `announced_date` `is_additional` `guests` `guest_dates` `guest_note` `formats`。書かなければ0%のまま埋まらない（**登壇者の3列と `formats` は毎週書き直す列で、前回値の持ち越しはできない**。舞台挨拶の氏名と日が書かれていない行は空欄のままでよい。**作品のキャスト一覧は書かない**。`formats` は劇場の上映スケジュールにその表記の回があるときだけ）
+5. **有効なキーの一覧と対象期間を明記する。** `genre` は `anime` `jp-live` `foreign` `doc` `fam` `tokusatsu` `music` の7キー、`screening_type` は `new` `revival` `outdoor` `special` `festival` の5キーのみ、`formats` は `imax` `dolby` `4dx` `screenx` `mx4d` の5キーのみ（それ以外は `append_rows.py` が拒否する）。対象地域は関東1都6県、対象期間は実行日から6ヶ月以内に公開・上映が始まるもの・または実行日時点で上映中のもの
 6. **中止・対象外になっていた前回行の書き先を渡す。** 指示に「**前回行が公開延期・中止・対象外だと確認できたら、rows には書かず `temp/dispose-movies-<波の名前>.jsonl` に `{"uid", "status": "cancelled|out-of-scope", "note"}` を1行ずつ追記すること**」と書く。前回行はステップ0で既にCSVへ戻っているので、**子が書かないだけでは消えない**——この経路が無いと、公開延期になった作品が載り続ける。書き方の規則は子の定義（`.claude/agents/kanto-collector-worker.md`）にある
 
 ### 親の残りトークンが少ないときの追加指示（サブエージェントには意識させない）
@@ -874,6 +894,7 @@ EOF
 3. **料金** — 券種ごとの正確な金額
 4. **公式サイトURL・劇場URL**
 5. **登壇者（`guests` `guest_dates` `guest_note`）** — 劇場の上映スケジュール・お知らせや作品公式サイトに、舞台挨拶・トークの**氏名と日**が書いてあれば、**同じ取得の中で**拾う（別ページは開かない）。書き方は「登壇者の書き方」節
+6. **上映フォーマット（`formats`）** — 劇場の上映スケジュールを開いたとき、IMAX・4DX などの表記の回があれば、**同じ取得の中で**拾う（このために別ページは開かない）。書き方は「上映フォーマットキー」節
 
 **1〜5は、原則として作品公式サイト1回の取得で揃う。** 項目ごとにページを開き直さないこと。
 
@@ -1077,6 +1098,7 @@ python3 tools/validate_data.py          # ERROR 0 を確認
 - [ ] **条件を特定できない割引を書いていないか**（書けないなら価格ごと落とす）
 - [ ] `onsale_*` を書いた行で、時刻を推測で補っていないか
 - [ ] **`guests` は、劇場に来る人（舞台挨拶・トーク・サイン会）の、告知に氏名が出ている人だけか**（作品のキャスト・スタッフ表、ライブビューイングだけの回、氏名未発表の「キャスト登壇」を書いていないか）。**`guest_note` に劇場名を書いたか**。`guest_dates` に過ぎた日を書いていないか。前回の登壇者を確認せずに書き写していないか
+- [ ] **`formats` は、劇場の上映スケジュールにその表記の回があると確かめた作品だけか**（「IMAX同時公開」の宣伝文句や公開時の対応表だけで書いていないか。Dolby Atmos を `dolby` にしていないか。前回の値を確認せずに書き写していないか）
 - [ ] `report_stats.py movies` の「前回は出演者がいたのに今回は空」の行を、劇場・公式ページで確かめたか（中止か書き忘れか）
 - [ ] `series_id` を付けた行が2件以上あるか（1件だけのシリーズは付けない）
 - [ ] `id` が1から連番になっているか
@@ -1086,6 +1108,7 @@ python3 tools/validate_data.py          # ERROR 0 を確認
 - [ ] `pref` が7県のいずれかになっているか
 - [ ] `genre` が定義済み7キーのみか
 - [ ] `screening_type` が定義済み5キーのみか
+- [ ] `formats` が定義済み5キー（`imax` `dolby` `4dx` `screenx` `mx4d`）のみか
 - [ ] `status` / `rank` が**空欄**か（日付を持つ行では表示側が毎回計算するので、書いても無視される。`validate_data.py` が「無視される値が入っている」を WARNING で挙げる）
 - [ ] `url` が実在するページか（リンク切れがないか）
 - [ ] **画像の列（`poster_url` / `poster_source`）を復活させていないか**（`validate_data.py` が ERROR で落とす）

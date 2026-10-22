@@ -361,8 +361,45 @@ def _expect_clean(**kw):
 def _():
     h = vd.EXPECTED_HEADERS
     cols = ["guests", "guest_dates", "guest_note"]
-    return (all(h["events.csv"][-3:] == cols and h["movies.csv"][-3:] == cols for _ in [0])
+    # 映画は出演者の3列の後ろに `formats`（上映フォーマット）を持つ
+    return (h["events.csv"][-3:] == cols and h["movies.csv"][-4:-1] == cols
             and not any(c in h["lives.csv"] for c in cols)) or "ヘッダーの位置・対象が違う"
+
+
+# --- 上映フォーマット（`formats`。映画だけ） --------------------------------------
+
+def _format_messages(raw):
+    rep = vd.Report()
+    vd.check_formats(rep, "x:2", {"formats": raw}, vd.load_enums()["movie_format"])
+    return "\n".join(rep.warning_lines()), "\n".join(rep.errors)
+
+
+@check("formats は映画のヘッダーの末尾にだけあり、選択肢は config.js から読める")
+def _():
+    h = vd.EXPECTED_HEADERS
+    keys = vd.load_enums()["movie_format"]
+    return (h["movies.csv"][-1] == "formats"
+            and "formats" not in h["events.csv"] and "formats" not in h["lives.csv"]
+            and {"imax", "4dx", "screenx"} <= keys) or f"ヘッダーか選択肢が違う: {sorted(keys)}"
+
+
+@check("formats が空（確かめていない）・既知のキーだけなら何も言わない")
+def _():
+    out = [_format_messages(raw) for raw in ("", "imax", "imax|4dx|screenx")]
+    return all(not w and not e for w, e in out) or f"何も出ないはずが出た: {out!r}"
+
+
+@check("formats に劇場の呼び名をそのまま書くと ERROR（チップが劇場の数だけ割れる）")
+def _():
+    w, e = _format_messages("IMAXレーザー/GT")
+    return "formats に未知の値" in e or f"ERROR にならない: warn={w!r} err={e!r}"
+
+
+@check("formats の空の要素・重複は WARNING")
+def _():
+    w1, _e = _format_messages("imax|")
+    w2, _e = _format_messages("imax|imax")
+    return ("空の要素" in w1 and "同じ値が2回" in w2) or f"警告が出ない: {w1!r} / {w2!r}"
 
 
 @check("出演者が空の行には何も言わない（大半の行はこちら）")

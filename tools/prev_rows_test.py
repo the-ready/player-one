@@ -255,6 +255,17 @@ def _():
     return (obj.get("price") == "無料" and bool(obj.get("desc"))) or f"他の列まで消している: {obj}"
 
 
+@check("書き戻す映画の行の上映フォーマット（formats）も空にする（IMAX は毎週明け渡される）")
+def _():
+    row = {"title": "大作", "theater": "TOHOシネマズ", "pref": "tokyo", "screening_type": "new",
+           "release_date": "2026-10-01", "price": "一般2,000円", "formats": "imax|4dx",
+           "desc": "説明" * 20}
+    obj = pr._build_carry_obj(row, lineups=set())
+    if "formats" in obj:
+        return f"formats が書き戻しに残っている: {obj['formats']!r}"
+    return (obj.get("price") == "一般2,000円") or f"他の列まで消している: {obj}"
+
+
 def _tier(guests="", guest_dates="", today=date(2026, 10, 20), **kw):
     row = {"title": "展", "venue": "会場", "pref": "tokyo", "start_date": "2026-09-01",
            "end_date": "2026-12-31", "price": "無料", "guests": guests, "guest_dates": guest_dates}

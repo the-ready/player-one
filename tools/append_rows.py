@@ -92,7 +92,7 @@ VENUE_FACTS = ["lat", "lng", "parking", "nearest_station", "venue_url", "theater
 # 1件だけ弾くほうが被害が小さい。
 ENUM_COLUMNS = {
     "events.csv": {"cats": "cats", "event_parking": "event_parking"},
-    "movies.csv": {"genre": "movie_genre", "screening_type": "screening_type"},
+    "movies.csv": {"genre": "movie_genre", "screening_type": "screening_type", "formats": "movie_format"},
     "lives.csv": {"genre": "live_genre", "live_type": "live_type", "event_parking": "event_parking"},
 }
 
@@ -194,6 +194,10 @@ CARRY_NEVER = {
     # `artists`（フェスの出演者）が CARRY_ALWAYS に入らないのと同じ理由に加えて、
     # こちらは日付（`guest_dates`）まで持つので、日付と同じ扱いで持ち越しを拒否する。
     "guests", "guest_dates", "guest_note",
+    # 映画の上映フォーマット（IMAX・4DX など）。IMAX のスクリーンは次の大作に毎週のように
+    # 明け渡されるので、作品が上映中でもフォーマットだけ先に終わる。前回の `imax` を
+    # 持ち越すと、もう IMAX で観られない作品に IMAX のピルが残る。
+    "formats",
 }
 
 # `_no_carry` は「この列は前回値で埋めないでほしい」という指定。CARRY_ALWAYS を

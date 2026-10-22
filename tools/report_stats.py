@@ -106,7 +106,9 @@ FLOOR_EXEMPT = {"cats": {"sale"}}
 BALANCE = {
     "events.csv": {"pref": 5, "cats": 3},
     "lives.csv": {"pref": 3, "genre": None, "live_type": None},
-    "movies.csv": {"pref": 2, "screening_type": None, "genre": None},
+    # `formats`（IMAX・4DX など）は分布だけを見る。下限を置くと、上映フォーマットを
+    # 確かめていない行に `imax` を書かせる圧力になる（推測で書かない規則に反する）。
+    "movies.csv": {"pref": 2, "screening_type": None, "genre": None, "formats": None},
 }
 
 # 「今週あらたに書いた行」に求める下限。**全体の充足率では、この失敗は見えない。**

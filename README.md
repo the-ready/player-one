@@ -225,13 +225,13 @@ CSVの中身の日付（`price_checked` 等）にはフォールバックしな�
 
 このルールは `tools/validate_data.py` が ERROR で落とす（`poster_url` / `poster_source` の列が存在した時点で失格）。散文のお願いは安いほうの経路へ流れるので、仕組みで固定してある。
 
-### `data/movies.csv` の列（47列固定）
+### `data/movies.csv` の列（48列固定）
 
 ```
-id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,guests,guest_dates,guest_note
+id,title,kana,genre,screening_type,area,theater,theater_url,pref,release_date,end_date,date,dates,open_time,start_time,end_time,date_note,backup_date,status,rank,series_id,announced_date,is_additional,onsale_label,onsale_start,onsale_start_time,onsale_end,onsale_end_time,limited_sale,price,price_official,price_best,discount_pct,best_source,coupon_note,price_checked,price_condition,source,url,official_url,lat,lng,desc,note,guests,guest_dates,guest_note,formats
 ```
 
-`onsale_*` は前売り券（ムビチケ等）の販売期間。`series_id` は特集上映・映画祭のプログラムをまとめるキー。`price_official` 〜 `price_condition` は料金の比較レイヤーで、**映画の割引はほとんどが条件付き**（会員限定・特定曜日・時間帯）なので `price_condition` は必須扱い。条件を特定できない割引は書かずに落とす。`guests` `guest_dates` `guest_note` は**舞台挨拶・トーク・サイン会で劇場に来る人**の氏名・実施日・劇場と形式（「舞台挨拶・ゲスト登壇あり」の材料）で、**作品のキャスト一覧は書かない**。イベントと同じく毎週書き直す列で、氏名が告知されていないものは空欄（第3.4.5節）。
+`onsale_*` は前売り券（ムビチケ等）の販売期間。`series_id` は特集上映・映画祭のプログラムをまとめるキー。`price_official` 〜 `price_condition` は料金の比較レイヤーで、**映画の割引はほとんどが条件付き**（会員限定・特定曜日・時間帯）なので `price_condition` は必須扱い。条件を特定できない割引は書かずに落とす。`guests` `guest_dates` `guest_note` は**舞台挨拶・トーク・サイン会で劇場に来る人**の氏名・実施日・劇場と形式（「舞台挨拶・ゲスト登壇あり」の材料）で、**作品のキャスト一覧は書かない**。イベントと同じく毎週書き直す列で、氏名が告知されていないものは空欄（第3.4.5節）。`formats` は上映フォーマット（`imax` `dolby` `4dx` `screenx` `mx4d` を `|` 区切り）で、カードのピルと「上映フォーマット」の絞り込みの材料になる。**劇場の上映スケジュールにその表記の回があると確かめた作品だけ**に書き、空欄は「確かめていない」の意味。毎週書き直す列で、前回値の持ち越しは `append_rows.py` が拒否する（第3.4.6節）。
 
 `genre` は `anime` `jp-live` `foreign` `doc` `fam` `tokusatsu` `music` の複数選択可（`|`区切り）。`screening_type` は `new`(新作公開) `revival`(名画座・リバイバル) `outdoor`(野外上映・ドライブイン) `special`(特別上映) `festival`(映画祭)。開催状況（`本日が最終上映` `まもなく公開` `上映中` `前売り券発売中` `上映終了`）は日付から自動で決まる。
 

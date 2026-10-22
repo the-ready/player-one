@@ -593,10 +593,16 @@ def cmd_show(name, rows, args):
 # いない行に残すと、来ない人の名前で「出演あり」の絞り込みに入る**。取りこぼしより
 # 誤判定のほうが害が大きいので、再確認できなかった行は出演者を載せない側へ倒す。
 # 代わりに `tier_of` が、前回出演者がいた行を tier A に上げて再確認の順番を先にする。
+#
+# 映画の上映フォーマット（`formats`）も空にする。IMAX のスクリーンは次の大作に
+# 毎週のように明け渡されるので、確認していない行に `imax` を残すと、もう IMAX で
+# 観られない作品が「IMAX」の絞り込みに入る。こちらは `tier_of` で順番を上げない——
+# 消えて困るのはピルが出ないことだけで、作品そのものは上映中のまま正しく載るため。
 CARRY_REST_CLEAR = (
     "onsale_label", "onsale_start", "onsale_start_time",
     "onsale_end", "onsale_end_time", "limited_sale",
     "guests", "guest_dates", "guest_note",
+    "formats",
 )
 
 # 持ち越した目印を行に書かないのは、`note` が**画面に出る列**だからである
