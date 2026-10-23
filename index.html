@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 読み込んでよい先を絞る（docs/DESIGN.md 第10.5節）。CSVは生成AIが毎週書き直すので、
+     エスケープを1か所でも漏らしたときに、外部のスクリプトを読み込んだり実行したりできないようにする。
+     GitHub Pages はレスポンスヘッダーを設定できないため meta で宣言する（meta では frame-ancestors は効かない）。
+     style に 'unsafe-inline' があるのは、カードのHTMLがカテゴリの色を style 属性で持つため。
+     読み込み先を足すときは、ここも直すこと。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>イベントボード｜関東のイベント・映画・ライブをまとめて探す</title>
     <meta
       name="description"
@@ -60,6 +69,29 @@
     <link rel="stylesheet" href="assets/app.css" />
     <script type="module" src="assets/js/main.js"></script>
     <script type="module" src="assets/js/wallpaper.js"></script>
+    <!-- import の先を、たどり着く前から並行して取らせる。無いと main.js → ui-*.js → render.js →
+     … と、import の段数ぶん往復を待つ（回線の遅い端末ほど初回表示が遅れる）。
+     assets/js/ にモジュールを足したらここにも足すこと（tools/shell_list_test.py が sw.js の SHELL と併せて検査する）。 -->
+    <link rel="modulepreload" href="assets/js/cards.js" />
+    <link rel="modulepreload" href="assets/js/config.js" />
+    <link rel="modulepreload" href="assets/js/csv.js" />
+    <link rel="modulepreload" href="assets/js/data.js" />
+    <link rel="modulepreload" href="assets/js/filters.js" />
+    <link rel="modulepreload" href="assets/js/grid-fit.js" />
+    <link rel="modulepreload" href="assets/js/page-sky.js" />
+    <link rel="modulepreload" href="assets/js/render.js" />
+    <link rel="modulepreload" href="assets/js/schedule.js" />
+    <link rel="modulepreload" href="assets/js/spots.js" />
+    <link rel="modulepreload" href="assets/js/state.js" />
+    <link rel="modulepreload" href="assets/js/ui-area.js" />
+    <link rel="modulepreload" href="assets/js/ui-caladd.js" />
+    <link rel="modulepreload" href="assets/js/ui-calendar.js" />
+    <link rel="modulepreload" href="assets/js/ui-controls.js" />
+    <link rel="modulepreload" href="assets/js/ui-favspot.js" />
+    <link rel="modulepreload" href="assets/js/ui-lineup.js" />
+    <link rel="modulepreload" href="assets/js/ui-map.js" />
+    <link rel="modulepreload" href="assets/js/ui-popover.js" />
+    <link rel="modulepreload" href="assets/js/util.js" />
   </head>
   <body>
     <a class="skip-link" href="#mainContent">本文へスキップ</a>

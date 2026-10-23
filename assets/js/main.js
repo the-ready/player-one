@@ -156,6 +156,11 @@ function initTabs() {
    （いまは常に一瞬で切り替わる）ので、先読みして体感を落とさないようにする。 */
 
 const started = new Set();
+/* 起動中は、読み終えたタブを個別には描かない。boot() は名簿を待ってから setActiveTab で
+   一度だけ描く。ここでも描くと、★と駐車場のない一覧が先に出て、名簿が届いた直後に同じ
+   約500枚を描き直すことになる（遅い端末では1回に数秒かかる）。起動中にタブが切り替わって
+   いても、boot() の setActiveTab がそのときの表示タブを描くので取りこぼさない。 */
+let booting = true;
 
 async function ensureTabData(tabKey) {
   if (started.has(tabKey)) return LOAD[tabKey].state === "done";
@@ -164,14 +169,14 @@ async function ensureTabData(tabKey) {
     await loadTab(tabKey);
   } catch {
     // 状態は LOAD に入っている。表示は render 側が出し分ける
-    if (activeTab === tabKey) refreshNow({ url: false });
+    if (activeTab === tabKey && !booting) refreshNow({ url: false });
     // タブの件数バッジは全タブぶんをまとめて出すので、いま裏で読み終えた
     // タブが表示中でなくても塗り直す（doRefresh() は activeTab のときしか
     // 呼ばれないので、これを外すと裏タブの件数がいつまでも「不明」のまま残る）。
     syncTabCounts();
     return false;
   }
-  if (activeTab === tabKey) {
+  if (activeTab === tabKey && !booting) {
     syncUpdatedLabel();
     renderVenueList();
     refreshNow({ url: false });
@@ -270,6 +275,7 @@ async function boot() {
 
   // 表示中のタブを先に（名簿も一緒に待つ）、続いて残りのタブ
   await Promise.all([ensureTabData(activeTab), rosters]);
+  booting = false;
   setActiveTab(activeTab, { push: false, url: false });
   enableUrlSync();
   syncUrl(false);

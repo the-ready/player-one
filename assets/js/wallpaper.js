@@ -272,20 +272,30 @@ function project(body) {
   };
 }
 
-/* 天体が文字の帯にかかっている度合い（1=かかっていない）。
-   x座標だけで判定すると、南中前後の高い位置（弧の頂点、実際には
-   文字から遠い）まで x=32〜45% 付近を通るというだけで薄めてしまい、
-   正午の太陽が不必要にくすんだ。y座標も見て、実際に文字の高さに
-   近いときだけ x の判定を効かせる。 */
-export function hazeOverText(xPct, yPct) {
+/* hazeOverText が使う実測値（文字の行と天体の半径）。測るたびにレイアウトを確定させるので、
+   1回の配置・塗り直しの中で何度も判定するときは1度だけ測って渡す。星を76個置くあいだ
+   毎回測っていた頃は、星を1つ足すたびにレイアウトをやり直していた。星は文字の位置を
+   動かさないので、測り直しても結果は変わらない。 */
+function textGeometry() {
   const lines = textLines();
-  if (!lines.length) return 1;
+  if (!lines.length) return { lines, rX: 10, rY: 10 };
   // 天体は点ではない。実際に描画されているサイズから半径を測る。
   const hdrBox = wp.getBoundingClientRect();
   const orbBox = sunEl.getBoundingClientRect();
   const rY =
     hdrBox.height > 0 ? ((orbBox.height / hdrBox.height) * 100) / 2 : 10;
   const rX = hdrBox.width > 0 ? ((orbBox.width / hdrBox.width) * 100) / 2 : 10;
+  return { lines, rX, rY };
+}
+
+/* 天体が文字の帯にかかっている度合い（1=かかっていない）。
+   x座標だけで判定すると、南中前後の高い位置（弧の頂点、実際には
+   文字から遠い）まで x=32〜45% 付近を通るというだけで薄めてしまい、
+   正午の太陽が不必要にくすんだ。y座標も見て、実際に文字の高さに
+   近いときだけ x の判定を効かせる。 */
+export function hazeOverText(xPct, yPct, geo = textGeometry()) {
+  const { lines, rX, rY } = geo;
+  if (!lines.length) return 1;
   let worst = 1;
   for (const ln of lines) {
     if (yPct < ln.y0 - rY || yPct > ln.y1 + rY) continue;
@@ -670,6 +680,7 @@ export function layoutStars(seed) {
   const rng = rngFrom(seed);
   starsEl.textContent = "";
   starNodes = [];
+  const geo = textGeometry();
   const n = 76;
   for (let i = 0; i < n; i++) {
     const x = rng() * 100;
@@ -680,7 +691,7 @@ export function layoutStars(seed) {
     let baseA = clamp(1 - y / 118, 0.28, 1) * (0.55 + rng() * 0.45);
     // 文字が載る行の近くでは消す。夜の文字はクリーム色なので、白い星が
     // 字の裏に来ると同系色で潰れる。太陽・月と同じ判定を流用する。
-    baseA *= hazeOverText(x, y);
+    baseA *= hazeOverText(x, y, geo);
     if (baseA < 0.04) continue;
     let el;
     if (big) {
@@ -848,7 +859,10 @@ export function paint(ms) {
   wp.style.setProperty("--wp-orb", "clamp(74px, 9.8vw, 128px)");
 
   // 太陽。地平線の少し下からフェードさせる（ぱっと消えると安っぽい）
-  const sunA = clamp((s.altDeg + 2.2) / 2.6, 0, 1) * hazeOverText(sp.x, sp.y);
+  // 太陽と月の判定で共用する（あいだの書き込みは位置だけで、文字と天体の大きさは変えない）
+  const geo = textGeometry();
+  const sunA =
+    clamp((s.altDeg + 2.2) / 2.6, 0, 1) * hazeOverText(sp.x, sp.y, geo);
   wp.style.setProperty("--wp-sun-a", sunA.toFixed(3));
   wp.style.setProperty("--wp-sun-x", sp.x.toFixed(2) + "%");
   wp.style.setProperty("--wp-sun-y", sp.y.toFixed(2) + "%");
@@ -907,7 +921,7 @@ export function paint(ms) {
   const mp = project(m);
   const moonUp = clamp((m.altDeg + 1.2) / 2.4, 0, 1);
   const moonA =
-    moonUp * clamp((-s.altDeg - 1) / 6, 0, 1) * hazeOverText(mp.x, mp.y);
+    moonUp * clamp((-s.altDeg - 1) / 6, 0, 1) * hazeOverText(mp.x, mp.y, geo);
   wp.style.setProperty("--wp-moon-a", moonA.toFixed(3));
   wp.style.setProperty("--wp-moon-x", mp.x.toFixed(2) + "%");
   wp.style.setProperty("--wp-moon-y", mp.y.toFixed(2) + "%");

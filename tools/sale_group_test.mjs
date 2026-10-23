@@ -47,6 +47,9 @@ const el = (k) => {
       innerHTML: "",
       classList: { add() {}, remove() {}, contains: () => false },
       setAttribute() {},
+      // 一覧の差し替えを省くかの判定（render.js の setListHtml）が、開いたカードとフォーカスを見る
+      querySelector: () => null,
+      contains: () => false,
     });
   return els.get(k);
 };

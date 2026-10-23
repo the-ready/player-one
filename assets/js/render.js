@@ -114,13 +114,19 @@ export function renderList() {
   if (!items.length && !chainRows.length) {
     const load = LOAD[tab.key];
     if (load.state === "loading" || load.state === "idle") {
-      listEl.innerHTML = `<div class="empty-state"><span class="big">読み込み中…</span></div>`;
+      setListHtml(
+        listEl,
+        `<div class="empty-state"><span class="big">読み込み中…</span></div>`,
+      );
       return;
     }
     if (load.state === "error") {
-      listEl.innerHTML = `<div class="empty-state">
+      setListHtml(
+        listEl,
+        `<div class="empty-state">
         <span class="big">${esc(tab.label)}のデータを読み込めませんでした</span>
-        <p>${esc(tab.csv.replace("./", ""))} を置いた状態で、Webサーバー経由で開いてください（${esc(load.error || "")}）。</p></div>`;
+        <p>${esc(tab.csv.replace("./", ""))} を置いた状態で、Webサーバー経由で開いてください（${esc(load.error || "")}）。</p></div>`,
+      );
       return;
     }
     // 行き止まりで押せる出口を必ず置く。文章で「解除してみてください」と
@@ -128,23 +134,50 @@ export function renderList() {
     // 他のタブから持ち越した日程やエリアが原因のことが多いので、検索語やこのタブ固有の
     // 絞り込みを残したまま共通の条件だけ外せる出口を、全解除とは別に用意する。
     const shared = hasSharedFilter(st, tab);
-    listEl.innerHTML = `<div class="empty-state">
+    setListHtml(
+      listEl,
+      `<div class="empty-state">
       <span class="big">${esc(tab.emptyTitle)}</span>
       <p>条件を減らすか、絞り込みをまとめて解除してください。</p>
       <div class="empty-actions">
         ${shared ? `<button type="button" class="empty-reset" data-act="reset-shared">日程・エリアなど共通の条件をはずす</button>` : ""}
         ${hasAnyFilter() ? `<button type="button" class="empty-reset" data-act="reset">すべての絞り込みを解除</button>` : ""}
       </div>
-    </div>`;
+    </div>`,
+    );
     return;
   }
 
   const terms = searchTerms(st.q);
   markEntering(listEl);
   const card = (e) => cardHtml(tab, e.rep, st, terms, e.members);
-  listEl.innerHTML = favBlocks
-    ? favListHtml(tab, st, entries, chainRows, card)
-    : entries.map(card).join("");
+  setListHtml(
+    listEl,
+    favBlocks
+      ? favListHtml(tab, st, entries, chainRows, card)
+      : entries.map(card).join(""),
+  );
+}
+
+/* 一覧の差し替えは、組み立てたHTMLが前回と同じなら行わない。
+   約500枚の一覧は、差し替えるたびにパースとレイアウトをやり直すことになり、遅い端末では
+   1回に数秒かかる。起動時（裏で別タブを読み終えたときの描き直し）や、結果の変わらない
+   チップの付け外しでは、同じものを描き直していただけだった。
+   ただし、差し替えれば閉じるはずの状態がDOMに残っているときは差し替える。
+   「くわしく」を開いたカードや、一覧の中のフォーカスがそれにあたる。
+   スキップしたときのDOMが、差し替えた直後のDOMと同じになる場合に限るためである。
+   描画以外でDOMの属性を直接書き換える操作（♡・★の付け外し）は、モデルの状態も
+   変えるため、次に組み立てるHTMLは前回と違う。したがって必ず差し替わる。 */
+const lastListHtml = new WeakMap();
+function setListHtml(listEl, html) {
+  if (
+    lastListHtml.get(listEl) === html &&
+    !listEl.querySelector(".desc.open") &&
+    !listEl.contains(document.activeElement)
+  )
+    return;
+  listEl.innerHTML = html;
+  lastListHtml.set(listEl, html);
 }
 
 /* ---------- お気に入りスポットの先頭セクション ----------

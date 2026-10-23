@@ -39,8 +39,14 @@ function toJstDate(value) {
 // Service Worker がキャッシュから返したかどうか。オフライン表示の注記に使う。
 export const dataStatus = { offline: false, tabs: {} };
 
+/* データは毎回サーバーに確かめる（"no-cache"）。古いデータを黙って見せないためである。
+   "no-store" にすると、手元にある前回の中身を使えず、毎回すべてを取り直すことになる
+   （CSVは合わせて1MBを超え、週に1度しか変わらない）。"no-cache" なら、変わっていない
+   ときはサーバーが中身なしの304で答え、ブラウザは手元の写しをそのまま渡す。 */
+const FRESH = { cache: "no-cache" };
+
 async function fetchText(path) {
-  const res = await fetch(path, { cache: "no-store" });
+  const res = await fetch(path, FRESH);
   if (!res.ok)
     throw new Error(
       `${path.replace("./", "")} の取得に失敗しました（HTTP ${res.status}）`,
@@ -64,7 +70,7 @@ let updatedManifest = null;
 
 export async function loadUpdatedManifest() {
   try {
-    const res = await fetch("./data/updated.json", { cache: "no-store" });
+    const res = await fetch("./data/updated.json", FRESH);
     if (!res.ok) return; // 無い環境では Last-Modified に任せる
     const json = await res.json();
     if (json && typeof json === "object") updatedManifest = json;
@@ -258,7 +264,7 @@ export async function loadTab(tabKey) {
 export const SOURCES = { event: [], movie: [], live: [] };
 export async function loadSources() {
   try {
-    const res = await fetch("./data/sources.json", { cache: "no-store" });
+    const res = await fetch("./data/sources.json", FRESH);
     if (!res.ok) return;
     const json = await res.json();
     TAB_ORDER.forEach((k) => {
@@ -355,17 +361,52 @@ export async function loadHolidays() {
   }
 }
 
+/* 名前から名簿を引く索引。カードを1枚描くたびに会場ごとに引かれる（約500枚 × 会場数）ので、
+   配列を先頭から探さずに済むようにする。名簿は読み込みのたびに配列ごと差し替わるので、
+   参照が変わったときだけ作り直す。同じ名前が2行あれば、先に出た行を採る
+   （以前の find() と同じ答えにするため）。 */
+const index = (rows, keyOf) => {
+  const m = new Map();
+  rows.forEach((r) => {
+    const k = keyOf(r);
+    if (k != null && !m.has(k)) m.set(k, r);
+  });
+  return m;
+};
+let venueIdx = { src: null, byName: new Map() };
+let theaterIdx = { src: null, byName: new Map(), byChain: new Map() };
+function venuesByName() {
+  if (venueIdx.src !== VENUES)
+    venueIdx = { src: VENUES, byName: index(VENUES, (v) => v.venue) };
+  return venueIdx.byName;
+}
+function theaterIndex() {
+  if (theaterIdx.src !== THEATERS) {
+    const byChain = new Map();
+    THEATERS.forEach((t) => {
+      if (!byChain.has(t.chain)) byChain.set(t.chain, []);
+      byChain.get(t.chain).push(t);
+    });
+    theaterIdx = {
+      src: THEATERS,
+      byName: index(THEATERS, (t) => t.name),
+      byChain,
+    };
+  }
+  return theaterIdx;
+}
+
 export function venueMeta(name) {
-  return name ? VENUES.find((v) => v.venue === name) || null : null;
+  return name ? venuesByName().get(name) || null : null;
 }
 export function chainBranches(chain) {
-  return THEATERS.filter((t) => t.chain === chain);
+  return (theaterIndex().byChain.get(chain) || []).slice();
 }
 export function isKnownChain(name) {
-  return THEATERS.some((t) => t.chain === name);
+  return theaterIndex().byChain.has(name);
 }
 export function theaterMeta(name) {
-  return THEATERS.find((t) => t.name === name) || null;
+  return theaterIndex().byName.get(name) || null;
 }
 
 /* マスターから座標を補う。ツアーや長期上映は同じ会場が何行にも出てくるので、

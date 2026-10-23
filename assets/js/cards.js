@@ -741,12 +741,14 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
     ? `<button type="button" class="detail-toggle" data-target="${descId}" data-title="${esc(it.title)}" aria-expanded="false" aria-controls="${descId}" aria-label="${esc(it.title)}のくわしい説明を見る">くわしく ▾</button>`
     : "";
   // 行きたい・共有・カレンダーは「くわしく」と同じ行の右側に置く。
+  // カレンダーのボタンは、予定を組める日付があるときだけ出す（buildIcs が null を返すのと同じ条件。
+  // .ics の本文まで組むと、カード1枚ごとに使わない文字列を作ることになる）。
   // Apple Music の ♪ ボタンは、行きたい（ハート）の左隣に置く。
   const actions = `<div class="card-actions">
       ${appleMusicBtnHtml(it)}
       <button type="button" class="act-btn fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>
       <button type="button" class="act-btn" data-act="share" title="共有" aria-label="${esc(it.title)}を共有する">${ICON.share}</button>
-      ${buildIcs(it) ? `<button type="button" class="act-btn" data-act="cal" title="カレンダーに追加" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(it.title)}をカレンダーに追加する">${ICON.cal}</button>` : ""}
+      ${resolveSpan(it) ? `<button type="button" class="act-btn" data-act="cal" title="カレンダーに追加" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(it.title)}をカレンダーに追加する">${ICON.cal}</button>` : ""}
     </div>`;
   const detail = `<div class="detail-row">${toggle}${actions}</div>
       ${detailBody.trim() ? `<div class="desc" id="${descId}">${detailBody}</div>` : ""}`;

@@ -58,6 +58,7 @@ python3 tools/append_rows_test.py   # upsert（既存uidは増やさず更新）
 python3 tools/roster_test.py        # 行の会場表記から名簿へ収穫を紐づける規則（横取り・取りこぼし）
 python3 tools/clean_workdirs_test.py # temp/・ログ・robots キャッシュの掃除（消してはいけないもの・ロック・routine への結線）
 python3 tools/backfill_parking_test.py # 駐車場の列の追加と、名簿の parking を文から埋める規則（確実なものだけ・上書きしない）
+python3 tools/shell_list_test.py   # sw.js の SHELL と index.html の modulepreload が assets/js の中身と一致するか
 ```
 
 上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。
@@ -126,7 +127,12 @@ done
 
 ### `assets/js/` にモジュールを足す
 
-`sw.js` の `SHELL` 配列に追加し、**`VERSION` を上げる**。上げないと既存の閲覧者に新しいJSが届かない。
+`sw.js` の `SHELL` 配列と、`index.html` の `<link rel="modulepreload">` に追加し、**`VERSION` を上げる**。
+`VERSION` を上げないと、既存の閲覧者に新しいJSが届かない。
+2つの一覧の漏れは `python3 tools/shell_list_test.py` が検出する。
+
+読み込み先（フォント・地図タイルなどの外部オリジン）を足すときは、`index.html`・`terms.html`・`privacy.html` の
+CSP（`Content-Security-Policy` の meta）も直す。直さないと、ブラウザが黙って読み込みを止める（`docs/DESIGN.md` 第10.5節）。
 
 ### 表示を変える
 

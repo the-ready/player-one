@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- index.html と同じ制限（理由は index.html の同じ箇所） -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>プライバシーポリシー｜イベントボード</title>
     <meta
       name="description"

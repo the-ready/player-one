@@ -23,10 +23,14 @@ export function esc(s) {
    相対パス・ルート相対も許可する（自サイト内リンクを将来書けるように）。 */
 const SAFE_SCHEME = /^(https?:|mailto:|tel:)/i;
 export function safeUrl(u) {
-  const s = (u == null ? "" : String(u)).trim();
+  // ブラウザはURLを解釈する前にタブと改行を読み飛ばす。判定も同じ文字列に対して行う
+  // （`java\tscript:` や `/\t/host` が、判定と実際の遷移先で別物に見えないようにするため）
+  const s = (u == null ? "" : String(u)).replace(/[\t\n\r]/g, "").trim();
   if (!s) return null;
   if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return SAFE_SCHEME.test(s) ? s : null;
-  if (s.startsWith("//")) return null; // プロトコル相対は出どころが読めないので落とす
+  // プロトコル相対は出どころが読めないので落とす。ブラウザは `\` を `/` と同じに扱うので、
+  // `/\host` も `//host` と同じく別のサイトを指す
+  if (/^[/\\]{2}/.test(s)) return null;
   return s.startsWith("/") || s.startsWith("./") || s.startsWith("#")
     ? s
     : null;
@@ -257,12 +261,20 @@ export function fold(src) {
   return foldWithMap(src).text;
 }
 
-/** 検索語をAND条件の配列に割る。「横浜 ロック」→ ["よこはま","ろっく"] */
+/** 検索語をAND条件の配列に割る。「横浜 ロック」→ ["よこはま","ろっく"]
+    絞り込みの判定は1行ずつこれを呼ぶ。件数チップの集計まで含めると、1回の描画で数千回になる。
+    検索語は描画のあいだ変わらないので、直前の1件だけを覚えて使い回す。
+    返す配列は共有されるため、呼び出し側では書き換えないこと。 */
+let lastTermsQ = null;
+let lastTerms = [];
 export function searchTerms(q) {
-  return fold(q)
+  if (q === lastTermsQ) return lastTerms;
+  lastTerms = fold(q)
     .split(/[\s　]+/)
     .map((t) => t.trim())
     .filter(Boolean);
+  lastTermsQ = q;
+  return lastTerms;
 }
 
 /**
