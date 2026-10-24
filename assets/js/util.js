@@ -215,8 +215,15 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
    文字単位（半角カナ＋濁点は2文字で1単位）で畳んで対応表を作る。
    全体を一括で normalize すると "ﾃﾞ"(2文字) → "デ"(1文字) のような
    長さの変化で位置がずれ、ハイライトが1文字ずつ後ろへ流れていく。 */
-const HALFWIDTH_KANA = /[ｦ-ﾝ]/;
-const VOICED_MARK = /[ﾞﾟ]/;
+// 半角カナ（ｦ〜ﾝ）と、半角の濁点・半濁点（ﾞﾟ）。1文字ずつ見るので、正規表現ではなく符号位置で比べる
+const isHalfwidthKana = (c) => c >= 0xff66 && c <= 0xff9d;
+const isVoicedMark = (c) => c === 0xff9e || c === 0xff9f;
+
+/* 畳み込みは1単位ごとに決まる（前後の文字に左右されない）ので、単位ごとに覚えておく。
+   読み込み時と日付をまたいだときに、全行（約1,400行）の検索用文字列をまとめて畳むが、
+   NFKC と置換を1文字ずつ毎回かけると、遅い端末ではそれだけで数百msかかる。
+   日本語の文はおなじ文字の繰り返しが多く、出てくる単位は数千種類に収まる。 */
+const foldCache = new Map();
 
 function foldUnit(u) {
   let s = u.normalize("NFKC").toLowerCase();
@@ -239,14 +246,18 @@ export function foldWithMap(src) {
       consumed = 1;
     // 半角カナ＋濁点/半濁点は2文字で1文字ぶん。先に合成しないと "ﾃﾞ" が "て゛" になる
     if (
-      HALFWIDTH_KANA.test(unit) &&
+      isHalfwidthKana(s.charCodeAt(i)) &&
       i + 1 < s.length &&
-      VOICED_MARK.test(s[i + 1])
+      isVoicedMark(s.charCodeAt(i + 1))
     ) {
       unit = s[i] + s[i + 1];
       consumed = 2;
     }
-    const folded = foldUnit(unit);
+    let folded = foldCache.get(unit);
+    if (folded === undefined) {
+      folded = foldUnit(unit);
+      foldCache.set(unit, folded);
+    }
     for (const ch of folded) {
       text += ch;
       map.push(i);
