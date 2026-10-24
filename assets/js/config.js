@@ -554,10 +554,10 @@ export const TABS = {
     // カテゴリとは別軸の「形態」ピル。イベントは持たない
     type: null,
     cta: {
-      suffix: "で予約する",
-      fallback: "予約ページを開く",
-      ariaWith: "で予約する",
-      ariaWithout: "予約ページを開く",
+      suffix: "で確認する",
+      fallback: "確認ページを開く",
+      ariaWith: "で確認する",
+      ariaWithout: "確認ページを開く",
     },
     officialLabel: "公式サイトを見る",
     additionalLabel: "追加開催",

@@ -699,7 +699,7 @@ def validate_main(name, rows, enums, rep):
         source_val = (r.get("source") or "").strip()
         if source_val and source_val.startswith(("http://", "https://")):
             rep.warn(where, "source がURLになっています。サイト名を書いてください"
-                            "（ダッシュボードでは「{source}で予約する」のようなボタンラベルに使われます）")
+                            "（ダッシュボードでは「{source}で確認する」のようなボタンラベルに使われます）")
 
         # 座標。関東以外（pref=other）には関東の矩形を当てない（coord_ranges 参照）
         lat_range, lng_range = coord_ranges(pref)

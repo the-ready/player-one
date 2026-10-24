@@ -55,7 +55,7 @@ export const ICON = {
   cal: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>`,
 };
 
-// source が空だと「で予約する」のように動詞だけが残るので、その場合は主語なしの文言にする。
+// source が空だと「で確認する」のように動詞だけが残るので、その場合は主語なしの文言にする。
 const ctaLabel = (source, cta) =>
   source ? `${source}${cta.suffix}` : cta.fallback;
 const ctaAria = (title, source, cta) =>
@@ -63,7 +63,7 @@ const ctaAria = (title, source, cta) =>
     ? `${title}を${source}${cta.ariaWith}`
     : `${title}の${cta.ariaWithout}`;
 
-/* 出典名（it.source）は go-btn のラベル（「◯◯公式で予約する」）に既に出ているので、
+/* 出典名（it.source）は go-btn のラベル（「◯◯公式で確認する」）に既に出ているので、
    meta 欄にもう一度プレーンテキストで出すと同じ名前が2回現れる。
    代わりにこの行では「公式サイトを見る」のリンクを出す。official_url が url と
    同じ行では、同じ遷移先のリンクがカードに2つ並ぶので出さない。 */
