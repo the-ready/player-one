@@ -59,6 +59,7 @@ python3 tools/roster_test.py        # 行の会場表記から名簿へ収穫を
 python3 tools/clean_workdirs_test.py # temp/・ログ・robots キャッシュの掃除（消してはいけないもの・ロック・routine への結線）
 python3 tools/backfill_parking_test.py # 駐車場の列の追加と、名簿の parking を文から埋める規則（確実なものだけ・上書きしない）
 python3 tools/shell_list_test.py   # sw.js の SHELL と index.html の modulepreload が assets/js の中身と一致するか
+python3 tools/lineup_carry_test.py # フェスの日割りが週をまたいで消えないこと（持ち越し・差し替え・失ったら diff_data が止める）
 ```
 
 上の一覧は手で並べているため漏れる（実際 `diff_data_test.py` と `festival_gate_test.py` が漏れていた）。

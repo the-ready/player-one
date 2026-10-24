@@ -223,14 +223,38 @@ def _still_carried_verbatim(prev_row, cur_row):
     return True
 
 
-def diff_one(name):
+def lineup_lost(prev, cur, today):
+    """前回は日割りを持っていたのに、今回 `lineup_id` が外れた、まだ終わっていないフェス。
+
+    外れた行はカードから「全◯組の日程を見る」ボタンが消え、ラインナップにしか無い
+    出演者名でも検索に当たらなくなる。しかも validate_data.py は素通りする（参照先の
+    無い `lineup_id` が無いので、不整合が無い）。2026-10-23 の lives 収集では、開催前の
+    4本すべてがこの形で日割りを失ったまま公開された（`docs/routine-postmortems.md`）。
+    出演者の発表が取り下げられることはまず無いので、外れたら事故として扱う。
+    """
+    out = []
+    for u, new in cur.items():
+        old = prev.get(u)
+        if not old:
+            continue
+        was = (old.get("lineup_id") or "").strip()
+        now = (new.get("lineup_id") or "").strip()
+        end = (new.get("end_date") or new.get("start_date") or "").strip()
+        if was and not now and (not end or end >= today.isoformat()):
+            out.append({"uid": u, "title": new.get("title", ""), "lineup_id": was,
+                        "date": new.get("start_date", "")})
+    return out
+
+
+def diff_one(name, today=None):
+    today = today or date.today()
     prev_rows, source = load_prev(name)
     cur_rows = read_current(name)
     result = {
         "dataset": name, "prev_source": source,
         "prev_count": len(prev_rows), "current_count": len(cur_rows),
         "added": [], "gone": [], "changed": [], "rename_candidates": [],
-        "unexplained": [], "carried_unverified": [],
+        "unexplained": [], "carried_unverified": [], "lineup_lost": [],
     }
     if not prev_rows:
         result["note"] = "前回データなし（初回実行）"
@@ -299,6 +323,9 @@ def diff_one(name):
     # 「受付が次の段階に進んだ」ように読める——前回分を調査の前に書き戻す工程順では、これが
     # 受付を持つ全行に出る。空回りの検査（is_noop）も、この見かけの変更で素通りしてしまう。
     # 書き直した行は pending から外れているので、ここに来るのは本当に触っていない行だけである。
+    if name == "lives.csv":
+        result["lineup_lost"] = lineup_lost(prev, cur, today)
+
     pending = load_unverified_pending(name)
     for u, new in cur.items():
         old = prev.get(u)
@@ -373,6 +400,16 @@ def print_human(res):
                 tail += "（今回のデータに見当たりません。uidを確認してください）"
         print(f"    - {g['uid']} {g['title'][:36]} [{label}]{tail} {g['note'][:40]}")
 
+    if res.get("lineup_lost"):
+        print(f"\n  ERROR: 日割り（lineups.csv）を失ったフェスが {len(res['lineup_lost'])}件あります。"
+              "カードの「全◯組の日程を見る」が消えます。")
+        for x in res["lineup_lost"]:
+            print(f"    ! {x['uid']} {x['date']} {x['title'][:36]}（前回 lineup_id={x['lineup_id']}）")
+        print("  prev_rows.py lives --carry-rest は前回分の日割りを戻すので、通常は起きません。")
+        print("  append_lineup.py --init のあとに書き戻しを通したか、data/.prev/lineups.csv が")
+        print("  あるかを確かめてください。公式が出演者の発表を取り下げたと確認できたときだけ")
+        print("  --allow-lineup-loss を付けて通してください。")
+
     if res["unexplained"]:
         print(f"\n  ERROR: 説明のない消滅が {len(res['unexplained'])}件あります。")
         print("  前回あった行が今回無いのは「終了した」か「見つけられなかった」のどちらかです。")
@@ -437,6 +474,9 @@ def main():
                    help="説明のない消滅があっても終了コード0にする（調査途中の確認用）")
     p.add_argument("--allow-noop", action="store_true",
                    help="収穫が0件でも終了コード0にする（調査途中の確認用）")
+    p.add_argument("--allow-lineup-loss", action="store_true",
+                   help="まだ終わっていないフェスが日割りを失っても終了コード0にする"
+                        "（公式が出演者の発表を取り下げたと確認できたときだけ）")
     p.add_argument("--today", type=_parse_today, help="基準日 YYYY-MM-DD（試験用。既定は今日）")
     args = p.parse_args()
 
@@ -445,12 +485,13 @@ def main():
     names = [resolve_dataset(args.dataset)] if args.dataset else \
             ["events.csv", "lives.csv", "movies.csv"]
 
-    results, bad, noop = [], 0, []
+    results, bad, noop, lost = [], 0, [], 0
     for n in names:
-        res, unexplained = diff_one(n)
+        res, unexplained = diff_one(n, today)
         res["noop"] = is_noop(res, today)
         results.append(res)
         bad += unexplained
+        lost += len(res.get("lineup_lost", []))
         if res["noop"]:
             noop.append(n)
 
@@ -462,8 +503,11 @@ def main():
         print(f"\n合計: 説明のない消滅 {bad}件")
         if noop:
             print(f"      収穫0件のデータセット {len(noop)}件: {', '.join(noop)}")
+        if lost:
+            print(f"      日割りを失ったフェス {lost}件")
 
-    if (bad and not args.allow_unexplained) or (noop and not args.allow_noop):
+    if ((bad and not args.allow_unexplained) or (noop and not args.allow_noop)
+            or (lost and not args.allow_lineup_loss)):
         return 1
     return 0
 

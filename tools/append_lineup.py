@@ -5,9 +5,12 @@
 
 `append_rows.py` は本体3ファイル用で、`id` の採番・前回値の持ち越し・uid での
 突き合わせを持つ。ラインナップにはそのどれも要らない——このファイルは
-「どの日に誰が出るか」を公式の発表からそのまま写すだけで、**前回値を持ち越して
-よい列が1つも無い**（出演者は追加され、キャンセルされ、日割りは後から確定する。
-持ち越しは、いなくなったアーティストを載せ続ける仕組みになる）。
+「どの日に誰が出るか」を公式の発表からそのまま写すだけで、**行の中で前回値を
+継ぎ足してよい列が1つも無い**（出演者は追加され、キャンセルされ、日割りは後から
+確定する）。そのため、フェスを調べ直したときは、そのフェスの日割りを丸ごと今週分に
+差し替える。調べ直さなかったフェスは、公演行と同じく前回分をそのまま持ち越す
+（`prev_rows.py` の「日割りの持ち越し」。2026-10-23 に、持ち越さなかったせいで
+開催前の4本すべての日割りが消えた）。
 
 代わりにこのツールは、手でCSVを書くときに必ず起きる事故を引き受ける。
 
@@ -17,7 +20,8 @@
 
 ## 使い方
 
-    # 書き始める前に1回。lineups.csv をヘッダーだけにする
+    # 書き始める前に1回。lineups.csv をヘッダーだけにする（前回分は data/.prev/ に退避され、
+    # 調べ直さなかったフェスのぶんは prev_rows.py --carry-rest が戻す）
     python3 tools/append_lineup.py --init
 
     # フェス1本ぶんを、公式の並び順のままJSONLで流し込む
@@ -71,6 +75,7 @@ DATA = os.path.join(ROOT, "data")
 # append_rows.py と同じく列の定義を validate_data.py と1か所で共有できる。
 import budget
 import append_rows
+import prev_rows
 from validate_data import EXPECTED_HEADERS
 
 NAME = "lineups.csv"
@@ -108,9 +113,16 @@ def existing_lineup_ids():
 
 
 def init_file():
+    # 切り詰める前に `.prev/` へ退避する。`prev_rows.py --carry-rest` が、今週まだ
+    # 調べていないフェスの日割りをここから戻す（prev_rows.py の「日割りの持ち越し」）。
+    kept = prev_rows.snapshot_lineups(PATH)
     with open(PATH, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(HEADERS)
-    print(f"{NAME} をヘッダーのみに初期化しました")
+    if kept:
+        print(f"{NAME} をヘッダーのみに初期化しました（前回の{kept}行を data/.prev/ に退避）")
+    else:
+        print(f"{NAME} をヘッダーのみに初期化しました"
+              "（直前も0行だったため、data/.prev/ の前回分は温存）")
 
 
 def parse_jsonl_stdin():
@@ -178,7 +190,43 @@ def validate_records(records, known):
             )
 
 
+def drop_carried(records):
+    """今週書き直すフェスのうち、前回分から持ち越した日割りを取り除く。
+
+    `--carry-rest` は、調べ直していないフェスの日割りを前回分から戻す。そのフェスを
+    今週あらためて書くときに追記すると、前回分と今週分が二重に並ぶ。だから先に
+    前回分を丸ごと外す。外したフェスは持ち越しの記録から消す。こうしておけば、
+    同じフェスを日ごとに分けて書いても、2回目以降は今週分への追記になる。
+    返り値は外した {lineup_id: 行数}。
+    """
+    carried = prev_rows.load_carried_lineups()
+    replace = {(r.get("lineup_id") or "").strip() for r in records} & carried
+    if not replace or not os.path.exists(PATH):
+        return {}
+    with open(PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    dropped = {}
+    keep = []
+    for r in rows:
+        lid = (r.get("lineup_id") or "").strip()
+        if lid in replace:
+            dropped[lid] = dropped.get(lid, 0) + 1
+        else:
+            keep.append(r)
+    with open(PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(HEADERS)
+        for r in keep:
+            w.writerow([r.get(h, "") or "" for h in HEADERS])
+    prev_rows.save_carried_lineups(carried - replace)
+    return dropped
+
+
 def write_records(records):
+    dropped = drop_carried(records)
+    if dropped:
+        print("前回から持ち越していた日割りを、今週分で差し替えます（"
+              + "／".join(f"{k} {v}行" for k, v in dropped.items()) + "）")
     exists = os.path.exists(PATH)
     with open(PATH, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

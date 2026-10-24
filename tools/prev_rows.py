@@ -845,13 +845,146 @@ def _live_lineup_ids():
     「対応する行が lineups.csv に1件もありません」でERRORにする。打ち切られた
     実行では、公演行だけ前回分・日割りは未収集という組み合わせが普通に起きる。
     **持ち越しが検証を落とすなら、持ち越す意味が無い**ので、参照先を失った
-    `lineup_id` は落として書き戻す（日割りは翌週あらためて集め直せばよい）。
+    `lineup_id` は落として書き戻す。ただし、前回分から日割りを戻せるもの
+    （`prev_lineup_rows`）は参照先があるとみなし、戻したうえで `lineup_id` を保つ。
     """
     path = os.path.join(DATA, "lineups.csv")
     if not os.path.exists(path):
         return set()
     with open(path, newline="", encoding="utf-8") as f:
         return {(r.get("lineup_id") or "").strip() for r in csv.DictReader(f)} - {""}
+
+
+# ---------------------------------------------------------------- 日割りの持ち越し
+#
+# `append_lineup.py --init` は `lineups.csv` をヘッダーだけにする。一方で
+# `--carry-rest` は、今週まだ調べていないフェスの行も前回値のまま書き戻す。
+# 日割りだけを持ち越さないと、書き戻したフェスの行は参照先を失う。そのため
+# `lineup_id` が外され、カードから「全◯組の日程を見る」ボタンが消える。
+# 2026-10-23 の lives 収集では、4本のフェスの日割りを1本も調べ直さないまま終わった。
+# その結果、開催前の4本すべてから日割り（91行）とボタンが消えた
+# （`docs/routine-postmortems.md`）。
+#
+# そこで、公演行と同じ規則で日割りも持ち越す。書き戻すフェス行が参照する日割りは、
+# `--init` の直前に退避した前回分から戻す。戻した `lineup_id` は記録しておき、
+# 今週そのフェスを調べ直して `append_lineup.py` が書くときに、前回分を丸ごと
+# 差し替える（追記すると、前回分と今週分が二重に並ぶ）。
+# 持ち越すのは「前回、公式の発表から写した日割り」そのものであり、推測は混ざらない。
+# 出演キャンセルが1週遅れて反映されうるのは、公演行の持ち越しと同じ性質である。
+# 画面の注記（出演は予告なく変更・中止になることがある）もそれを前提にしている。
+
+LINEUPS_NAME = "lineups.csv"
+
+
+def lineups_snapshot_path():
+    return os.path.join(PREV, LINEUPS_NAME)
+
+
+def lineups_meta_path():
+    return os.path.join(PREV, "lineups.meta.json")
+
+
+def lineups_carried_path():
+    """今週、前回分から戻した `lineup_id` の一覧。`append_lineup.py` が差し替えに使う。"""
+    return os.path.join(PREV, "lineups.carried.json")
+
+
+def _read_lineup_rows(path):
+    if not os.path.exists(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return [r for r in csv.DictReader(f) if (r.get("lineup_id") or "").strip()]
+
+
+def snapshot_lineups(lineups_path, today=None):
+    """`append_lineup.py --init` が切り詰める直前の日割りを `.prev/` に退避する。
+
+    直前がヘッダーだけ（同じ回の再 `--init`）なら、退避済みの本物を空で上書きしない
+    （`take_snapshot` と同じ理由）。持ち越しの記録はどちらの場合も消す。記録は
+    「この回に戻したもの」なので、新しい回の着手で数え直すのが正しい。
+    返り値は退避した行数。退避しなかったときは None を返す。
+    """
+    today = today or date.today()
+    if os.path.exists(lineups_carried_path()):
+        os.remove(lineups_carried_path())
+    rows = _read_lineup_rows(lineups_path)
+    if not rows:
+        return None
+    os.makedirs(PREV, exist_ok=True)
+    headers = EXPECTED_HEADERS[LINEUPS_NAME]
+    with open(lineups_snapshot_path(), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(headers)
+        for r in rows:
+            w.writerow([r.get(h, "") or "" for h in headers])
+    with open(lineups_meta_path(), "w", encoding="utf-8") as f:
+        json.dump({"taken_at": today.isoformat(), "rows": len(rows)}, f)
+    return len(rows)
+
+
+def prev_lineup_rows(today):
+    """退避した前回の日割りを `lineup_id` ごとに返す（CSVの並び＝出演順を保つ）。
+
+    退避がこの回のもの（今日か前日。実行は日をまたぐ）でなければ使わない。
+    `lineups.csv` を `--init` していない回に、何週も前の日割りを掘り返さないためである。
+    """
+    try:
+        with open(lineups_meta_path(), encoding="utf-8") as f:
+            taken = date.fromisoformat(json.load(f)["taken_at"])
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return {}
+    if taken not in (today, today - timedelta(days=1)):
+        return {}
+    out = {}
+    for r in _read_lineup_rows(lineups_snapshot_path()):
+        out.setdefault(r["lineup_id"].strip(), []).append(r)
+    return out
+
+
+def load_carried_lineups():
+    try:
+        with open(lineups_carried_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return {str(x) for x in data} if isinstance(data, list) else set()
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+
+def save_carried_lineups(lids):
+    os.makedirs(PREV, exist_ok=True)
+    with open(lineups_carried_path(), "w", encoding="utf-8") as f:
+        json.dump(sorted(lids), f, ensure_ascii=False)
+
+
+def restore_lineups(lids, today):
+    """書き戻すフェス行が参照する日割りを、前回分から `lineups.csv` に戻す。
+
+    いま `lineups.csv` に1行でもある `lineup_id` は戻さない（今週すでに書かれている）。
+    返り値は {lineup_id: 戻した行数}。
+    """
+    path = os.path.join(DATA, LINEUPS_NAME)
+    have = {r["lineup_id"].strip() for r in _read_lineup_rows(path)}
+    snap = prev_lineup_rows(today)
+    todo = [lid for lid in sorted(lids) if lid not in have and lid in snap]
+    if not todo:
+        return {}
+    headers = EXPECTED_HEADERS[LINEUPS_NAME]
+    exists = os.path.exists(path)
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if not exists:
+            w.writerow(headers)
+        for lid in todo:
+            for r in snap[lid]:
+                w.writerow([r.get(h, "") or "" for h in headers])
+    save_carried_lineups(load_carried_lineups() | set(todo))
+    return {lid: len(snap[lid]) for lid in todo}
+
+
+def _carry_lineup_plan(records, today):
+    """書き戻す行のうち、前回分から日割りを戻せば `lineup_id` を保てるもの。"""
+    want = {(o.get("lineup_id") or "").strip() for o in records} - {""}
+    return want - _live_lineup_ids()
 
 
 def _build_carry_obj(row, lineups):
@@ -917,7 +1050,8 @@ def cmd_carry_rest(name, rows, args):
 
     current = _current_uids(name)
     disposed = load_dispositions(name)
-    lineups = _live_lineup_ids()
+    # 参照先として認めるのは、いまの lineups.csv にあるものと、前回分から戻せるもの
+    lineups = _live_lineup_ids() | set(prev_lineup_rows(today))
 
     carried, expired = [], []
     for r in rows:
@@ -949,6 +1083,10 @@ def cmd_carry_rest(name, rows, args):
 
     print(f"# {name}: 書き戻し {len(records)}件 / 終了済み {len(expired)}件を expired で処分",
           file=sys.stderr)
+    lineup_plan = _carry_lineup_plan(records, today)
+    if lineup_plan:
+        print(f"# {name}: 日割り {len(lineup_plan)}本を前回分から戻します"
+              f"（{', '.join(sorted(lineup_plan))}）", file=sys.stderr)
 
     if not args.apply:
         for obj in records:
@@ -957,6 +1095,11 @@ def cmd_carry_rest(name, rows, args):
 
     if not records:
         return 0
+    # 日割りを先に戻す（append_lineup.py --rows と同じく lineups.csv → lives.csv の順）
+    restored = restore_lineups(lineup_plan, today)
+    if restored:
+        print(f"# {name}: 日割りを前回分から戻しました（"
+              + "／".join(f"{k} {v}行" for k, v in restored.items()) + "）", file=sys.stderr)
     # 追記は append_rows.py に通す。id の採番・固定列の持ち越し・列挙値の検証・
     # 名簿の収穫記録は、あちらに1か所だけ置いてある規則である。ここで書き込みを
     # 真似ると、その規則が2か所に分かれる。
@@ -1191,8 +1334,13 @@ def cmd_dispose(name, rows, args):
     # （DISPOSITIONS["notfound"] の説明・`docs/COLLECTION-PROTOCOL.md` 第5節参照）。
     notfound = [r for r in recs if r.get("status") == "notfound"]
     if notfound:
-        lineups = _live_lineup_ids()
+        lineups = _live_lineup_ids() | set(prev_lineup_rows(today))
         carry_objs = [_build_carry_obj(known[r["uid"]], lineups) for r in notfound]
+        # cmd_carry_rest と同じく、参照する日割りを前回分から戻してから行を書く
+        restored = restore_lineups(_carry_lineup_plan(carry_objs, today), today)
+        if restored:
+            print("  日割りを前回分から戻しました（"
+                  + "／".join(f"{k} {v}行" for k, v in restored.items()) + "）", file=sys.stderr)
         payload = "".join(json.dumps(o, ensure_ascii=False) + "\n" for o in carry_objs)
         proc = subprocess.run(
             [sys.executable, os.path.join(ROOT, "tools", "append_rows.py"), args.dataset],
