@@ -45,6 +45,8 @@ import {
   setFavSecMoreOpen,
   favArtistCount,
   pinFavArtists,
+  isArtHintSeen,
+  markArtHintSeen,
   isArtSecFolded,
   setArtSecFolded,
   isArtSecMoreOpen,
@@ -56,9 +58,14 @@ import {
   favChainGroups,
   chainNamesOf,
 } from "./spots.js";
-import { favArtistsOf, isFavArtistItem, isNewSinceVisit } from "./artists.js";
+import {
+  favArtistsOf,
+  isFavArtistItem,
+  isNewSinceVisit,
+  performersOf,
+} from "./artists.js";
 import { schedulePhase } from "./schedule.js";
-import { refitCard, watchGrid } from "./grid-fit.js";
+import { fitGrid, refitCard, watchGrid } from "./grid-fit.js";
 
 /* ---------- 通知（共有のフォールバックなど） ---------- */
 export function toast(msg) {
@@ -165,13 +172,24 @@ export function renderList() {
   const card = (e) => cardHtml(tab, e.rep, st, terms, e.members);
   setListHtml(
     listEl,
-    favBlocks || artBlocks
-      ? favListHtml(tab, st, entries, chainRows, card, {
-          spot: favBlocks,
-          artist: artBlocks,
-        })
-      : entries.map(card).join(""),
+    artHintHtml(entries) +
+      (favBlocks || artBlocks
+        ? favListHtml(tab, st, entries, chainRows, card, {
+            spot: favBlocks,
+            artist: artBlocks,
+          })
+        : entries.map(card).join("")),
   );
+}
+
+/* 人のボタンの使い方の案内。人の形は「アカウント」に読めて、お気に入りの入口だと気づかれにくい
+   ので、まだ1人も登録しておらず、案内を閉じてもいない人にだけ、一覧の先頭に1度だけ出す。
+   登録した時点で（state.js の setFavArtist が）既読にするので、使い方を知った人には二度と出ない。
+   人のボタンを持つ行が一覧に無いとき（出演者のいない絞り込み結果など）は、指す相手が無いので出さない。 */
+function artHintHtml(entries) {
+  if (isArtHintSeen() || favArtistCount() > 0) return "";
+  if (!entries.some((e) => performersOf(e.rep).size > 0)) return "";
+  return `<div class="art-hint" role="note"><span class="ah-ico" aria-hidden="true">${PERSON_ICON}</span><p>出演者の横の<b>人のマーク</b>を押すと、お気に入りアーティストに登録できます。登録した人が出る公演は、一覧の先頭にまとまります。</p><button type="button" class="mini-btn" data-art-hint="close">わかった</button></div>`;
 }
 
 /* 一覧の差し替えは、組み立てたHTMLが前回と同じなら行わない。
@@ -445,6 +463,32 @@ export function bindList(
       onToggleSpot(star.dataset.star);
       return;
     }
+    const hint = e.target.closest("button[data-art-hint]");
+    if (hint) {
+      markArtHintSeen();
+      hint.closest(".art-hint")?.remove();
+      // 詰めて並べたカードの位置は案内の高さを見込んでいるので、消したあとに引き直す
+      fitGrid(listEl);
+      // 押したボタンごと案内が消えるので、フォーカスを行き場のある所へ移す
+      listEl.querySelector(".art-btn")?.focus({ preventScroll: true });
+      return;
+    }
+    // 「ほか◯組」。「くわしく」を開いて、隠れていた人の一覧へ移る
+    const moreOpen = e.target.closest("button[data-more-open]");
+    if (moreOpen) {
+      const card = moreOpen.closest(".card");
+      const opener = card && card.querySelector(".detail-toggle");
+      if (!opener) return;
+      if (opener.getAttribute("aria-expanded") !== "true") opener.click();
+      const calm = window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      card.querySelector(".art-detail")?.scrollIntoView({
+        block: "nearest",
+        behavior: calm ? "auto" : "smooth",
+      });
+      return;
+    }
     const person = e.target.closest("button[data-artist]");
     if (person) {
       onToggleArtist(person.dataset.artist);
@@ -702,9 +746,11 @@ function pinChipHtml() {
 }
 /* お気に入りアーティストは、登録の入口がカードの人のボタンだけだと、まだ公演がデータに無い人
    （発表待ち）を登録できない。管理シートを、お気に入りが空でも開ける場所に置く。
-   押すと状態が変わるチップではなく、シートを開くだけのボタンなので .chip にはしない。 */
+   押すと状態が変わるチップではなく、シートを開くだけのボタンなので .chip にはしない。
+   絞り込みのチップと同じ丸い形だと、押すと絞り込まれるように見えるので、「›」を付けた
+   別の形（.manage-link）にして、別の画面が開くことが形で分かるようにする。 */
 function manageArtistsBtnHtml() {
-  return `<button type="button" class="chip-btn" data-manage-artists="1">お気に入りアーティストを登録・管理</button>`;
+  return `<button type="button" class="manage-link" data-manage-artists="1">${PERSON_ICON}<span>お気に入りアーティストを登録・管理</span><span aria-hidden="true">›</span></button>`;
 }
 
 export function renderFilterChips() {

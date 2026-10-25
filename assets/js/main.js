@@ -2,6 +2,7 @@
 
 import { TABS, TAB_ORDER } from "./config.js";
 import {
+  ITEMS,
   LOAD,
   loadTab,
   loadTheaters,
@@ -26,6 +27,10 @@ import {
   setPinFavSpots,
   pinFavArtists,
   setPinFavArtists,
+  setFavSecFolded,
+  setFavSecMoreOpen,
+  setArtSecFolded,
+  setArtSecMoreOpen,
   setPlaceFilter,
   rememberTab,
   recalledTab,
@@ -36,6 +41,7 @@ import {
 } from "./state.js";
 import {
   refreshNow,
+  visibleItems,
   renderDirectories,
   syncUpdatedLabel,
   bindList,
@@ -84,6 +90,9 @@ import {
   closeFavSheet,
   isFavSheetOpen,
   onFavReflow,
+  showToast,
+  hideToast,
+  scrollToElement,
 } from "./ui-favspot.js";
 import {
   initFavArtists,
@@ -129,7 +138,7 @@ export function setActiveTab(tab, opts = {}) {
   if (isLineupSheetOpen()) closeLineupSheet();
   if (isCalAddSheetOpen()) closeCalAddSheet();
   if (isFavSheetOpen()) closeFavSheet();
-  if (isArtistSheetOpen()) closeArtistSheet();
+  if (isArtistSheetOpen()) closeArtistSheet({ noBack: true });
   if (isArtistManageOpen()) closeArtistManage();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
@@ -145,6 +154,70 @@ export function setActiveTab(tab, opts = {}) {
     toast(
       `${dropped.map((d) => `「${d}」`).join("")}は${TABS[tab].label}に無い条件のため、引き継げませんでした`,
     );
+}
+
+/* ---------- 出演予定のシートの公演 → そのカード ----------
+   行を押したら、シートを閉じてその公演のカードまで移り、少しのあいだ目立たせる。
+   別のタブの公演ならタブも切り替える。カードが見つからないときは理由で分ける:
+     先頭セクションのたたみ・「ほか◯件」の裏にいる → 広げて描き直す
+     いまの絞り込みで隠れている                   → そう伝え、外すボタンを出す
+   どちらでもなければ（描画の途中でデータが入れ替わったなど）、何も起こさず黙る。 */
+const cardIn = (tabKey, key) => {
+  const list = document.getElementById(TABS[tabKey].listId);
+  return (
+    (list &&
+      [...list.querySelectorAll(".card")].find((c) => c.dataset.key === key)) ||
+    null
+  );
+};
+
+function flashCard(card) {
+  scrollToElement(card);
+  card.classList.add("card-flash");
+  // 読み上げ・キーボードの利用者にも、着いた先が分かるようにフォーカスを置く
+  card.tabIndex = -1;
+  card.focus({ preventScroll: true });
+  card.addEventListener("blur", () => card.removeAttribute("tabindex"), {
+    once: true,
+  });
+  setTimeout(() => card.classList.remove("card-flash"), 2600);
+}
+
+function showCard(tabKey, key, again) {
+  let card = cardIn(tabKey, key);
+  if (!card && visibleItems(tabKey).some((it) => it.key === key)) {
+    // 見たい公演がたたまれた先頭セクションの中にあるので、そのタブのセクションを広げる
+    setFavSecFolded(tabKey, false);
+    setArtSecFolded(tabKey, false);
+    setFavSecMoreOpen(tabKey, true);
+    setArtSecMoreOpen(tabKey, true);
+    refreshNow({ url: false });
+    card = cardIn(tabKey, key);
+  }
+  if (card) {
+    flashCard(card);
+    return;
+  }
+  const exists = ITEMS[tabKey].some((it) => it.key === key);
+  if (!exists || !again) return;
+  showToast("この公演は、いまの絞り込みで隠れています。", [
+    {
+      label: "絞り込みをすべて外す",
+      primary: true,
+      run: () => {
+        hideToast();
+        resetFilters();
+        showCard(tabKey, key, false);
+      },
+    },
+    { label: "とじる", run: hideToast },
+  ]);
+}
+
+function goToItem(tabKey, key) {
+  if (!TABS[tabKey]) return;
+  if (tabKey !== activeTab) setActiveTab(tabKey);
+  showCard(tabKey, key, true);
 }
 
 function initTabs() {
@@ -230,7 +303,10 @@ async function boot() {
   initLineupSheet();
   initCalAddSheet();
   initFavSpots();
-  initFavArtists();
+  initFavArtists({ onGoToItem: goToItem });
+  document
+    .getElementById("artistEntry")
+    ?.addEventListener("click", () => openArtistManage());
   onFavReflow(renderVenueList);
   initControls();
   initTabs();

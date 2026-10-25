@@ -10,11 +10,16 @@
    どの人にも当たらない。タイトルから名前を拾うと、`HANA` が `HANABI` の公演に当たるような
    取り違えが起きるため、推測では補わない（設計書 第7.2.3節）。 */
 
-import { artistKey, artistHead } from "./util.js";
+import { artistKey, artistHead, fold } from "./util.js";
 import { TAB_ORDER } from "./config.js";
 import { ITEMS, LOAD, lineupRows, lineupArtistNames } from "./data.js";
 import { TODAY, activeGuests } from "./schedule.js";
-import { favArtistCount, favArtistByKey, favArtistRev } from "./state.js";
+import {
+  favArtistCount,
+  favArtistByKey,
+  favArtistRev,
+  cleanArtistName,
+} from "./state.js";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const EMPTY = Object.freeze([]);
@@ -212,4 +217,47 @@ export function knownArtists(isLive) {
     }),
   );
   return [...m.values()];
+}
+
+/* ---------- 管理シートの手入力 ----------
+   打った文字に合う候補と、Enter（「追加」）が何をするか。画面に触れない純粋な関数にして、
+   DOM なしで試せるようにしている（tools/fav_artists_test.mjs）。 */
+
+// かな・全角半角・大小の違いと空白は、検索と同じ畳み込みで吸収する
+const squash = (s) => fold(s).replace(/\s+/g, "");
+
+/** 打った文字に合う候補。すでに登録した人は出さない。前方が合うものを先に、
+    同じ並びの中では予定の多い人を先に、最後は五十音順。 */
+export function suggestArtists(query, known, isFav, limit = 8) {
+  const q = squash(query);
+  if (!q) return [];
+  return known
+    .map((k) => ({ k, f: squash(k.name) }))
+    .filter(({ k, f }) => f.includes(q) && !isFav(k.name))
+    .sort(
+      (a, b) =>
+        Number(b.f.startsWith(q)) - Number(a.f.startsWith(q)) ||
+        b.k.count - a.k.count ||
+        a.f.localeCompare(b.f, "ja"),
+    )
+    .slice(0, limit)
+    .map(({ k }) => k);
+}
+
+/* Enter（「追加」）の動き。打ちかけの文字がそのまま登録されると、名前は完全一致でしか
+   当たらないので、その人の公演がずっと先頭に出なくなる。だから、
+     データにある名前と同じ → その名前を登録（登録済みなら、そう伝える）
+     候補がある             → 先頭の候補を登録
+     どちらも無い           → 登録しない。「この名前のまま登録」を明示的に押してもらう
+   データに無い名前（発表前の人）は、押し間違いでなく意図して登録したものにするため。 */
+export function planAdd(raw, known, isFav) {
+  const text = String(raw == null ? "" : raw);
+  const typed = cleanArtistName(text);
+  if (!typed) return { kind: text.trim() ? "invalid" : "empty" };
+  const key = artistKey(typed);
+  const exact = known.find((k) => k.key === key);
+  if (exact) return { kind: "add", name: exact.name, typed };
+  const first = suggestArtists(typed, known, isFav, 1)[0];
+  if (first) return { kind: "add", name: first.name, typed };
+  return { kind: "raw", typed };
 }

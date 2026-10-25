@@ -1029,7 +1029,7 @@ console.log("\n--- カードの部品 ---");
   const line = (c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0];
   check(
     "共演は4組まで並び、残りは「ほか2組」に畳む",
-    (line.match(/class="art-item"/g) || []).length === 4 &&
+    (line.match(/class="art-item[ "]/g) || []).length === 4 &&
       line.includes("ほか2組"),
   );
   check(
@@ -1324,6 +1324,217 @@ console.log("\n--- 手入力の候補 ---");
     !!get("U-KNOW") && get("U-KNOW").name === "U-KNOW",
   );
   check("表記ゆれ（Knosis/knosis）は1件にまとまる", get("knosis").count === 2);
+}
+
+/* ================= 8b. 手入力の動き・案内・カードの導線 ================= */
+console.log("\n--- 手入力の動き・案内・カードの導線 ---");
+{
+  resetAll();
+  const known = A.knownArtists((it) => !F.hasEnded(it));
+  const isFav = ST.isFavArtist;
+  const sug = (q, k = known) =>
+    A.suggestArtists(q, k, isFav).map((x) => x.name);
+
+  check(
+    "候補: 大文字小文字・全角半角を問わず当たる",
+    eq(sug("saucy"), ["Saucy Dog"]) &&
+      eq(sug("SAUCY"), ["Saucy Dog"]) &&
+      eq(sug("ｓａｕｃｙ"), ["Saucy Dog"]),
+    JSON.stringify(sug("saucy")),
+  );
+  check(
+    "候補: 空・空白だけでは何も出さない",
+    eq(sug(""), []) && eq(sug("   "), []),
+  );
+  const mk = (name, count) => ({ name, key: U.artistKey(name), count });
+  check(
+    "候補: 前方一致が先、同じなら予定の多い順、最後は五十音",
+    eq(sug("ab", [mk("XAB", 5), mk("AB", 1), mk("ABC", 2)]), [
+      "ABC",
+      "AB",
+      "XAB",
+    ]),
+    JSON.stringify(sug("ab", [mk("XAB", 5), mk("AB", 1), mk("ABC", 2)])),
+  );
+  const many = Array.from({ length: 12 }, (_, i) => mk(`Ax${i}`, 1));
+  check(
+    "候補: 既定は8件まで、limit で絞れる",
+    sug("ax", many).length === 8 &&
+      A.suggestArtists("ax", many, isFav, 1).length === 1,
+  );
+  ST.setFavArtist("Saucy Dog", true);
+  check("候補: 登録済みの人は出さない", !sug("saucy").includes("Saucy Dog"));
+  ST.setFavArtist("Saucy Dog", false);
+
+  const plan = (raw) => A.planAdd(raw, known, isFav);
+  check(
+    "Enter: 空・空白だけなら何も登録しない",
+    plan("").kind === "empty" && plan("  　 ").kind === "empty",
+  );
+  check(
+    "Enter: 長すぎる名前は登録しない",
+    plan("あ".repeat(ST.FAV_ARTIST_NAME_MAX + 1)).kind === "invalid",
+  );
+  check(
+    "Enter: データにある名前と同じなら、データの表記で登録する",
+    eq(plan("saucy dog"), {
+      kind: "add",
+      name: "Saucy Dog",
+      typed: "saucy dog",
+    }),
+    JSON.stringify(plan("saucy dog")),
+  );
+  check(
+    "Enter: 括弧の補足つきの打ち方でも、同じ人として登録する",
+    plan("Saucy Dog(ロックバンド)").name === "Saucy Dog",
+  );
+  check(
+    "Enter: 打ちかけの文字は、先頭の候補を登録する（打ちかけのまま登録しない）",
+    plan("sauc").kind === "add" && plan("sauc").name === "Saucy Dog",
+    JSON.stringify(plan("sauc")),
+  );
+  check(
+    "Enter: データに無い名前は登録せず、「のまま登録」を求める",
+    eq(plan("存在しない仮のアーティスト"), {
+      kind: "raw",
+      typed: "存在しない仮のアーティスト",
+    }),
+  );
+  ST.setFavArtist("Saucy Dog", true);
+  check(
+    "Enter: 登録済みの人と完全に同じなら add（画面側が「すでに登録」と伝える）",
+    plan("Saucy Dog").kind === "add",
+  );
+  check(
+    "Enter: 候補が登録済みの人だけなら登録せず「のまま登録」を求める",
+    plan("sauc").kind === "raw",
+    JSON.stringify(plan("sauc")),
+  );
+  ST.setFavArtist("Saucy Dog", false);
+
+  /* ---- 使い方の案内（1度だけ） ---- */
+  resetAll();
+  check("案内: 初期状態は未読", !ST.isArtHintSeen());
+  ST.setFavArtist("  ", true);
+  ST.setFavArtist("あ".repeat(ST.FAV_ARTIST_NAME_MAX + 1), true);
+  check("案内: 登録できなかった操作では既読にならない", !ST.isArtHintSeen());
+  ST.setFavArtist("Saucy Dog", true);
+  check(
+    "案内: 登録すると既読になり、保存される",
+    ST.isArtHintSeen() && store.get("eventboard.arthint.v1") === "1",
+  );
+  ST.setFavArtist("Saucy Dog", false);
+  check("案内: 外しても既読のまま", ST.isArtHintSeen());
+  ST.loadFavArtistView();
+  check("案内: 読み直しても既読（保存から読む）", ST.isArtHintSeen());
+  store.clear();
+  ST.loadFavArtistView();
+  check("案内: 保存が無ければ未読", !ST.isArtHintSeen());
+  storeFails = true;
+  ST.loadFavArtistView();
+  let threw = false;
+  try {
+    ST.markArtHintSeen();
+  } catch {
+    threw = true;
+  }
+  check(
+    "案内: 保存できない端末でも落ちず、そのページの間は既読にできる",
+    !threw && ST.isArtHintSeen(),
+  );
+  storeFails = false;
+
+  /* ---- 一覧の先頭の案内 ---- */
+  resetAll();
+  const draw = (tabKey) => {
+    ST.setActiveTabKey(tabKey);
+    R.renderList();
+    return els.get(TABS[tabKey].listId).innerHTML;
+  };
+  let h = draw("live");
+  const hintAt = h.indexOf('<div class="art-hint"');
+  check(
+    "案内: 未登録・未読なら一覧の先頭（最初のカードより前）に1つ出る",
+    hintAt === 0 &&
+      h.split('class="art-hint"').length === 2 &&
+      hintAt < h.indexOf('<article class="card"'),
+    String(hintAt),
+  );
+  check(
+    "案内: 閉じるボタンがある",
+    h.includes('data-art-hint="close"') && h.includes("人のマーク"),
+  );
+  ST.setFavArtist("Saucy Dog", true);
+  check("案内: 登録したら出ない", !draw("live").includes("art-hint"));
+  resetAll();
+  ST.markArtHintSeen();
+  check("案内: 既読なら出ない", !draw("live").includes("art-hint"));
+  resetAll();
+  const bare = D.ITEMS.live.find(
+    (it) => !F.hasEnded(it) && A.performersOf(it).size === 0 && !it.lineupId,
+  );
+  if (bare) {
+    ST.STATES.live.q = bare.title;
+    h = draw("live");
+    check(
+      "案内: 人のボタンを持つ行が1つも無い一覧には出ない（指す相手が無い）",
+      !h.includes("art-hint") && h.includes(`data-key="${bare.key}"`),
+    );
+    ST.STATES.live.q = "";
+  } else check("案内: 出演者の無い行がデータに無い", false);
+
+  /* ---- カードの導線 ---- */
+  resetAll();
+  const tab = TABS.live;
+  const st = ST.STATES.live;
+  const card = (title, members) =>
+    cardHtml(tab, liveBy(title), st, [], members);
+  ST.setFavArtist("Saucy Dog", true);
+  let c = card("共演ライブ");
+  check(
+    "登録済みの人の名前だけに is-fav が付く（共演の他の人には付かない）",
+    // 出演行と「くわしく」の全員の一覧の2か所に同じ人が出る。印が付くのはどちらもその人だけ
+    (() => {
+      const fav = [
+        ...c.matchAll(
+          /class="art-item is-fav"><button[^>]*data-artist="([^"]+)"/g,
+        ),
+      ].map((m) => m[1]);
+      return (
+        (c.match(/class="art-item is-fav"/g) || []).length === 2 &&
+        fav.length === 2 &&
+        fav.every((n) => n === "Saucy Dog")
+      );
+    })(),
+  );
+  const key = liveBy("共演ライブ").key;
+  check(
+    "「ほか◯組」は押せるボタンで、「くわしく」の本体を指す",
+    /<button type="button" class="art-more" data-more-open="1" aria-controls="desc-[^"]+"[^>]*>ほか2組 ▾<\/button>/.test(
+      c,
+    ) &&
+      c.includes(`aria-controls="desc-${key}"`) &&
+      c.includes(`id="desc-${key}"`),
+  );
+  check(
+    "ボタンの案内文が、押すと何が起きるかを言う",
+    c.includes('aria-label="ほか2組を一覧で見る"'),
+  );
+  check(
+    "「くわしく」の中に全員の一覧がある（ボタンの行き先が実在する）",
+    c.includes('class="art-detail"'),
+  );
+  const other = D.ITEMS.live.find((it) => it !== liveBy("共演ライブ"));
+  c = card("共演ライブ", [liveBy("共演ライブ"), other]);
+  check(
+    "まとめたカード（同時開催）では、一覧を持たないので文字のままにする",
+    !c.includes("art-more") && c.includes("ほか2組"),
+  );
+  c = card("Saucy Dog ARENA TOUR");
+  check(
+    "出演が収まっているカードには「ほか」のボタンが出ない",
+    !c.includes("art-more"),
+  );
 }
 
 /* ================= 9. 実データで画面の出し分けを見る ================= */

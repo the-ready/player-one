@@ -143,7 +143,7 @@ function hasLineup(it) {
    ボタンの中身と二重になる。そこでこの行はボタンだけにする（第12.12節）。
    検索中に主要8組へ入っていないアーティストがヒットしたときだけは、
    「なぜこのカードが出たか」の手がかりとしてその1組をボタンの前に出す。 */
-function artistLineHtml(it, terms) {
+function artistLineHtml(it, terms, canOpen = true) {
   const all = lineupArtistNames(it.lineupId);
   if (all.length) {
     const hit =
@@ -161,7 +161,7 @@ function artistLineHtml(it, terms) {
 
   const shown = names.slice(0, LINEUP_VISIBLE);
   const rest = names.length - shown.length;
-  const more = rest > 0 ? `　ほか${rest}組` : "";
+  const more = rest > 0 ? moreArtistsHtml(it, rest, "組", canOpen) : "";
   return `<p class="lineup-line">出演：${shown.map((n) => artistItemHtml(n, terms)).join("・")}${more}</p>`;
 }
 
@@ -192,7 +192,18 @@ export function artistBtnHtml(name, { big = false } = {}) {
 }
 function artistItemHtml(name, terms) {
   const head = artistHead(name);
-  return `<span class="art-item">${artistBtnHtml(head)}<button type="button" class="art-link" data-artist-open="${esc(head)}" aria-label="${esc(head)}の出演予定を見る">${highlight(name, terms)}</button></span>`;
+  // 登録済みの人は、人のボタンだけでなく名前にも地色を付ける（CSS の .art-item.is-fav）。
+  // ボタンの形（中抜き／塗り）の違いは小さく、名前を読みながらでは見落とすため
+  return `<span class="art-item${isFavArtist(head) ? " is-fav" : ""}">${artistBtnHtml(head)}<button type="button" class="art-link" data-artist-open="${esc(head)}" aria-label="${esc(head)}の出演予定を見る">${highlight(name, terms)}</button></span>`;
+}
+
+/* 「ほか◯組」。出演行に収まらなかった人は「くわしく」の中に全員並んでいる（morePerformersHtml）
+   が、「ほか」の文字は押せるように見えず、隠れた人を登録できることに気づけない。
+   押すと「くわしく」を開いて、その一覧へ移る。まとめたカード（セール）は「くわしく」に
+   出演者を出さないので、文字のままにする。 */
+function moreArtistsHtml(it, rest, unit, canOpen) {
+  if (!canOpen) return `　ほか${rest}${unit}`;
+  return `<button type="button" class="art-more" data-more-open="1" aria-controls="desc-${esc(it.key)}" aria-label="ほか${rest}${unit}を一覧で見る">ほか${rest}${unit} ▾</button>`;
 }
 
 /* 「5/7(木)」。ラインナップの日は年が文脈で分かるので、月日と曜日だけにする。 */
@@ -318,7 +329,7 @@ function guestLineHtml(tab, it, terms) {
     .map((x) => x[0]);
   const shown = ordered.slice(0, GUEST_VISIBLE);
   const rest = names.length - shown.length;
-  const more = rest > 0 ? `　ほか${rest}名` : "";
+  const more = rest > 0 ? moreArtistsHtml(it, rest, "名", true) : "";
   const days = upcomingGuestDates(it);
   const when = days.length
     ? `<span class="guest-when">（${esc(fmtSpan(null, null, days))}）</span>`
@@ -840,7 +851,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
       </div>
       <h3 class="title">${highlight(it.title, terms)}${merged ? "" : parkingBadgesHtml(it)}</h3>
       ${favWhyHtml(it)}
-      ${artistLineHtml(it, terms)}
+      ${artistLineHtml(it, terms, !merged)}
       ${merged ? "" : guestLineHtml(tab, it, terms)}
       ${
         merged

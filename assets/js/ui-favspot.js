@@ -90,7 +90,12 @@ export function showToast(text, actions) {
 export function revealFavHead(selector = ".fav-head:not(.art)") {
   const list = document.getElementById(TABS[activeTab].listId);
   const target = list && list.querySelector(selector);
-  if (!target) return;
+  if (target) scrollToElement(target);
+}
+
+/** 要素を、操作バー（sticky）の下に見える位置へ。バーは伸びたときの高さで見込む
+    （縮んだ高さで合わせると、上へ戻って伸びたバーが要素を覆う）。 */
+export function scrollToElement(target) {
   const top =
     target.getBoundingClientRect().top +
     window.scrollY -

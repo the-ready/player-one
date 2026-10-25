@@ -40,7 +40,7 @@ fs.mkdirSync(`${OUT}/${NAME}`, { recursive: true });
 
 // 押しどころの例外。★は見た目が 24×22px だが、::after で当たり判定を広げてある（app.css の .star-btn::after）。
 // 会場名・出演者名のリンクは文中の対象（2.5.8 の「文中」の例外）
-const EXEMPT_SIZE = /\.star-btn|\.place-link|\.art-link/;
+const EXEMPT_SIZE = /\.star-btn|\.place-link|\.art-link|\.art-more/;
 
 const browser = await chromium.launch(launchOpts);
 const ctx = await browser.newContext({
@@ -187,6 +187,10 @@ async function openMapPopup(mapSel, popupSel, from = 20) {
 await audit("ヘッダー", "#hdr");
 await audit("操作バー", ".controls");
 await audit("カード", "#list > .card:nth-child(-n+9)");
+// 人のボタンの使い方の案内（未登録・未読のときだけ一覧の先頭に出る）
+if (await page.$("#list > .art-hint"))
+  await audit("お気に入りアーティストの案内", "#list > .art-hint");
+else cantCheck("イベント: 未登録・未読なのに使い方の案内が出ない");
 // 2. カードの状態：行きたい（押した）・くわしく（開いた）
 await page.evaluate(() => {
   const cs = document.querySelectorAll("#list > .card");
@@ -437,6 +441,7 @@ await page.waitForTimeout(400);
       "eventboard.favartfold.v1",
       "eventboard.favartpin.v1",
       "eventboard.favartseen.v1",
+      "eventboard.arthint.v1",
     ])
       localStorage.removeItem(k);
   }, names);
@@ -487,6 +492,16 @@ await page.waitForTimeout(400);
       "お気に入りアーティスト先頭（ライブ）",
       "#liveList > :nth-child(-n+7)",
     );
+    // 「ほか◯組」（押すと「くわしく」の全員の一覧へ移るボタン）
+    await page.evaluate(() => {
+      const c = [...document.querySelectorAll("#liveList .card")].find((x) =>
+        x.querySelector(".art-more"),
+      );
+      c?.setAttribute("data-wc-artmore", "1");
+    });
+    if (await page.$("[data-wc-artmore]"))
+      await audit("「ほか◯組」のボタン", "#liveList [data-wc-artmore]");
+    else cantCheck("ライブ: 出演者が4組を超えても「ほか◯組」のボタンが出ない");
     // 出演者が4組を超える公演の「くわしく」（全員の一覧）も開いて測る
     await page.evaluate(() => {
       const c = [...document.querySelectorAll("#liveList .card")].find((x) =>
@@ -556,9 +571,21 @@ await page.waitForTimeout(400);
     // 管理シート（候補・状態の行）
     await top();
     await click('#liveList [data-art-act="manage"]', 800);
+    // 外した行（薄い・点線・「元に戻す」）と、先頭の候補（Enter で登録される印）
+    await click("#favArtistRows li:first-child .vr-act", 500);
     await page.fill("#favArtistInput", "あ");
     await page.waitForTimeout(500);
     await audit("お気に入りアーティスト管理シート", "#favArtistSheet");
+    // データに無い名前（「のまま登録」のボタンと、Enter では登録しない旨の案内）
+    await page.fill("#favArtistInput", "存在しない仮の名前");
+    await page.press("#favArtistInput", "Enter");
+    await page.waitForTimeout(500);
+    if (await page.$("#favArtistSugg .sugg-raw"))
+      await audit(
+        "お気に入りアーティスト管理シート（のまま登録）",
+        "#favArtistSheet",
+      );
+    else cantCheck("ライブ: データに無い名前で「のまま登録」のボタンが出ない");
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
     // 絞り込み（お気に入りアーティストのチップ）を押した状態
@@ -579,6 +606,7 @@ await page.waitForTimeout(400);
       "eventboard.favartseen.v1",
       "eventboard.favartfold.v1",
       "eventboard.favartpin.v1",
+      "eventboard.arthint.v1",
     ])
       localStorage.removeItem(k);
   });

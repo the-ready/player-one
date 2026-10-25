@@ -421,6 +421,8 @@ export function setFavArtist(name, on) {
   if (on) {
     if (favArtists.size >= FAV_ARTIST_MAX) return false;
     favArtists.set(k, n);
+    // 登録のしかたを知った人に、使い方の案内はもう要らない
+    markArtHintSeen();
   } else favArtists.delete(k);
   favArtistRevision++;
   saveFavArtists();
@@ -442,11 +444,32 @@ export const favArtistRev = () => favArtistRevision;
    スポットと同じ（共有した相手には相手のお気に入りがあるため、載せても意味が通らない）。 */
 const ART_PIN_KEY = "eventboard.favartpin.v1";
 const ART_FOLD_KEY = "eventboard.favartfold.v1";
+const ART_HINT_KEY = "eventboard.arthint.v1";
 let pinArtist = true;
 let artFolded = {};
 let artMoreOpen = {};
+let artHintSeen = false;
+
+/* 一覧の上に出す「人のマークで登録できます」の案内を、閉じたか（または登録したか）。
+   一度きりの案内なので、閉じたら二度と出さない。人のボタンの意味は、初めて見る人には
+   「アカウント」に読めてしまうため（設計書 第5.14節）。 */
+export const isArtHintSeen = () => artHintSeen;
+export function markArtHintSeen() {
+  if (artHintSeen) return;
+  artHintSeen = true;
+  try {
+    localStorage.setItem(ART_HINT_KEY, "1");
+  } catch {
+    /* 保存できなくても、このページを開いている間は出さない */
+  }
+}
 
 export function loadFavArtistView() {
+  try {
+    artHintSeen = localStorage.getItem(ART_HINT_KEY) === "1";
+  } catch {
+    artHintSeen = false;
+  }
   try {
     pinArtist = localStorage.getItem(ART_PIN_KEY) !== "0";
   } catch {

@@ -476,7 +476,34 @@
           aria-label="適用中の絞り込み"
           hidden
         ></div>
-        <p class="result-count" id="resultCount" role="status"></p>
+        <!-- 件数の行に、お気に入りアーティストの管理シートの入口を常に置く。先頭セクションの
+             見出しの「管理」は、登録した人の公演があるときしか出ないため -->
+        <div class="count-row">
+          <p class="result-count" id="resultCount" role="status"></p>
+          <button
+            type="button"
+            class="art-entry"
+            id="artistEntry"
+            aria-label="お気に入りアーティストを登録・管理する"
+          >
+            <svg
+              class="person-ico"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="3.6" />
+              <path d="M4.8 20.2c.8-3.9 3.7-6 7.2-6s6.4 2.1 7.2 6z" />
+            </svg>
+            <span>お気に入りアーティスト</span><span aria-hidden="true">›</span>
+          </button>
+        </div>
       </div>
     </div>
     <div class="popover-backdrop" id="popoverBackdrop" hidden></div>

@@ -395,6 +395,46 @@ check(
   "お気に入りが空のうちは先頭セクションが出ない",
   (await page.locator("#liveList .fav-head").count()) === 0,
 );
+check(
+  "未登録・未読なら、一覧の先頭に使い方の案内が出る",
+  (await page.locator("#liveList > .art-hint").count()) === 1 &&
+    (await page.evaluate(() =>
+      document
+        .getElementById("liveList")
+        .firstElementChild.classList.contains("art-hint"),
+    )),
+);
+check(
+  "件数の行に、お気に入りアーティストの管理の入口が常にある（登録0件でも）",
+  (await page.locator("#artistEntry").isVisible()) &&
+    (await page.evaluate(
+      () =>
+        document.getElementById("artistEntry").parentElement ===
+        document.getElementById("resultCount").parentElement,
+    )),
+);
+check(
+  "押していない人のボタンには「＋」の印が付く",
+  (await page
+    .locator("#liveList .card .art-btn")
+    .first()
+    .evaluate((e) => getComputedStyle(e, "::before").content)) === '"+"',
+);
+// 「ほか◯組」を押すと「くわしく」が開いて、全員の一覧が見える
+const moreBtn = page.locator("#liveList .card button.art-more").first();
+if (await moreBtn.count()) {
+  await moreBtn.scrollIntoViewIfNeeded();
+  await moreBtn.click();
+  await page.waitForTimeout(500);
+  const moreCard = moreBtn.locator("xpath=ancestor::article");
+  check(
+    "「ほか◯組」を押すと、全員の一覧（人のボタンつき）が開く",
+    (await moreCard.locator(".detail-toggle").getAttribute("aria-expanded")) ===
+      "true" &&
+      (await moreCard.locator(".art-detail").isVisible()) &&
+      (await moreCard.locator(".art-detail .art-btn").count()) >= 5,
+  );
+} else check("「ほか◯組」がボタンになっている", false);
 // 公演の多い人を、画面のボタンから選ぶ（件数は毎週変わるので名前は決め打ちしない）
 const artistName = await page.evaluate(() => {
   const n = new Map();
@@ -454,6 +494,26 @@ check(
   "Escで出演予定のシートが閉じる",
   !(await page.locator("#artistSheet").isVisible()),
 );
+// 出演予定の行を押すと、シートを閉じてそのカードへ移る（行き止まりにしない）
+await page
+  .locator(`#liveList .art-link[data-artist-open="${artistName}"]`)
+  .first()
+  .click();
+await page.waitForTimeout(400);
+const goRow = page.locator("#artistInfo .vi-go").first();
+const goKey = await goRow.getAttribute("data-go-key");
+await goRow.click();
+await page.waitForTimeout(1500);
+check(
+  "出演予定の行を押すと、シートが閉じて、その公演のカードが画面に出る",
+  !(await page.locator("#artistSheet").isVisible()) &&
+    (await page.evaluate((k) => {
+      const e = document.querySelector(`.card[data-key="${k}"]`);
+      if (!e) return false;
+      const r = e.getBoundingClientRect();
+      return r.top < innerHeight && r.bottom > 0 && e.offsetParent !== null;
+    }, goKey)),
+);
 // 絞り込みの入口から管理シートを開き、名前を手入力で足す
 await page.click("#catBtn");
 await page.waitForTimeout(300);
@@ -470,11 +530,39 @@ check(
     (await page.locator("#favArtistRows .vr-name").first().innerText()) ===
       artistName,
 );
+const outRow = page.locator("#favArtistRows li").first();
+await outRow.locator(".vr-act").click();
+await page.waitForTimeout(250);
+check(
+  "「外す」を押すと行が薄くなり、ボタンが「元に戻す」に変わる",
+  (await outRow.evaluate((e) => e.classList.contains("is-off"))) &&
+    (await outRow.locator(".vr-act").innerText()) === "元に戻す" &&
+    /外しました/.test(await page.locator("#favArtistStatus").innerText()),
+);
+await outRow.locator(".vr-act").click();
+await page.waitForTimeout(250);
+check(
+  "「元に戻す」で登録に戻る",
+  !(await outRow.evaluate((e) => e.classList.contains("is-off"))) &&
+    (await outRow.locator(".vr-act").innerText()) === "外す",
+);
 await page.fill("#favArtistInput", "まだデータに無い人");
 await page.press("#favArtistInput", "Enter");
 await page.waitForTimeout(300);
 check(
-  "データに無い名前も手入力で登録でき、「いま予定なし」と出る",
+  "データに無い名前は Enter では登録されず、理由と「のまま登録」のボタンが出る（打ちかけの文字を登録しない）",
+  !(await page.locator("#favArtistRows .vr-name").allInnerTexts()).includes(
+    "まだデータに無い人",
+  ) &&
+    /データに「まだデータに無い人」はありません/.test(
+      await page.locator("#favArtistStatus").innerText(),
+    ) &&
+    (await page.locator("#favArtistSugg .sugg-raw").count()) === 1,
+);
+await page.locator("#favArtistSugg .sugg-raw").click();
+await page.waitForTimeout(300);
+check(
+  "データに無い名前も、「のまま登録」で登録でき、「いま予定なし」と出る",
   (await page.locator("#favArtistRows .vr-name").allInnerTexts()).includes(
     "まだデータに無い人",
   ) &&
@@ -485,7 +573,7 @@ check(
     ),
 );
 await page.fill("#favArtistInput", "まだデータに無い人");
-await page.press("#favArtistInput", "Enter");
+await page.locator("#favArtistSugg .sugg-raw").click();
 await page.waitForTimeout(200);
 check(
   "同じ名前は二重に登録されない",
