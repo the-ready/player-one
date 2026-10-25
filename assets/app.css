@@ -1035,10 +1035,12 @@ html.sky-night .cal-add-field input {
 html.sky-night :is(input[type="search"], .venue-search, .cal-add-field input) {
   color-scheme: dark;
 }
-/* 検索欄・会場名の入力欄は、ヘッダーのタブと同じ「黒に近い紺の縁＋生成りの細い輪」にそろえる。縁が地に溶ける分は
-   外側の輪が受け持つ（輪は縁の外にあるので 3:1 を満たす） */
+/* 検索欄・会場名とアーティスト名の入力欄は、ヘッダーのタブと同じ「黒に近い紺の縁＋生成りの細い輪」にそろえる。縁が地に溶ける分は
+   外側の輪が受け持つ（輪は縁の外にあるので 3:1 を満たす）。シートの入力欄も縁の太さを検索欄（3px）に合わせ、
+   トップの検索欄と同じ囲いに見せる（2px のままだと、輪の内側の紺が細く、別の部品に見える） */
 html.sky-night :is(input[type="search"], .venue-search) {
   border-color: #080b1e;
+  border-width: 3px;
   box-shadow:
     3px 3px 0 #080b1e,
     0 0 0 1.5px rgba(251, 245, 230, 0.85);

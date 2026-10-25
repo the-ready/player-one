@@ -953,7 +953,7 @@ for (const c of report.contexts) {
       if (
         b &&
         st === "default" &&
-        Math.max(b.fillC, b.borderC) < 3 &&
+        Math.max(b.fillC, b.borderC, b.ringC) < 3 &&
         /^(input|textarea)/.test(it.desc)
       )
         rows.push({
@@ -961,7 +961,7 @@ for (const c of report.contexts) {
           state: st,
           kind: "1.4.11 入力欄の輪郭",
           el: it.desc,
-          ratio: Math.max(b.fillC, b.borderC),
+          ratio: Math.max(b.fillC, b.borderC, b.ringC),
           need: 3,
           fg: b.fill,
           bg: b.parent,

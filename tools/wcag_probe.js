@@ -4,7 +4,7 @@
      placeholderIssue  入力欄の案内文字の対比（1.4.3）
      iconIssues     アイコン（SVG）の対比（1.4.11）。線で形が決まっている塗りは除く
      focusInfo      フォーカス表示（2.4.7／1.4.11）。外側の線は outline と box-shadow の両方を見る
-     boundary       部品の輪郭（1.4.11）。塗りか縁が周囲と 3:1 あるか
+     boundary       部品の輪郭（1.4.11）。塗りか縁か縁の外側の輪（box-shadow）が周囲と 3:1 あるか
    色は color-mix() や oklab が返す rgb() ではない形式のこともあるので、canvas で rgb に直す。 */
 (() => {
   const cv = document.createElement("canvas");
@@ -263,9 +263,29 @@
       bw >= 1 && bc.a > 0
         ? cr(bc.a < 1 ? over(bc, parentBg) : bc, parentBg)
         : 0;
+    // 縁の外側の輪（ずらし・ぼかしの無い box-shadow と outline）も輪郭になる。夜の検索欄・シートの
+    // 入力欄は、縁を地に近い紺にして、生成りの輪で範囲を見せている（app.css）。文字を入れている間は
+    // フォーカス中なので、輪の代わりに白い outline が範囲を見せる。どちらも数えないと、
+    // 見えている輪郭を「無い」と誤って指摘する
+    let ringC = 0;
+    const ow = parseFloat(cs.outlineWidth) || 0;
+    const oc = parse(cs.outlineColor);
+    if (cs.outlineStyle !== "none" && ow >= 1 && oc.a > 0)
+      ringC = cr(oc.a < 1 ? over(oc, parentBg) : oc, parentBg);
+    if (cs.boxShadow && cs.boxShadow !== "none") {
+      const re =
+        /(rgba?\([^)]*\)|color\([^)]*\)|oklab\([^)]*\)|#[0-9a-f]+)\s+0px\s+0px\s+0px\s+([\d.]+)px/gi;
+      let m;
+      while ((m = re.exec(cs.boxShadow))) {
+        const c = parse(m[1]);
+        if (parseFloat(m[2]) < 1 || c.a === 0) continue;
+        ringC = Math.max(ringC, cr(c.a < 1 ? over(c, parentBg) : c, parentBg));
+      }
+    }
     return {
       fillC: +fillC.toFixed(2),
       borderC: +borderC.toFixed(2),
+      ringC: +ringC.toFixed(2),
       fill: hex(fill),
       parent: hex(parentBg),
       border: hex(bc),
