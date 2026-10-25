@@ -20,8 +20,12 @@ import {
   loadFavorites,
   loadFavSpots,
   loadFavView,
+  loadFavArtists,
+  loadFavArtistView,
   pinFavSpots,
   setPinFavSpots,
+  pinFavArtists,
+  setPinFavArtists,
   setPlaceFilter,
   rememberTab,
   recalledTab,
@@ -82,6 +86,17 @@ import {
   onFavReflow,
 } from "./ui-favspot.js";
 import {
+  initFavArtists,
+  toggleArtist,
+  openArtistSheet,
+  closeArtistSheet,
+  isArtistSheetOpen,
+  openArtistManage,
+  closeArtistManage,
+  isArtistManageOpen,
+} from "./ui-favartist.js";
+import { syncSeen } from "./artists.js";
+import {
   initControls,
   updateSortUI,
   syncSearchForTab,
@@ -114,6 +129,8 @@ export function setActiveTab(tab, opts = {}) {
   if (isLineupSheetOpen()) closeLineupSheet();
   if (isCalAddSheetOpen()) closeCalAddSheet();
   if (isFavSheetOpen()) closeFavSheet();
+  if (isArtistSheetOpen()) closeArtistSheet();
+  if (isArtistManageOpen()) closeArtistManage();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
   syncSearchForTab();
@@ -176,6 +193,8 @@ async function ensureTabData(tabKey) {
     syncTabCounts();
     return false;
   }
+  // お気に入りアーティストの「前回から追加」。一覧を描く前に、前回との差を決めておく
+  syncSeen(tabKey);
   if (activeTab === tabKey && !booting) {
     syncUpdatedLabel();
     renderVenueList();
@@ -189,6 +208,8 @@ async function boot() {
   loadFavorites();
   loadFavSpots();
   loadFavView();
+  loadFavArtists();
+  loadFavArtistView();
   /* 名簿は★・駐車場バッジ・先頭セクションの前提なので、最初の描画までに間に合わせる
      （あとから読むと、カードの★だけが遅れて現れて見た目が跳ねる）。3つとも小さく、
      表示中のタブのCSVと並行して取る。読めなくても各ローダーが握りつぶすので、待つだけでよい。 */
@@ -209,6 +230,7 @@ async function boot() {
   initLineupSheet();
   initCalAddSheet();
   initFavSpots();
+  initFavArtists();
   onFavReflow(renderVenueList);
   initControls();
   initTabs();
@@ -225,6 +247,9 @@ async function boot() {
         onResetShared: resetSharedFilters,
         onToggleSpot: (name) => toggleSpot(name),
         onManageSpots: openFavSheet,
+        onToggleArtist: (name) => toggleArtist(name),
+        onOpenArtist: openArtistSheet,
+        onManageArtists: openArtistManage,
         // 「この◯本でしぼる」は、会場シートの「この会場でしぼりこむ」と同じ操作
         onChainFilter: (chain) => {
           setPlaceFilter(curState(), "venue", chain);
@@ -238,6 +263,11 @@ async function boot() {
 
   // 絞り込みチップ（件数つき）の押下
   document.getElementById("catBody").addEventListener("click", (e) => {
+    // 管理シートを開くだけのボタン（状態を持たないので、チップの処理には回さない）
+    if (e.target.closest("[data-manage-artists]")) {
+      openArtistManage();
+      return;
+    }
     const chip = e.target.closest(".chip");
     if (!chip || chip.disabled) return;
     const tab = curTab(),
@@ -246,6 +276,11 @@ async function boot() {
     // 先頭にまとめるかどうかは絞り込みではなく見え方の設定（state.js）。URLには載せない
     if (key === "__pinFav") {
       setPinFavSpots(!pinFavSpots());
+      refreshNow({ push: false, url: false });
+      return;
+    }
+    if (key === "__pinArtist") {
+      setPinFavArtists(!pinFavArtists());
       refreshNow({ push: false, url: false });
       return;
     }

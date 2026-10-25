@@ -3,7 +3,7 @@
    描画・絞り込み・地図・会場ピッカーの実装を1本に統一できるようにしている。
    タブに機能を足すときは、原則としてこのファイルの宣言だけを触る。 */
 
-import { txt, num, int, list, bool, isFreePrice } from "./util.js";
+import { txt, num, int, list, bool, isFreePrice, PERSON_ICON } from "./util.js";
 
 /* ---------- 共有の見た目テーブル ---------- */
 
@@ -502,6 +502,18 @@ const FLAG_FAV = {
   label: () => "行きたいだけ",
   test: (it, h) => h.isFav(it),
 };
+/* 人（お気に入りアーティスト）。♡・★と並ぶ3つ目の「保存」で、人の形のアイコンで見分けさせる。
+   出演者の持ち方がタブで違う（ライブは artists とラインナップ、イベントと映画はいま残っている
+   登壇者）が、「出る公演」という意味は同じなので、3タブで同じ id・同じ文言にして持ち越せる
+   ようにしてある。判定は artists.js の isFavArtistItem に1本化している。 */
+const FLAG_FAV_ARTIST = {
+  id: "favArtistOnly",
+  group: "保存",
+  cls: "favartist-chip",
+  icon: PERSON_ICON,
+  label: () => "お気に入りアーティストだけ",
+  test: (it, h) => h.isFavArtistItem(it),
+};
 /* 先頭に「まとめる」だけでなく「それだけに絞る」もできるようにする。
    チェーン名でしか記録されていない映画の新作は、劇場単位では判定できないので
    対象に含めない（先頭セクションのまとめ行が別に受ける。render.js）。 */
@@ -603,6 +615,7 @@ export const TABS = {
       FLAG_LIMITED,
       FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_ARTIST,
       FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],
@@ -697,6 +710,7 @@ export const TABS = {
       FLAG_LIMITED,
       FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_ARTIST,
       FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],
@@ -770,6 +784,7 @@ export const TABS = {
       FLAG_LIMITED,
       FLAG_PARKING,
       FLAG_FAV,
+      FLAG_FAV_ARTIST,
       FLAG_FAV_SPOT,
       FLAG_SHOW_ENDED,
     ],

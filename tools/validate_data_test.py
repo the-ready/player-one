@@ -533,6 +533,44 @@ def _():
     return "guest" not in msg or f"正常な行に出た: {msg}"
 
 
+# --- 出演者（artists）。お気に入りアーティストの照合は artists 列だけが頼り -----------------
+
+def _live_messages(**kw):
+    lv = {c: "" for c in vd.EXPECTED_HEADERS["lives.csv"]}
+    lv.update(title="テスト公演", venue="V", start_date="2099-10-01", end_date="2099-10-01",
+              url="https://example.com/", live_type="oneman")
+    lv.update(kw)
+    return _messages([lv], "lives.csv")
+
+
+@check("単独公演（oneman）で artists が空なら警告する（その人を登録した利用者に出ない）")
+def _():
+    msg = _live_messages(artists="")
+    return "artists が空です" in msg or msg
+
+
+@check("単独公演でも artists があれば警告しない")
+def _():
+    msg = _live_messages(artists="Saucy Dog")
+    return "artists が空です" not in msg or msg
+
+
+@check("フェス・共演（oneman 以外）で artists が空でも警告しない（出演者の発表待ちがある）")
+def _():
+    msg = _live_messages(live_type="fes", artists="")
+    return "artists が空です" not in msg or msg
+
+
+@check("artists の空は ERROR にしない（週次の収集を止めない）")
+def _():
+    rep = vd.Report()
+    lv = {c: "" for c in vd.EXPECTED_HEADERS["lives.csv"]}
+    lv.update(title="テスト公演", venue="V", start_date="2099-10-01", end_date="2099-10-01",
+              url="https://example.com/", live_type="oneman", artists="")
+    vd.validate_main("lives.csv", [lv], vd.load_enums(), rep)
+    return not any("artists" in e for e in rep.errors) or rep.errors
+
+
 def main():
     fails = 0
     for name, fn in CHECKS:

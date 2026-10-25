@@ -72,6 +72,7 @@
     <!-- import の先を、たどり着く前から並行して取らせる。無いと main.js → ui-*.js → render.js →
      … と、import の段数ぶん往復を待つ（回線の遅い端末ほど初回表示が遅れる）。
      assets/js/ にモジュールを足したらここにも足すこと（tools/shell_list_test.py が sw.js の SHELL と併せて検査する）。 -->
+    <link rel="modulepreload" href="assets/js/artists.js" />
     <link rel="modulepreload" href="assets/js/cards.js" />
     <link rel="modulepreload" href="assets/js/config.js" />
     <link rel="modulepreload" href="assets/js/csv.js" />
@@ -87,6 +88,7 @@
     <link rel="modulepreload" href="assets/js/ui-caladd.js" />
     <link rel="modulepreload" href="assets/js/ui-calendar.js" />
     <link rel="modulepreload" href="assets/js/ui-controls.js" />
+    <link rel="modulepreload" href="assets/js/ui-favartist.js" />
     <link rel="modulepreload" href="assets/js/ui-favspot.js" />
     <link rel="modulepreload" href="assets/js/ui-lineup.js" />
     <link rel="modulepreload" href="assets/js/ui-map.js" />
@@ -895,6 +897,77 @@
         </div>
         <p class="map-sheet-help" id="favSheetHelp"></p>
         <div class="fav-sheet-body" id="favSheetBody"></div>
+      </div>
+    </div>
+
+    <!-- お気に入りアーティストの出演予定（出演者の名前を押すと開く。3タブをまとめて数える） -->
+    <div
+      class="map-sheet"
+      id="artistSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="artistSheetTitle"
+      hidden
+    >
+      <div class="map-sheet-inner">
+        <div class="map-sheet-head">
+          <h2 id="artistSheetTitle">アーティスト</h2>
+          <button
+            type="button"
+            class="popover-close"
+            id="artistSheetClose"
+            aria-label="とじる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="map-sheet-help" id="artistSheetHelp"></p>
+        <div class="fav-sheet-body" id="artistBody">
+          <div class="venue-info artist-info" id="artistInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- お気に入りアーティストの管理。登録した人の一覧と、名前の手入力による追加 -->
+    <div
+      class="map-sheet"
+      id="favArtistSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="favArtistTitle"
+      hidden
+    >
+      <div class="map-sheet-inner">
+        <div class="map-sheet-head">
+          <h2 id="favArtistTitle">お気に入りアーティスト</h2>
+          <button
+            type="button"
+            class="popover-close"
+            id="favArtistClose"
+            aria-label="とじる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="map-sheet-help" id="favArtistHelp"></p>
+        <div class="fav-sheet-body">
+          <form class="vr-add" id="favArtistForm" autocomplete="off">
+            <input
+              id="favArtistInput"
+              class="venue-search"
+              type="text"
+              maxlength="100"
+              enterkeyhint="done"
+              placeholder="アーティスト名を入力"
+              aria-label="追加するアーティスト名"
+              aria-describedby="favArtistStatus"
+            />
+            <button type="submit" class="mini-btn">追加</button>
+          </form>
+          <p class="vr-status" id="favArtistStatus" role="status"></p>
+          <div class="sugg" id="favArtistSugg" hidden></div>
+          <ul class="venue-rows" id="favArtistRows"></ul>
+        </div>
       </div>
     </div>
 

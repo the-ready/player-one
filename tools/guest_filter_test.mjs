@@ -509,7 +509,13 @@ check(
   "出演行が出る（ラベル「出演」）",
   /class="guest-line"><span class="guest-label">出演<\/span>/.test(h1),
 );
-check("名前が並ぶ（青山龍・白石凛）", h1.includes("青山龍・白石凛"));
+/* 出演行（guest-line）の文字だけを取り出す。人のボタンと名前のボタンを含むので、
+   タグを外して文字として読む（「くわしく」の中の全員の一覧は含めない） */
+const guestLine = (h) =>
+  ((h.match(/<p class="guest-line">[\s\S]*?<\/p>/) || [""])[0] || "")
+    .replace(/<svg[\s\S]*?<\/svg>/g, "")
+    .replace(/<[^>]+>/g, "");
+check("名前が並ぶ（青山龍・白石凛）", guestLine(h1).includes("青山龍・白石凛"));
 check(
   "これからの出演日が添えられる（10.25 と 11.3）",
   /10\.25\(日\).*11\.3\(火\)/s.test(h1),
@@ -550,14 +556,22 @@ check(
 );
 check(
   "4人目以降は「ほかN名」に畳む（5人 → 3人＋ほか2名）",
-  h7.includes("ほか2名") && !h7.includes("桃井風") && !h7.includes("紫野空"),
+  guestLine(h7).includes("ほか2名") &&
+    !guestLine(h7).includes("桃井風") &&
+    !guestLine(h7).includes("紫野空"),
+);
+check(
+  "畳んだ人も「くわしく」の中に全員並ぶ（人のボタンを届けるため）",
+  /class="art-detail"/.test(h7) &&
+    h7.slice(h7.indexOf('class="art-detail"')).includes("桃井風") &&
+    h7.slice(h7.indexOf('class="art-detail"')).includes("紫野空"),
 );
 const h7q = html(T["E7 名前にHTML"], searchTerms("紫野空"));
 check(
   "検索語に当たった名前は先頭へ繰り上がり、ハイライトされる（4人目でも手がかりが残る）",
   /<mark>紫野空<\/mark>/.test(h7q) &&
-    !h7q.includes("桃井風") &&
-    h7q.indexOf("紫野空") < h7q.indexOf("ほか2名"),
+    !guestLine(h7q).includes("桃井風") &&
+    guestLine(h7q).indexOf("紫野空") < guestLine(h7q).indexOf("ほか2名"),
 );
 check(
   "出演日が1つだけ（E7: 10/30）でも出る",

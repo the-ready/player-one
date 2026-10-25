@@ -86,6 +86,42 @@ export const spotFold = (s) =>
     .normalize("NFKC")
     .trim()
     .toLowerCase();
+/* アーティスト名の照合。お気に入りアーティストの保存・出演者との突き合わせはすべてこれを通す。
+
+   出演者の表記は書き手（収集の生成AI）が毎週書くので、同じ人が `Knosis` と `knosis`、
+   `THEカルテット` と `THE カルテット` のように書き分けられる。大文字小文字・全角半角・空白は
+   spotKey と同じ畳み込みで吸収する。
+
+   末尾の括弧は「補足」として外す。実データでは `U-KNOW(東方神起)`（所属）・`熊倉優(指揮)`（役割）・
+   `Been Stellar (US)`（国）のように、名前の後ろに補足が付く。名前（括弧の前）で一致させるのは、
+   所属グループ名まで拾うと、東方神起を登録した人に U-KNOW のソロ公演まで出てしまい、
+   「(指揮)」「(Band Set)」のような役割の括弧とも区別できなくなるため。
+   括弧の中が1文字のもの（`JUN SKY WALKER(S)`）は名前の一部とみなして外さない。
+   複数人を1つに書いた表記（`A×B,C`）は割らない（`DISH//`・`Fear, and Loathing in Las Vegas` の
+   ように区切り記号を含む正式名を壊すため）。 */
+const ARTIST_ANNOT = /^(.*\S)\s*[（(]([^（()）]{2,})[）)]$/;
+export const artistHead = (s) => {
+  const t = String(s == null ? "" : s).trim();
+  const m = ARTIST_ANNOT.exec(t);
+  return m ? m[1].trim() : t;
+};
+/* 約1000の名前を、カードを描くたび・検索の打鍵のたびに引くので、名前ごとに覚える。
+   名前の種類はデータの出演者数で頭打ちになるが、手入力で増え続けないよう上限を置く。 */
+const artistKeyMemo = new Map();
+export const artistKey = (s) => {
+  const raw = String(s == null ? "" : s);
+  let k = artistKeyMemo.get(raw);
+  if (k === undefined) {
+    k = spotKey(artistHead(raw));
+    if (artistKeyMemo.size >= 20000) artistKeyMemo.clear();
+    artistKeyMemo.set(raw, k);
+  }
+  return k;
+};
+/* お気に入りアーティストの印（人の形）。♡（行きたい）・★（場所）と形で見分けさせる。
+   カード・シート・絞り込みチップのどこでも同じ絵にするため、文字列をここに1つ置く。 */
+export const PERSON_ICON = `<svg class="person-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.2c.8-3.9 3.7-6 7.2-6s6.4 2.1 7.2 6z"/></svg>`;
+
 export const list = (v) => {
   const s = txt(v);
   return s

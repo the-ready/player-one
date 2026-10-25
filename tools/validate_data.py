@@ -558,6 +558,18 @@ def check_guests(rep, where, r, start, end, today=None):
         rep.warn(where, f"guest_note が{GUEST_NOTE_MAX}字を超えています（{len(note)}字）。日時と形式だけを短く書く")
 
 
+
+# お気に入りアーティスト（人のボタン）は、`artists` 列の名前で公演を引く（ui: assets/js/artists.js）。
+# 名前の照合は「括弧の前の名前」で行うので、補足（所属・役割）は名前の後ろの括弧に1つだけ書く。
+#   よい: `U-KNOW(東方神起)`  `熊倉優(指揮)`        わるい: `東方神起のU-KNOW`  `指揮 熊倉優`
+# 単独公演（oneman）は出演者が1組に決まっているのに空だと、その人を登録した利用者の
+# 先頭セクションに出ない。タイトルから名前を拾う側で補うと取り違えるので、書く側で埋める。
+def check_artists(rep, where, r):
+    artists = (r.get("artists") or "").strip()
+    if not artists and (r.get("live_type") or "").strip() == "oneman":
+        rep.warn(where, "live_type=oneman なのに artists が空です"
+                        "（その人をお気に入りに登録した利用者に、この公演が出ません。出演者名を書いてください）")
+
 def check_status(rep, where, r, allowed, start, end):
     """status / rank は表示側が日付から毎回計算する（assets/js/schedule.js）。
 
@@ -642,6 +654,7 @@ def validate_main(name, rows, enums, rep):
             check_enum(rep, where, "genre", (r.get("genre") or "").strip(), enums["live_genre"])
             check_enum(rep, where, "live_type", (r.get("live_type") or "").strip(), enums["live_type"])
             check_status(rep, where, r, enums["live_status"], start, end)
+            check_artists(rep, where, r)
 
         # 商業施設の一斉セール（cats=sale）。入場料ではないので料金の列は空欄が正しい。
         # `price` に「無料」と書くと「無料のものだけ」に混ざり、割引の列を書くと

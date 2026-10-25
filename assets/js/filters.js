@@ -7,6 +7,7 @@ import { TODAY, ITEMS } from "./data.js";
 import { activeGuests, guestDays } from "./schedule.js";
 import { isFav } from "./state.js";
 import { isFavSpotItem, hasParking } from "./spots.js";
+import { isFavArtistItem } from "./artists.js";
 
 /* ---------- 日付まわり ---------- */
 
@@ -137,6 +138,7 @@ const FLAG_HELPERS = {
   isNewlyAnnounced,
   isFav,
   isFavSpotItem,
+  isFavArtistItem,
   hasParking,
   hasEnded,
   hasGuests,

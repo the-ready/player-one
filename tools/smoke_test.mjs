@@ -91,9 +91,11 @@ await page.waitForTimeout(300);
 // --- 絞り込みチップ
 await page.click("#catBtn");
 await page.waitForTimeout(300);
-// 「お気に入りスポットを先頭にまとめる」は絞り込みではなく見え方の設定なので件数を持たない
+// 「お気に入りスポット／アーティストを先頭にまとめる」は絞り込みではなく見え方の設定なので件数を持たない
 const chips = await page
-  .locator('#catBody .chip:not([data-key="__pinFav"])')
+  .locator(
+    '#catBody .chip:not([data-key="__pinFav"]):not([data-key="__pinArtist"])',
+  )
   .count();
 check("絞り込みチップが出る", chips > 0, `${chips}個`);
 check(
@@ -376,6 +378,190 @@ check(
   "駐車場のバッジが出る行がある",
   (await page.locator("#list .card .pk").count()) > 0,
 );
+await page.evaluate(() => localStorage.clear());
+
+// --- お気に入りアーティスト（人のボタン。設計書 第5.14節）
+await page.goto(BASE + "?tab=live", { waitUntil: "networkidle" });
+await page.evaluate(() => localStorage.clear());
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForSelector("#liveList .card");
+await page.waitForTimeout(1500);
+await waitAllTabs(page);
+check(
+  "出演者の横に人のボタンが出る（単独公演にも）",
+  (await page.locator("#liveList .card .art-btn").count()) > 50,
+);
+check(
+  "お気に入りが空のうちは先頭セクションが出ない",
+  (await page.locator("#liveList .fav-head").count()) === 0,
+);
+// 公演の多い人を、画面のボタンから選ぶ（件数は毎週変わるので名前は決め打ちしない）
+const artistName = await page.evaluate(() => {
+  const n = new Map();
+  document
+    .querySelectorAll("#liveList .art-btn[data-artist]")
+    .forEach((b) =>
+      n.set(b.dataset.artist, (n.get(b.dataset.artist) || 0) + 1),
+    );
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0][0];
+});
+const artBtn = page
+  .locator(`#liveList .art-btn[data-artist="${artistName}"]`)
+  .first();
+await artBtn.scrollIntoViewIfNeeded();
+await artBtn.click();
+await page.waitForTimeout(300);
+check(
+  "人のボタンを押すと押した状態になり、トーストが出る",
+  (await artBtn.getAttribute("aria-pressed")) === "true" &&
+    (await page.locator("#favToast").isVisible()) &&
+    /お気に入りアーティストにしました/.test(
+      await page.locator("#favToast .ft-msg").innerText(),
+    ),
+);
+check(
+  "押した瞬間には一覧を並べ替えない",
+  (await page.locator("#liveList .fav-head").count()) === 0,
+);
+await page.locator("#favToast button.primary").click();
+await page.waitForTimeout(600);
+check(
+  "「先頭にまとめる」で先頭セクションが出て、カードに「なぜ」の行が付く",
+  (await page.locator("#liveList .fav-head.art").count()) === 1 &&
+    (await page.locator("#liveList .why-line").count()) > 0,
+);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForSelector("#liveList .card");
+await page.waitForTimeout(1500);
+check(
+  "リロードしても登録が残る",
+  (await page.locator("#liveList .fav-head.art").count()) === 1,
+);
+await page
+  .locator(`#liveList .art-link[data-artist-open="${artistName}"]`)
+  .first()
+  .click();
+await page.waitForTimeout(400);
+check(
+  "名前を押すと出演予定のシートが開き、その人の公演が並ぶ",
+  (await page.locator("#artistSheet").isVisible()) &&
+    (await page.locator("#artistSheetTitle").innerText()) === artistName &&
+    (await page.locator("#artistInfo li").count()) > 0,
+);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+check(
+  "Escで出演予定のシートが閉じる",
+  !(await page.locator("#artistSheet").isVisible()),
+);
+// 絞り込みの入口から管理シートを開き、名前を手入力で足す
+await page.click("#catBtn");
+await page.waitForTimeout(300);
+check(
+  "絞り込みに「お気に入りアーティストだけ」と管理の入口がある",
+  (await page.locator('#catBody .chip[data-key="favArtistOnly"]').count()) ===
+    1 && (await page.locator("#catBody [data-manage-artists]").count()) === 1,
+);
+await page.locator("#catBody [data-manage-artists]").click();
+await page.waitForTimeout(400);
+check(
+  "管理シートが開き、登録した人が並ぶ",
+  (await page.locator("#favArtistSheet").isVisible()) &&
+    (await page.locator("#favArtistRows .vr-name").first().innerText()) ===
+      artistName,
+);
+await page.fill("#favArtistInput", "まだデータに無い人");
+await page.press("#favArtistInput", "Enter");
+await page.waitForTimeout(300);
+check(
+  "データに無い名前も手入力で登録でき、「いま予定なし」と出る",
+  (await page.locator("#favArtistRows .vr-name").allInnerTexts()).includes(
+    "まだデータに無い人",
+  ) &&
+    /いま予定なし/.test(
+      await page
+        .locator("#favArtistRows li", { hasText: "まだデータに無い人" })
+        .innerText(),
+    ),
+);
+await page.fill("#favArtistInput", "まだデータに無い人");
+await page.press("#favArtistInput", "Enter");
+await page.waitForTimeout(200);
+check(
+  "同じ名前は二重に登録されない",
+  (await page.locator("#favArtistRows .vr-name").allInnerTexts()).filter(
+    (t) => t === "まだデータに無い人",
+  ).length === 1 &&
+    /すでに登録/.test(await page.locator("#favArtistStatus").innerText()),
+);
+await page.locator("#favArtistClose").click();
+await page.waitForTimeout(500);
+await page.click("#catBtn");
+await page.waitForTimeout(300);
+await page.locator('#catBody .chip[data-key="favArtistOnly"]').click();
+await page.waitForTimeout(400);
+check(
+  "「お気に入りアーティストだけ」で絞れて、URLに載る",
+  (await page.locator("#liveList .card").count()) > 0 &&
+    (await page.locator("#liveList .fav-head").count()) === 0 &&
+    /f=favartist/.test(new URL(page.url()).search),
+);
+await page.keyboard.press("Escape");
+await page.click("#tabEventBtn");
+await page.waitForTimeout(800);
+check(
+  "タブを移っても絞り込みが持ち越される",
+  /f=favartist/.test(new URL(page.url()).search),
+);
+await page.locator("#appliedClear").click();
+await page.waitForTimeout(300);
+// フェスの出演者シートの中から登録できる
+await page.click("#tabLiveBtn");
+await page.waitForTimeout(600);
+const lineupCard = page
+  .locator("#liveList .card", { has: page.locator("button.lineup-btn") })
+  .first();
+if (await lineupCard.count()) {
+  await lineupCard.locator("button.lineup-btn").scrollIntoViewIfNeeded();
+  await lineupCard.locator("button.lineup-btn").click();
+  await page.waitForTimeout(500);
+  const luRow = page.locator("#lineupBody .lu-artist").nth(1);
+  const luBtn = luRow.locator(".art-btn");
+  await luBtn.click();
+  await page.waitForTimeout(200);
+  check(
+    "出演者シートの人のボタンで登録でき、行が強調される",
+    (await luBtn.getAttribute("aria-pressed")) === "true" &&
+      (await luRow.getAttribute("class")).includes("is-art"),
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(500);
+  check(
+    "シートを閉じると一覧に反映される（組数が増える）",
+    /[2-9]組/.test(
+      (await page.locator("#liveList .fav-head.art").innerText()).replace(
+        /\s+/g,
+        " ",
+      ),
+    ),
+  );
+} else check("（出演者シートを持つフェスが無いのでスキップ）", true);
+// イベント・映画の登壇者にも人のボタンが付く
+for (const [btn, list, label] of [
+  ["#tabEventBtn", "#list", "イベント"],
+  ["#tabMovieBtn", "#movieList", "映画"],
+]) {
+  await page.click(btn);
+  await page.waitForTimeout(700);
+  const n = await page.locator(`${list} .guest-line .art-btn`).count();
+  check(
+    `${label}の登壇者にも人のボタンが付く（登壇者のいる公演があれば）`,
+    n >= 0 &&
+      (n === 0 ||
+        (await page.locator(`${list} .guest-line .art-link`).count()) === n),
+    `${n}件`,
+  );
+}
 await page.evaluate(() => localStorage.clear());
 
 /* 夜のカードの読みやすさ（第6.6節）。空モードの夜（太陽高度 -4° 未満）は、カードの色の道具を

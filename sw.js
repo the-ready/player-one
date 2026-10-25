@@ -15,7 +15,7 @@
    VERSION が据え置きのままだと `updatefound` が発火せず、main.js の自動入れ替え
    （設計書 第10.3節）が動かない。SHELL はキャッシュ優先なので、開き直した人には
    前回のキャッシュがそのまま返り、新しいJSは「次の次の訪問」まで反映されない。 */
-const VERSION = "v37";
+const VERSION = "v38";
 const SHELL_CACHE = `eventboard-shell-${VERSION}`;
 const DATA_CACHE = `eventboard-data-${VERSION}`;
 
@@ -36,6 +36,7 @@ const SHELL = [
   "./assets/js/schedule.js",
   "./assets/js/data.js",
   "./assets/js/spots.js",
+  "./assets/js/artists.js",
   "./assets/js/state.js",
   "./assets/js/filters.js",
   "./assets/js/cards.js",
@@ -47,6 +48,7 @@ const SHELL = [
   "./assets/js/ui-lineup.js",
   "./assets/js/ui-caladd.js",
   "./assets/js/ui-favspot.js",
+  "./assets/js/ui-favartist.js",
   "./assets/js/ui-controls.js",
   "./assets/vendor/leaflet/leaflet.js",
   "./assets/vendor/leaflet/leaflet.css",

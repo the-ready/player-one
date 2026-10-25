@@ -4,7 +4,7 @@
    効かないと「この週末の横浜のイベント」を人に渡せないため。 */
 
 import { TABS, TAB_ORDER, PREFS } from "./config.js";
-import { spotKey } from "./util.js";
+import { spotKey, artistKey, artistHead } from "./util.js";
 
 /* ---------- タブごとの状態 ---------- */
 
@@ -356,6 +356,133 @@ export function setFavSecMoreOpen(tabKey, on) {
   moreOpen[tabKey] = !!on;
 }
 
+/* ---------- お気に入りアーティスト ----------
+   場所（★）・催し（♡）とは別に、**人**を覚える。登録した人が出る公演が、各タブの一覧の先頭に
+   まとまる。3タブで同じ人を共有する（ライブは出演者・イベントと映画は登壇者）。
+
+   保存するのは表示名で、照合は artistKey でそろえる（util.js の artistKey の注釈）。
+   末尾の括弧の補足（`U-KNOW(東方神起)`）は保存のとき外す。登録したのは人であって、
+   所属や役割ではないため。公演が無くなった名前も残す。アーティストは公演の無い期間のほうが
+   長いのが普通で、登録が黙って消えると、先頭に出ない理由が誰にも分からなくなるため。
+   ログインを持たない方針（設計書 第1.4節）は変えず、この端末の中だけに保存する。 */
+
+const FAV_ARTIST_KEY = "eventboard.favartists.v1";
+// 手入力で際限なく増えても、保存領域と管理シートが壊れないための上限
+export const FAV_ARTIST_MAX = 200;
+// データの出演者名には60文字を超えるものがある（公演名がそのまま名前になっている出演者）ので、
+// カードのボタンから登録できなくならないよう、実データの最長より余裕を持たせる
+export const FAV_ARTIST_NAME_MAX = 100;
+let favArtists = new Map(); // artistKey -> 表示名
+// 登録の増減のたびに進める。出演者との照合の覚え（artists.js）を捨てる合図になる
+let favArtistRevision = 0;
+
+/** 保存できる名前に整える。空・長すぎる名前は null。 */
+export function cleanArtistName(name) {
+  const head = artistHead(
+    String(name == null ? "" : name).replace(/\s+/g, " "),
+  );
+  if (!head || head.length > FAV_ARTIST_NAME_MAX) return null;
+  return artistKey(head) ? head : null;
+}
+
+export function loadFavArtists() {
+  favArtists = new Map();
+  favArtistRevision++;
+  try {
+    const raw = localStorage.getItem(FAV_ARTIST_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(arr))
+      arr.forEach((x) => {
+        const n = typeof x === "string" ? cleanArtistName(x) : null;
+        const k = n && artistKey(n);
+        if (k && !favArtists.has(k) && favArtists.size < FAV_ARTIST_MAX)
+          favArtists.set(k, n);
+      });
+  } catch {
+    favArtists = new Map();
+  }
+}
+function saveFavArtists() {
+  try {
+    localStorage.setItem(
+      FAV_ARTIST_KEY,
+      JSON.stringify([...favArtists.values()]),
+    );
+  } catch {
+    /* 保存できなくても、このページを開いている間は効く */
+  }
+}
+export const isFavArtist = (name) => favArtists.has(artistKey(name));
+/** 登録状態を on/off に揃える。変化したら true を返す（上限・空の名前では false）。 */
+export function setFavArtist(name, on) {
+  const n = cleanArtistName(name);
+  const k = n && artistKey(n);
+  if (!k || favArtists.has(k) === !!on) return false;
+  if (on) {
+    if (favArtists.size >= FAV_ARTIST_MAX) return false;
+    favArtists.set(k, n);
+  } else favArtists.delete(k);
+  favArtistRevision++;
+  saveFavArtists();
+  return true;
+}
+export function toggleFavArtist(name) {
+  const next = !isFavArtist(name);
+  setFavArtist(name, next);
+  return isFavArtist(name);
+}
+export const favArtistNames = () => [...favArtists.values()];
+export const favArtistCount = () => favArtists.size;
+/** 照合用: artistKey に当たる登録名。無ければ undefined。 */
+export const favArtistByKey = (k) => favArtists.get(k);
+export const favArtistRev = () => favArtistRevision;
+
+/* 先頭にまとめる設定と、先頭セクションをたたんだ状態は、お気に入りスポットとは別に持つ。
+   場所だけ・人だけを使う人が、片方の設定に引きずられないため。URL には載せない理由は
+   スポットと同じ（共有した相手には相手のお気に入りがあるため、載せても意味が通らない）。 */
+const ART_PIN_KEY = "eventboard.favartpin.v1";
+const ART_FOLD_KEY = "eventboard.favartfold.v1";
+let pinArtist = true;
+let artFolded = {};
+let artMoreOpen = {};
+
+export function loadFavArtistView() {
+  try {
+    pinArtist = localStorage.getItem(ART_PIN_KEY) !== "0";
+  } catch {
+    pinArtist = true;
+  }
+  try {
+    const raw = JSON.parse(localStorage.getItem(ART_FOLD_KEY) || "{}");
+    artFolded = raw && typeof raw === "object" ? raw : {};
+  } catch {
+    artFolded = {};
+  }
+}
+export const pinFavArtists = () => pinArtist;
+export function setPinFavArtists(on) {
+  pinArtist = !!on;
+  try {
+    localStorage.setItem(ART_PIN_KEY, pinArtist ? "1" : "0");
+  } catch {
+    /* 保存できなくても動く */
+  }
+}
+export const isArtSecFolded = (tabKey) => !!artFolded[tabKey];
+export function setArtSecFolded(tabKey, on) {
+  if (on) artFolded[tabKey] = true;
+  else delete artFolded[tabKey];
+  try {
+    localStorage.setItem(ART_FOLD_KEY, JSON.stringify(artFolded));
+  } catch {
+    /* 保存できなくても動く */
+  }
+}
+export const isArtSecMoreOpen = (tabKey) => !!artMoreOpen[tabKey];
+export function setArtSecMoreOpen(tabKey, on) {
+  artMoreOpen[tabKey] = !!on;
+}
+
 /* ---------- 最後に見ていたタブ ---------- */
 const TAB_KEY = "eventboard.lastTab.v1";
 export function rememberTab(k) {
@@ -396,6 +523,7 @@ const FLAG_PARAM = {
   beforeOnly: "before",
   limitedOnly: "limited",
   favOnly: "fav",
+  favArtistOnly: "favartist",
   favSpotOnly: "favspot",
   parkingOnly: "parking",
   showEnded: "ended",

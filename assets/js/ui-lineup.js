@@ -8,7 +8,7 @@
    ものではない（カード1枚の中身を掘り下げるだけ）ので、日程・エリアのポップアップ
    と違ってこちらは aria-modal のシートでよい。 */
 
-import { esc, EXT_ICON, safeUrl, fmtDateWd, WD } from "./util.js";
+import { esc, EXT_ICON, PERSON_ICON, safeUrl, fmtDateWd, WD } from "./util.js";
 import { lineupRows, lineupCount } from "./data.js";
 import {
   setBackgroundInert,
@@ -17,6 +17,9 @@ import {
   openerElement,
 } from "./ui-popover.js";
 import { TODAY } from "./schedule.js";
+import { isFavArtist } from "./state.js";
+import { artistBtnHtml } from "./cards.js";
+import { toggleArtist, flushArtistChange } from "./ui-favartist.js";
 
 const el = {};
 let returnFocus = null;
@@ -92,7 +95,8 @@ function musicLink(r) {
 /* note は .lu-note 側で幅100%に折り返す前提のため、name・♪ の後ろに置く
    （幅の奪い合いで name が潰れる事故については app.css の .lu-note を参照）。 */
 function artistItem(r) {
-  return `<li class="lu-artist${r.isHeadliner ? " headliner" : ""}">
+  return `<li class="lu-artist${r.isHeadliner ? " headliner" : ""}${isFavArtist(r.artist) ? " is-art" : ""}">
+    ${artistBtnHtml(r.artist)}
     <span class="lu-name">${esc(r.artist)}</span>
     ${musicLink(r)}
     ${r.note ? `<span class="lu-note">${esc(r.note)}</span>` : ""}
@@ -114,6 +118,11 @@ function dayHtml(g) {
   </section>`;
 }
 
+/* お気に入りの人が出る日に、日タブで印を付ける。日をまたいで探す手間を省くため。
+   シートの中で付け外しすると変わるので、描き直すたびに数える。 */
+const hasFavArtist = (g) =>
+  g.stages.some((s) => s.list.some((r) => isFavArtist(r.artist)));
+
 function renderTabs() {
   // 1日しかないフェス（＝実質タブが要らない）ではタブ列そのものを出さない
   if (groups.length < 2) {
@@ -128,7 +137,7 @@ function renderTabs() {
         `<button type="button" class="lu-tab" role="tab" id="luTab${i}"
           aria-selected="${i === activeDay}" aria-controls="lineupBody"
           tabindex="${i === activeDay ? 0 : -1}" data-day="${i}"
-        >${esc(g.label)}<span class="lu-tab-count">${g.count}</span></button>`,
+        >${esc(g.label)}<span class="lu-tab-count">${g.count}</span>${hasFavArtist(g) ? `<span class="art-dot">${PERSON_ICON}<span class="sr-only">（お気に入りアーティストが出演）</span></span>` : ""}</button>`,
     )
     .join("");
 }
@@ -184,6 +193,13 @@ export function initLineupSheet() {
     const btn = e.target.closest(".lu-tab");
     if (btn) selectDay(Number(btn.dataset.day), true);
   });
+  // 人のボタン。シートの中では並べ替えを保留し、閉じたときにまとめて反映する（背面のカードを動かさない）
+  el.body.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-artist]");
+    if (!b) return;
+    toggleArtist(b.dataset.artist, { silent: true });
+    renderTabs();
+  });
   // タブ列は左右キーで移動する（tablist の作法。Tabキーは中身へ抜ける）
   el.tabs.addEventListener("keydown", (e) => {
     const d = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity }[
@@ -226,7 +242,7 @@ export function openLineupSheet(item) {
     site
       ? `<a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">公式のタイムテーブルを見る${EXT_ICON}</a><br>`
       : ""
-  }♪をタップすると Apple Music に移動します。`;
+  }♪をタップすると Apple Music に移動します。<br>人のボタンを押すと、お気に入りアーティストに登録できます。`;
 
   el.sheet.hidden = false;
   document.body.style.overflow = "hidden";
@@ -241,6 +257,9 @@ export function closeLineupSheet() {
   el.sheet.hidden = true;
   document.body.style.overflow = "";
   setBackgroundInert(false, [document.querySelector(".controls")]);
+  // シートの中で人を付け外ししていたら、戻り先の判定より先に一覧へ反映する
+  // （反映の再描画で、開いた元のボタンが消えることがあるため）
+  flushArtistChange();
   // 開いている間に一覧が再描画されると元のボタンはDOMから消えている
   // （closePlaceSheet と同じ事情）。行き場が無ければ操作バーの「絞り込み」へ逃がす。
   // 検索窓へ逃がすと、フォーカスで検索欄が開き、スマホではキーボードまで上がる

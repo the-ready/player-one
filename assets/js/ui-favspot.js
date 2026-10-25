@@ -50,7 +50,7 @@ export function syncStars(root = document) {
 
 /* ---------- トースト ---------- */
 
-function hideToast() {
+export function hideToast() {
   clearTimeout(toastTimer);
   if (el.toast) {
     el.toast.hidden = true;
@@ -63,7 +63,7 @@ function armToast() {
   toastTimer = setTimeout(hideToast, 10000);
 }
 
-function showToast(text, actions) {
+export function showToast(text, actions) {
   if (!el.toast) return;
   el.msg.textContent = text;
   el.acts.innerHTML = actions
@@ -87,9 +87,9 @@ function showToast(text, actions) {
     固定の余白ではなく、伸びたときの操作バーの高さに合わせる。先頭セクションは一覧の最上部に
     あり、そこへ戻るのは上へのスクロールなので、着いたときのバーは伸びている
     （縮んだときの高さで合わせると、伸びたバーが見出しを覆っていた） */
-function revealFavHead() {
+export function revealFavHead(selector = ".fav-head:not(.art)") {
   const list = document.getElementById(TABS[activeTab].listId);
-  const target = list && list.querySelector(".fav-head");
+  const target = list && list.querySelector(selector);
   if (!target) return;
   const top =
     target.getBoundingClientRect().top +

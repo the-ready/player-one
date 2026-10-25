@@ -9,6 +9,7 @@ import {
   searchTerms,
   debounce,
   spotKey,
+  PERSON_ICON,
   EXT_ICON,
 } from "./util.js";
 import { TABS, TAB_ORDER, PREFS, venueNames } from "./config.js";
@@ -42,6 +43,12 @@ import {
   setFavSecFolded,
   isFavSecMoreOpen,
   setFavSecMoreOpen,
+  favArtistCount,
+  pinFavArtists,
+  isArtSecFolded,
+  setArtSecFolded,
+  isArtSecMoreOpen,
+  setArtSecMoreOpen,
 } from "./state.js";
 import {
   isFavSpotItem,
@@ -49,6 +56,7 @@ import {
   favChainGroups,
   chainNamesOf,
 } from "./spots.js";
+import { favArtistsOf, isFavArtistItem, isNewSinceVisit } from "./artists.js";
 import { schedulePhase } from "./schedule.js";
 import { refitCard, watchGrid } from "./grid-fit.js";
 
@@ -104,6 +112,9 @@ export function renderList() {
   // 「★お気に入りスポットだけ」で絞っている人、お気に入りが空の人では出さない）。
   const favBlocks =
     favSpotCount() > 0 && (pinFavSpots() || st.flags.favSpotOnly);
+  // お気に入りアーティストの先頭セクションも同じ考え方（スポットとは別の設定で出し分ける）
+  const artBlocks =
+    favArtistCount() > 0 && (pinFavArtists() || st.flags.favArtistOnly);
   const chainRows = favBlocks ? chainRowsFor(tab, st) : [];
 
   const countEl = document.getElementById("resultCount");
@@ -154,8 +165,11 @@ export function renderList() {
   const card = (e) => cardHtml(tab, e.rep, st, terms, e.members);
   setListHtml(
     listEl,
-    favBlocks
-      ? favListHtml(tab, st, entries, chainRows, card)
+    favBlocks || artBlocks
+      ? favListHtml(tab, st, entries, chainRows, card, {
+          spot: favBlocks,
+          artist: artBlocks,
+        })
       : entries.map(card).join(""),
   );
 }
@@ -222,27 +236,111 @@ function chainRowsFor(tab, st) {
   return rows;
 }
 
-function favListHtml(tab, st, entries, chainRows, card) {
+/* 先頭セクションは、お気に入りアーティスト → お気に入りスポット → そのほか の順に並べる。
+   人のほうを上にするのは、「この人が出る」は「この場所である」より狭い条件で、探している
+   公演に当たる確率が高いため。同じカードを2回は出さず、両方に当たる公演は上（人）に1枚だけ
+   出す（その場所の★は、カードの会場名の★で見える）。
+
+   「◯◯だけ」で絞っているときは、絞り込みの結果そのものを見出しなしで並べる。見出しで
+   区切ると、すでに全件が該当しているのに「そのほか」が残るように見えるため。 */
+function favListHtml(tab, st, entries, chainRows, card, { spot, artist }) {
   const chainHtml = chainRows
     .map((r) => chainRowHtml(r.group, r.count, r.now))
     .join("");
-  if (st.flags.favSpotOnly) return chainHtml + entries.map(card).join("");
+  if (st.flags.favSpotOnly || st.flags.favArtistOnly)
+    return chainHtml + entries.map(card).join("");
 
   // まとめたカード（同時開催のセール）は、どれか1施設がお気に入りなら先頭側に出す
+  const art = [];
   const fav = [];
   const rest = [];
-  entries.forEach((e) => (e.members.some(isFavSpotItem) ? fav : rest).push(e));
+  entries.forEach((e) => {
+    if (artist && e.members.some(isFavArtistItem)) art.push(e);
+    else if (spot && e.members.some(isFavSpotItem)) fav.push(e);
+    else rest.push(e);
+  });
 
+  const shownKeys = new Set(
+    entries.flatMap((e) => e.members.map((m) => m.key)),
+  );
+  const artHtml = artist ? artistSectionHtml(tab, art, card, shownKeys) : "";
+  const spotHtml = spot
+    ? spotSectionHtml(tab, st, fav, chainRows, chainHtml, card, shownKeys)
+    : "";
+  if (!artHtml && !spotHtml) return rest.map(card).join("");
+  const divider = rest.length
+    ? `<p class="list-divider"><span>そのほかの${esc(tab.noun)}</span><span class="n">${rest.length}件</span></p>`
+    : "";
+  return artHtml + spotHtml + divider + rest.map(card).join("");
+}
+
+/* 先頭セクションの見出し。人・場所で同じ作りにして、色と文言だけを変える。 */
+function sectionHead({ cls, aria, icon, title, countHtml, act, folded }) {
+  return `<div class="fav-head${cls ? " " + cls : ""}" role="group" aria-label="${esc(aria)}">
+      <span class="fh-main"><span class="fh-title">${icon}${esc(title)}</span>${countHtml}</span>
+      <span class="fh-acts"><button type="button" class="mini-btn" data-${act}="manage">管理</button><button type="button" class="mini-btn" data-${act}="fold" aria-expanded="${!folded}">${folded ? "ひらく" : "たたむ"}</button></span>
+    </div>`;
+}
+const moreBtn = (act, more, total) =>
+  `<div class="fav-more"><button type="button" class="mini-btn" data-${act}="more" aria-expanded="${more}">${more ? "先頭の表示をへらす" : `ほか${total - FAV_CAP}件を表示`}</button></div>`;
+
+function artistSectionHtml(tab, art, card, shownKeys) {
+  // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
+  // 区別する（スポットと同じ。条件のせいなら一言添え、予定が無いだけなら何も出さない）。
+  let hidden = 0;
+  if (!art.length && hasAnyFilter(tab.key))
+    hidden = ITEMS[tab.key].filter(
+      (it) => isFavArtistItem(it) && !hasEnded(it) && !shownKeys.has(it.key),
+    ).length;
+  if (!art.length && !hidden) return "";
+
+  const folded = isArtSecFolded(tab.key);
+  const more = isArtSecMoreOpen(tab.key);
+  const shown = more ? art : art.slice(0, FAV_CAP);
+  const people = new Set();
+  art.forEach((e) =>
+    e.members.forEach((it) =>
+      favArtistsOf(it).forEach((h) => people.add(h.key)),
+    ),
+  );
+  const fresh = art.filter((e) => e.members.some(isNewSinceVisit)).length;
+  const countText = hidden
+    ? "いまの絞り込みでは0件"
+    : `${people.size}組・${art.length}件`;
+  const countHtml =
+    `<span class="fh-count">${esc(countText)}</span>` +
+    (fresh ? `<span class="fh-new">前回から＋${fresh}件</span>` : "");
+
+  const head = sectionHead({
+    cls: "art",
+    aria: `お気に入りアーティストの${tab.noun}`,
+    icon: `<span class="fh-ico" aria-hidden="true">${PERSON_ICON}</span>`,
+    title: "お気に入りアーティスト",
+    countHtml,
+    act: "art-act",
+    folded,
+  });
+  let body = "";
+  if (!folded) {
+    if (hidden)
+      body = `<p class="fav-note">お気に入りアーティストの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
+    body += shown.map(card).join("");
+    if (art.length > FAV_CAP) body += moreBtn("art-act", more, art.length);
+  }
+  return head + body;
+}
+
+function spotSectionHtml(tab, st, fav, chainRows, chainHtml, card, shownKeys) {
   // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
   // 区別する。条件のせいなら一言添える（理由が無いと、設定が効いていないように見える）。
   // そもそも予定が無い（別のタブの場所だけを登録している等）なら何も出さない。
+  // すでに別のセクション（お気に入りアーティスト）に出ている公演は、隠れているとは言わない。
   let hidden = 0;
   if (!fav.length && !chainRows.length && hasAnyFilter(tab.key))
     hidden = ITEMS[tab.key].filter(
-      (it) => isFavSpotItem(it) && !hasEnded(it),
+      (it) => isFavSpotItem(it) && !hasEnded(it) && !shownKeys.has(it.key),
     ).length;
-  if (!fav.length && !chainRows.length && !hidden)
-    return rest.map(card).join("");
+  if (!fav.length && !chainRows.length && !hidden) return "";
 
   const folded = isFavSecFolded(tab.key);
   const more = isFavSecMoreOpen(tab.key);
@@ -263,24 +361,24 @@ function favListHtml(tab, st, entries, chainRows, card) {
     ? "いまの絞り込みでは0件"
     : `${spots.size}か所・${fav.length}件${chainTotal ? `＋新作${chainTotal}本` : ""}`;
 
-  const head = `<div class="fav-head" role="group" aria-label="お気に入りスポットの${esc(tab.noun)}">
-      <span class="fh-main"><span class="fh-title"><span class="fh-star" aria-hidden="true">★</span>お気に入りスポット</span><span class="fh-count">${esc(countText)}</span></span>
-      <span class="fh-acts"><button type="button" class="mini-btn" data-fav-act="manage">管理</button><button type="button" class="mini-btn" data-fav-act="fold" aria-expanded="${!folded}">${folded ? "ひらく" : "たたむ"}</button></span>
-    </div>`;
+  const head = sectionHead({
+    aria: `お気に入りスポットの${tab.noun}`,
+    icon: `<span class="fh-star" aria-hidden="true">★</span>`,
+    title: "お気に入りスポット",
+    countHtml: `<span class="fh-count">${esc(countText)}</span>`,
+    act: "fav-act",
+    folded,
+  });
 
   let body = "";
   if (!folded) {
     if (hidden)
       body = `<p class="fav-note">お気に入りスポットの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
     body += shown.map(card).join("");
-    if (fav.length > FAV_CAP)
-      body += `<div class="fav-more"><button type="button" class="mini-btn" data-fav-act="more" aria-expanded="${more}">${more ? "先頭の表示をへらす" : `ほか${fav.length - FAV_CAP}件を表示`}</button></div>`;
+    if (fav.length > FAV_CAP) body += moreBtn("fav-act", more, fav.length);
     body += chainHtml;
   }
-  const divider = rest.length
-    ? `<p class="list-divider"><span>そのほかの${esc(tab.noun)}</span><span class="n">${rest.length}件</span></p>`
-    : "";
-  return head + body + divider + rest.map(card).join("");
+  return head + body;
 }
 
 /** カード内の操作から元データを引く。 */
@@ -317,6 +415,9 @@ export function bindList(
     onResetShared,
     onToggleSpot,
     onManageSpots,
+    onToggleArtist,
+    onOpenArtist,
+    onManageArtists,
     onChainFilter,
   },
 ) {
@@ -342,6 +443,30 @@ export function bindList(
     const star = e.target.closest("button[data-star]");
     if (star) {
       onToggleSpot(star.dataset.star);
+      return;
+    }
+    const person = e.target.closest("button[data-artist]");
+    if (person) {
+      onToggleArtist(person.dataset.artist);
+      return;
+    }
+    const personOpen = e.target.closest("button[data-artist-open]");
+    if (personOpen) {
+      onOpenArtist(personOpen.dataset.artistOpen);
+      return;
+    }
+    const artAct = e.target.closest("button[data-art-act]");
+    if (artAct) {
+      const key = activeTab;
+      const act = artAct.dataset.artAct;
+      if (act === "manage") onManageArtists();
+      else if (act === "fold") {
+        setArtSecFolded(key, !isArtSecFolded(key));
+        refreshNow({ url: false });
+      } else if (act === "more") {
+        setArtSecMoreOpen(key, !isArtSecMoreOpen(key));
+        refreshNow({ url: false });
+      }
       return;
     }
     const favAct = e.target.closest("button[data-fav-act]");
@@ -553,18 +678,33 @@ export function renderDirectories() {
    件数はいま効いている他の条件を反映して毎回変わるので、開いたまま押しても
    次に何が残るかが読める。 */
 
-function chipButton({ key, text, count, pressed, color, textColor, cls }) {
+function chipButton({
+  key,
+  text,
+  count,
+  pressed,
+  color,
+  textColor,
+  cls,
+  icon,
+}) {
   const dead = count === 0 && !pressed;
   return `<button type="button" class="chip${cls ? " " + cls : ""}" data-key="${esc(key)}"
       aria-pressed="${pressed}"${dead ? " disabled" : ""}
       style="${pressed && color ? `--chip-c:${color};--chip-tx:${textColor || "var(--on-accent)"}` : ""}"
-    >${esc(text)}<span class="chip-count" aria-hidden="true">${count}</span><span class="sr-only">（${count}件）</span></button>`;
+    >${icon ? `<span class="chip-ico" aria-hidden="true">${icon}</span>` : ""}${esc(text)}<span class="chip-count" aria-hidden="true">${count}</span><span class="sr-only">（${count}件）</span></button>`;
 }
 
 /* 先頭にまとめるかどうかは「絞り込み」ではなく見え方の設定なので、件数も URL も持たない
    （state.js の pinFav）。他の特別チップと同じ並びに置くのは、探す場所を1つにするため。 */
 function pinChipHtml() {
-  return `<button type="button" class="chip flag-chip favspot-chip" data-key="__pinFav" aria-pressed="${pinFavSpots()}">お気に入りスポットを先頭にまとめる</button>`;
+  return `<button type="button" class="chip flag-chip favartist-chip" data-key="__pinArtist" aria-pressed="${pinFavArtists()}">お気に入りアーティストを先頭にまとめる</button><button type="button" class="chip flag-chip favspot-chip" data-key="__pinFav" aria-pressed="${pinFavSpots()}">お気に入りスポットを先頭にまとめる</button>`;
+}
+/* お気に入りアーティストは、登録の入口がカードの人のボタンだけだと、まだ公演がデータに無い人
+   （発表待ち）を登録できない。管理シートを、お気に入りが空でも開ける場所に置く。
+   押すと状態が変わるチップではなく、シートを開くだけのボタンなので .chip にはしない。 */
+function manageArtistsBtnHtml() {
+  return `<button type="button" class="chip-btn" data-manage-artists="1">お気に入りアーティストを登録・管理</button>`;
 }
 
 export function renderFilterChips() {
@@ -600,9 +740,12 @@ export function renderFilterChips() {
             count: gCounts[f.id],
             pressed: st.flags[f.id],
             cls: `flag-chip ${f.cls}`,
+            icon: f.icon,
           }),
         )
-        .join("")}${g.name === "表示" ? pinChipHtml() : ""}
+        .join(
+          "",
+        )}${g.name === "保存" ? manageArtistsBtnHtml() : ""}${g.name === "表示" ? pinChipHtml() : ""}
     </div>`,
     )
     .join("");

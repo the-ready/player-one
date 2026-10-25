@@ -39,8 +39,8 @@ const OUT = `temp/wcag`;
 fs.mkdirSync(`${OUT}/${NAME}`, { recursive: true });
 
 // 押しどころの例外。★は見た目が 24×22px だが、::after で当たり判定を広げてある（app.css の .star-btn::after）。
-// 会場名のリンクは文中の対象（2.5.8 の「文中」の例外）
-const EXEMPT_SIZE = /\.star-btn|\.place-link/;
+// 会場名・出演者名のリンクは文中の対象（2.5.8 の「文中」の例外）
+const EXEMPT_SIZE = /\.star-btn|\.place-link|\.art-link/;
 
 const browser = await chromium.launch(launchOpts);
 const ctx = await browser.newContext({
@@ -405,6 +405,193 @@ await click('[data-fav-act="manage"]', 800);
 await audit("お気に入り管理シート", "#favSheet");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
+// 6c. お気に入りアーティスト。人を登録した状態で開き直して測る。先頭セクション・「なぜ」の行・
+//     「前回から追加」・トースト・出演予定のシート・出演者シートの人のボタンと日タブの印・管理シート。
+//     登録した人がいないと出ない部品なので、状態を作れなかったときは「点検できず」で落とす
+{
+  await click("#tabLiveBtn", 1800);
+  const names = await page.evaluate(async () => {
+    const n = new Map();
+    document
+      .querySelectorAll("#liveList .art-btn[data-artist]")
+      .forEach((b) =>
+        n.set(b.dataset.artist, (n.get(b.dataset.artist) || 0) + 1),
+      );
+    // フェスの出演者は、カードの人のボタンには出ない（出演者シートの中にだけある）ので、
+    // ラインナップの出演者を2人足して、出演者シートにお気に入りの行と日タブの印が出る状態を作る
+    const D = await import(new URL("assets/js/data.js", location.href).href);
+    const F = await import(new URL("assets/js/filters.js", location.href).href);
+    const fes = D.ITEMS.live.find(
+      (it) => D.lineupArtistNames(it.lineupId).length > 3 && !F.hasEnded(it),
+    );
+    const inFes = fes ? D.lineupArtistNames(fes.lineupId).slice(1, 3) : [];
+    return [...n.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map((x) => x[0])
+      .concat(inFes, ["いま予定が無い人"]);
+  });
+  await page.evaluate((n) => {
+    localStorage.setItem("eventboard.favartists.v1", JSON.stringify(n));
+    for (const k of [
+      "eventboard.favartfold.v1",
+      "eventboard.favartpin.v1",
+      "eventboard.favartseen.v1",
+    ])
+      localStorage.removeItem(k);
+  }, names);
+  await page.goto(BASE + "?tab=live");
+  await page.waitForSelector("#liveList .card", {
+    state: "attached",
+    timeout: 120000,
+  });
+  await page.waitForTimeout(2500);
+  // 前回の訪問から公演が2件増えた記録を置いて読み直し、「前回から追加」を出す
+  await page.evaluate(async () => {
+    const D = await import(new URL("assets/js/data.js", location.href).href);
+    const A = await import(new URL("assets/js/artists.js", location.href).href);
+    const R = await import(new URL("assets/js/render.js", location.href).href);
+    // 印が見えるよう、一覧の先頭（上限6件）に出る公演から選ぶ。終わった公演は一覧に出ない
+    const hit = R.visibleItems("live")
+      .filter((it) => A.isFavArtistItem(it))
+      .slice(0, 2)
+      .map((it) => it.uid);
+    const base = D.ITEMS.live
+      .map((it) => it.uid)
+      .filter((u) => !hit.includes(u));
+    localStorage.setItem(
+      "eventboard.favartseen.v1",
+      JSON.stringify({
+        live: { base, cur: base, at: Date.now() - 5 * 3600 * 1000 },
+      }),
+    );
+  });
+  await page.goto(BASE + "?tab=live");
+  await page.waitForSelector("#liveList .card", {
+    state: "attached",
+    timeout: 120000,
+  });
+  await page.waitForTimeout(2500);
+  await page.addStyleTag({
+    content: ".grid.is-entering .card{animation:none;opacity:1}",
+  });
+  await top();
+  if (!(await page.$("#liveList > .fav-head.art")))
+    cantCheck("ライブ: 人を登録しても先頭セクションが出ない");
+  else {
+    if (!(await page.$("#liveList .new-tag")))
+      cantCheck("ライブ: 「前回から追加」の印が出ない");
+    if (!(await page.$("#liveList .why-line")))
+      cantCheck("ライブ: 「なぜ先頭か」の行が出ない");
+    await audit(
+      "お気に入りアーティスト先頭（ライブ）",
+      "#liveList > :nth-child(-n+7)",
+    );
+    // 出演者が4組を超える公演の「くわしく」（全員の一覧）も開いて測る
+    await page.evaluate(() => {
+      const c = [...document.querySelectorAll("#liveList .card")].find((x) =>
+        x.querySelector(".art-detail"),
+      );
+      if (c) {
+        c.setAttribute("data-wc-more", "1");
+        c.querySelector(".detail-toggle")?.click();
+      }
+    });
+    if (await page.$("[data-wc-more]"))
+      await audit("出演者の一覧（くわしく）", "#liveList [data-wc-more]");
+    else cantCheck("ライブ: 出演者が4組を超えても一覧が出ない");
+    // たたんだ状態
+    await click('#liveList [data-art-act="fold"]', 900);
+    await audit(
+      "お気に入りアーティスト（たたんだ）",
+      "#liveList > .fav-head.art",
+    );
+    await click('#liveList [data-art-act="fold"]', 900);
+    // トースト（まだ登録していない人を押す）
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll("#liveList .art-btn")].find(
+        (x) => x.getAttribute("aria-pressed") === "false",
+      );
+      b?.click();
+    });
+    await page
+      .waitForSelector("#favToast.show", { timeout: 8000 })
+      .catch(() => {});
+    if (await page.$("#favToast.show"))
+      await audit("お気に入りアーティストのトースト", "#favToast");
+    else cantCheck("ライブ: 人のボタンを押してもトーストが出ない");
+    await page.evaluate(() =>
+      document.querySelector("#favToast button:last-child")?.click(),
+    );
+    await page.waitForTimeout(500);
+    // 出演予定のシート
+    await click("#liveList > .fav-head.art ~ .card .art-link", 1000);
+    if (await page.$("#artistSheet:not([hidden])")) {
+      await audit("出演予定のシート", "#artistSheet");
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    } else
+      cantCheck("ライブ: 出演者の名前を押しても出演予定のシートが開かない");
+    // 出演者シート（人のボタン・お気に入りの行・日タブの印）。フェスは先頭の上限（6件）の
+    // 外にあることがあるので、「ほか◯件を表示」で開いてから探す
+    if (await page.$('#liveList [data-art-act="more"]')) {
+      await click('#liveList [data-art-act="more"]', 900);
+      await audit(
+        "お気に入りアーティスト（ほかも表示）",
+        "#liveList > .fav-more",
+      );
+    }
+    await page.evaluate(() => {
+      const c = [...document.querySelectorAll("#liveList .card")].find(
+        (x) => x.querySelector(".why-line") && x.querySelector(".lineup-btn"),
+      );
+      c?.querySelector(".lineup-btn")?.click();
+    });
+    await page.waitForTimeout(900);
+    if (await page.$("#lineupSheet:not([hidden]) .lu-artist.is-art")) {
+      await audit("出演者シート（お気に入りの人）", "#lineupSheet");
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    } else cantCheck("ライブ: 出演者シートにお気に入りの行が出ない");
+    // 管理シート（候補・状態の行）
+    await top();
+    await click('#liveList [data-art-act="manage"]', 800);
+    await page.fill("#favArtistInput", "あ");
+    await page.waitForTimeout(500);
+    await audit("お気に入りアーティスト管理シート", "#favArtistSheet");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    // 絞り込み（お気に入りアーティストのチップ）を押した状態
+    await top();
+    await click("#catBtn", 900);
+    await click('#catBody .chip[data-key="favArtistOnly"]', 600);
+    await audit("絞り込み（お気に入りアーティスト）", "#popoverPanel");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    await click("#appliedClear", 800);
+  }
+  // 後続の点検はイベントタブを前提にしている。最後に見たタブは次の起動で開く（rememberTab）ので、
+  // 保存を消す前にイベントタブへ戻しておく
+  await click("#tabEventBtn", 1200);
+  await page.evaluate(() => {
+    for (const k of [
+      "eventboard.favartists.v1",
+      "eventboard.favartseen.v1",
+      "eventboard.favartfold.v1",
+      "eventboard.favartpin.v1",
+    ])
+      localStorage.removeItem(k);
+  });
+  await page.goto(BASE);
+  await page.waitForSelector("#list .card", {
+    state: "attached",
+    timeout: 120000,
+  });
+  await page.waitForTimeout(1500);
+  await page.addStyleTag({
+    content: ".grid.is-entering .card{animation:none;opacity:1}",
+  });
+}
 // 6b. 共有のトースト・スクロールした操作バー・終了したものの表示
 await top();
 await page.evaluate(() => {

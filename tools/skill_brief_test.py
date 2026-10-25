@@ -77,7 +77,7 @@ PER_DATASET = {
                "price_official", "onsale_", "guest_dates", "登壇者の書き方",
                "上映フォーマットキー"],
     "lives":  ["転売サイトの絶対禁止", "公演形態キー", "ジャンルキー", "onsale_",
-               "limited_sale", "tour_id"],
+               "limited_sale", "tour_id", "お気に入りアーティスト"],
     "events": ["カテゴリキー", "coupon_note", "price_condition", "onsale_",
                "parking", "lat", "guest_dates", "出演者の書き方", "ステップ3.5"],
 }

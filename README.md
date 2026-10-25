@@ -12,9 +12,9 @@ assets/
   app.css                     スタイル一式
   js/                         ES モジュール（ビルド工程なし。そのまま配信される）
     config.js                 定義テーブルと3タブの宣言。機能追加はまずここを触る
-    util.js  schedule.js  csv.js  data.js  spots.js  state.js  filters.js
+    util.js  schedule.js  csv.js  data.js  spots.js  artists.js  state.js  filters.js
     cards.js  render.js
-    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-lineup.js  ui-favspot.js  ui-controls.js
+    ui-popover.js  ui-calendar.js  ui-area.js  ui-map.js  ui-lineup.js  ui-favspot.js  ui-favartist.js  ui-controls.js
     main.js                   起動とタブ切り替えの配線のみ
     wallpaper.js               ヘッダーの壁紙（水玉／動的な空）。page-sky.js だけを使う
     page-sky.js                空モードのときのページ背景色
