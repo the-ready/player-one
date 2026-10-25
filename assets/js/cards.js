@@ -13,6 +13,7 @@ import {
   fmtWhen,
   fold,
   haversineKm,
+  EXT_ICON,
 } from "./util.js";
 import {
   LINEUP_VISIBLE,
@@ -180,7 +181,7 @@ export function chainRowHtml(group, count, nowCount) {
     .slice(0, 4)
     .map(
       (t) =>
-        `<a class="chip-btn" href="${esc(safeUrl(t.url))}" target="_blank" rel="noopener noreferrer">${esc(t.name)}の上映スケジュール ↗</a>`,
+        `<a class="chip-btn" href="${esc(safeUrl(t.url))}" target="_blank" rel="noopener noreferrer">${esc(t.name)}の上映スケジュール${EXT_ICON}</a>`,
     )
     .join("");
   const names = group.theaters.map((t) => `★${t.name}`).join("・");

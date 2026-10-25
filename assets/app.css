@@ -3001,6 +3001,12 @@ mark {
 .venue-info .vi-site {
   margin: 0 0 0.55rem;
 }
+/* 外部サイトへ出る矢印（SVG）。文字の ↗ は iPhone で絵文字になるため */
+.ext-ico {
+  margin-left: 0.2em;
+  vertical-align: -0.12em;
+  flex: none;
+}
 .venue-info .vi-link {
   font-weight: 700;
   color: var(--grape);

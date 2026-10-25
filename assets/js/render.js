@@ -9,6 +9,7 @@ import {
   searchTerms,
   debounce,
   spotKey,
+  EXT_ICON,
 } from "./util.js";
 import { TABS, TAB_ORDER, PREFS, venueNames } from "./config.js";
 import { ITEMS, LOAD, SOURCES, updatedFor, dataStatus } from "./data.js";
@@ -533,7 +534,7 @@ function dirCardHtml(s) {
   const href = safeUrl(s.url);
   if (!href) return "";
   return `<a class="dir-card" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
-      <div class="dir-name">${esc(s.name)}<span aria-hidden="true">↗</span></div>
+      <div class="dir-name">${esc(s.name)}${EXT_ICON}</div>
       <div class="dir-role">${esc(s.role)}</div>
     </a>`;
 }

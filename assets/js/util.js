@@ -1,5 +1,9 @@
 /* 小さな純粋関数だけを置く。ここは他のどのモジュールにも依存しない。 */
 
+/* 外部サイトへ出る矢印。文字の ↗ は iPhone で絵文字に差し替わる（カラーで描かれる）ので、
+   他のアイコンと同じくインラインSVGで描く。 */
+export const EXT_ICON = `<svg class="ext-ico" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>`;
+
 /* CSVの値はそのままHTMLに差し込むので、必ず esc() を通す。タイトルに " を含む行
    （例:『… "World 2"』）があると、素の埋め込みでは aria-label が途中で切れて
    壊れた属性が生えるため。 */

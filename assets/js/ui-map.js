@@ -4,7 +4,7 @@
    Leaflet はリポジトリ内に同梱しているが、地図は「追加の絞り込み手段」なので
    初期表示では読み込まず、初めてシートを開いたときだけ読む。 */
 
-import { esc, safeUrl, fmtKm, haversineKm } from "./util.js";
+import { esc, EXT_ICON, safeUrl, fmtKm, haversineKm } from "./util.js";
 import {
   DEFAULT_CENTER,
   PLACE_UPCOMING_MAX,
@@ -519,7 +519,7 @@ function initPlaceMap(points) {
     const popupHtml =
       `<b>${esc(b.name)}</b><br>${esc(b.area || "")}` +
       (href
-        ? `<br><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">サイトを見る ↗</a>`
+        ? `<br><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">サイトを見る${EXT_ICON}</a>`
         : "");
     L.circleMarker([b.lat, b.lng], {
       radius: 7,
@@ -646,7 +646,7 @@ export function openPlaceSheet(name) {
     ${placeStars(name, chain)}
     ${facts ? `<p class="vi-facts">${esc(facts)}</p>` : ""}
     ${chain ? "" : placeParking(name)}
-    ${site ? `<p class="vi-site"><a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">${chain ? "チェーンの公式サイト" : "会場の公式サイト"}を見る ↗</a></p>` : ""}
+    ${site ? `<p class="vi-site"><a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">${chain ? "チェーンの公式サイト" : "会場の公式サイト"}を見る${EXT_ICON}</a></p>` : ""}
     <p class="vi-facts">ここでのこれからの予定（${upcoming.length}件）</p>
     ${
       shown.length

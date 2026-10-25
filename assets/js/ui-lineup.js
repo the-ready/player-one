@@ -8,7 +8,7 @@
    ものではない（カード1枚の中身を掘り下げるだけ）ので、日程・エリアのポップアップ
    と違ってこちらは aria-modal のシートでよい。 */
 
-import { esc, safeUrl, fmtDateWd, WD } from "./util.js";
+import { esc, EXT_ICON, safeUrl, fmtDateWd, WD } from "./util.js";
 import { lineupRows, lineupCount } from "./data.js";
 import {
   setBackgroundInert,
@@ -224,7 +224,7 @@ export function openLineupSheet(item) {
   }</b>`;
   el.help.innerHTML = `${countHtml}。${
     site
-      ? `<a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">公式のタイムテーブルを見る ↗</a><br>`
+      ? `<a class="vi-link" href="${esc(site)}" target="_blank" rel="noopener noreferrer">公式のタイムテーブルを見る${EXT_ICON}</a><br>`
       : ""
   }♪をタップすると Apple Music に移動します。`;
 
