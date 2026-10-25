@@ -1026,18 +1026,18 @@ html.sky-night .tab-chip[aria-selected="true"] .tab-count {
   color: #f4efe4;
 }
 /* 夜の入力欄。縁が黒に近い紺だと、塗りも地とほぼ同じ明るさのため、どこまでが入力欄か
-   分からない（WCAG 1.4.11 は 3:1）。入力欄の縁だけ灰みのモーブにする。検索欄は縁を紺にしてタブにそろえている（下）。ほかの入力欄は、
+   分からない（WCAG 1.4.11 は 3:1）。入力欄の縁だけ灰みのモーブにする。検索欄と会場名の入力欄は縁を紺にしてタブにそろえている（下）。ほかの入力欄は、
    青白く光らない暖かい側の色にしている。color-scheme: dark は、端末が描く部品
    （日付・時刻の選択アイコン、検索欄の×）を明るい色で描かせる */
-html.sky-night :is(.venue-search, .cal-add-field input) {
+html.sky-night .cal-add-field input {
   border-color: #a597a8;
 }
 html.sky-night :is(input[type="search"], .venue-search, .cal-add-field input) {
   color-scheme: dark;
 }
-/* 検索欄は、ヘッダーのタブと同じ「黒に近い紺の縁＋生成りの細い輪」にそろえる。縁が地に溶ける分は
+/* 検索欄・会場名の入力欄は、ヘッダーのタブと同じ「黒に近い紺の縁＋生成りの細い輪」にそろえる。縁が地に溶ける分は
    外側の輪が受け持つ（輪は縁の外にあるので 3:1 を満たす） */
-html.sky-night input[type="search"] {
+html.sky-night :is(input[type="search"], .venue-search) {
   border-color: #080b1e;
   box-shadow:
     3px 3px 0 #080b1e,

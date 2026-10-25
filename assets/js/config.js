@@ -736,10 +736,10 @@ export const TABS = {
     // 単日公演が多く日付そのものが主情報なので、日付だけ一段大きく出す
     dateClass: "live-date",
     cta: {
-      suffix: "でチケットを見る",
-      fallback: "チケットページを開く",
-      ariaWith: "でチケットを見る",
-      ariaWithout: "チケットページを開く",
+      suffix: "で確認する",
+      fallback: "確認ページを開く",
+      ariaWith: "で確認する",
+      ariaWithout: "確認ページを開く",
     },
     officialLabel: "公演公式サイトを見る",
     additionalLabel: "追加公演",
