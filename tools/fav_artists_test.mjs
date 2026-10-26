@@ -764,7 +764,11 @@ console.log("\n--- 絞り込みの配線 ---");
 console.log("\n--- 一覧の先頭セクション（合成データ） ---");
 {
   const html = () => els.get("list")?.innerHTML || "";
-  const keysIn = (h) =>
+  // 登録した人のかたまりを持つ「出演行」の数（「くわしく」の一覧の中の同じ人は数えない）
+const favLines = (h) =>
+  (h.match(/<p class="lineup-line">(?:(?!<\/p>)[\s\S])*?art-item is-fav/g) || [])
+    .length;
+const keysIn = (h) =>
     [...h.matchAll(/<article class="card" data-key="([^"]+)"/g)].map(
       (x) => x[1],
     );
@@ -827,8 +831,8 @@ console.log("\n--- 一覧の先頭セクション（合成データ） ---");
       all.length === R.visibleItems("live").length,
   );
   check(
-    "お気に入りの公演にだけ「なぜ先頭か」の行が付く",
-    (h.match(/class="why-line"/g) || []).length === 3,
+    "登録した人のかたまり（is-fav）は、お気に入りの公演にだけ付く。「なぜ先頭か」の行はもう出さない",
+    favLines(h) === 3 && !h.includes("why-line"),
   );
 
   // ★との並び: 人 → 場所 → そのほか
@@ -882,9 +886,9 @@ console.log("\n--- 一覧の先頭セクション（合成データ） ---");
   ST.setPinFavArtists(false);
   h = draw("live");
   check(
-    "「まとめない」では人の見出しは出ないが、カードの「なぜ」の行は残る",
+    "「まとめない」では人の見出しは出ないが、カードの登録した人のかたまりは残る",
     !h.includes('class="fav-head art"') &&
-      (h.match(/class="why-line"/g) || []).length === 3,
+      favLines(h) === 3,
   );
   check(
     "「まとめない」では並びが通常（日付順）のまま",
@@ -1002,9 +1006,19 @@ console.log("\n--- カードの部品 ---");
   let c = card("Saucy Dog ARENA TOUR");
   check(
     "単独公演にも出演行が出て、人のボタンと名前のボタンがある",
-    /<p class="lineup-line">出演：/.test(c) &&
+    /<p class="lineup-line">/.test(c) &&
       c.includes('data-artist="Saucy Dog"') &&
       c.includes('data-artist-open="Saucy Dog"'),
+  );
+  check(
+    "「出演：」の語は見せない（読み上げにだけ残す）",
+    /<p class="lineup-line"><span class="sr-only">出演：<\/span>/.test(c) &&
+      !/<\/span>出演：/.test(c) &&
+      !/lineup-line">出演：/.test(c),
+  );
+  check(
+    "「＋」「✓」の印は付けない（人のボタンは形と aria-pressed だけで状態を伝える）",
+    !c.includes("art-mark") && !c.includes("✓"),
   );
   check(
     "登録済みの人のボタンは押された状態で描かれる",
@@ -1020,8 +1034,10 @@ console.log("\n--- カードの部品 ---");
       /person-ico"[^>]*aria-hidden="true"/.test(c),
   );
   check(
-    "「なぜ先頭か」の行に人の名前が出る",
-    /class="why-line"[^>]*>[\s\S]*why-name">Saucy Dog</.test(c),
+    "登録した人は、出演行の中でひとかたまり（is-fav）になる。同じ名前の別の行は出ない",
+    /<span class="art-item is-fav"><button[^>]*data-artist="Saucy Dog"/.test(c) &&
+      !c.includes("why-line") &&
+      (c.match(/data-artist-open="Saucy Dog"/g) || []).length === 1,
   );
   check("「前回から追加」は印が無ければ出ない", !c.includes("new-tag"));
 
@@ -1056,18 +1072,33 @@ console.log("\n--- カードの部品 ---");
   );
 
   c = card("FES-1");
+  const fesLine = (c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0];
   check(
-    "フェスは出演行を「全◯組の日程を見る」ボタンだけにする（人のボタンは出演者シートの中）",
+    "フェスの出演行は、登録した人（と出る日）と「全◯組の日程を見る」ボタンだけにする",
     c.includes('class="lineup-btn"') &&
-      !(c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0].includes(
-        "data-artist=",
-      ) &&
-      !c.includes('class="art-detail"'),
+      /^<p class="lineup-line"><span class="art-item is-fav">/.test(fesLine) &&
+      fesLine.indexOf('class="art-item is-fav"') <
+        fesLine.indexOf('class="lineup-btn"') &&
+      (fesLine.match(/data-artist=/g) || []).length === 1 &&
+      !c.includes('class="art-detail"') &&
+      !c.includes("why-line"),
   );
   check(
-    "フェスの「なぜ」の行に、出る日（11/7(土)・11/8(日)）が添う",
-    /why-day">11\/7\(土\)・11\/8\(日\)出演</.test(c),
+    "フェスの登録した人のかたまりに、出る日（11/7(土)・11/8(日)）が添う",
+    /fav-day">11\/7\(土\)・11\/8\(日\)出演<\/small><\/span>/.test(fesLine),
   );
+  {
+    const keep = ST.favArtistNames();
+    keep.forEach((n) => ST.setFavArtist(n, false));
+    const plain = card("FES-1");
+    check(
+      "登録した人がいないフェスは、出演行が「全◯組の日程を見る」ボタンだけ（人のボタンは出演者シートの中）",
+      !(plain.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0].includes(
+        "data-artist=",
+      ) && plain.includes('class="lineup-btn"'),
+    );
+    keep.forEach((n) => ST.setFavArtist(n, true));
+  }
 
   c = card("U-KNOW PROJECT");
   check(
@@ -1094,21 +1125,43 @@ console.log("\n--- カードの部品 ---");
     /art-link"[^>]*><mark>/.test(c) || /art-link"[^>]*>[^<]*<mark>/.test(c),
   );
 
-  // 「なぜ」の行: 3人まで・ほか
+  // 登録した人は、出演行の枠（4組）に収まらなくても先頭へ並べて隠さない
+  resetAll();
+  ST.setFavArtist("Ayumu Imazu", true);
+  c = card("共演ライブ");
+  let l2 = (c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0];
+  check(
+    "6番目の人を登録すると、出演行の先頭に並び、枠は4組のまま（ほか2組）",
+    /<span class="art-item is-fav">[\s\S]*?Ayumu Imazu/.test(l2) &&
+      l2.indexOf("Ayumu Imazu") < l2.indexOf("Saucy Dog") &&
+      (l2.match(/class="art-item[ "]/g) || []).length === 4 &&
+      l2.includes("ほか2組"),
+  );
+  check(
+    "登録した人のかたまりの後ろには「・」を置かない（帯は余白で離れ、行末に「・」が残らない）。ほかの名前の間は「・」",
+    /Ayumu Imazu<\/button><\/span><span class="art-item">/.test(l2) &&
+      (l2.match(/<\/button><\/span>・<span class="art-item">/g) || []).length === 2,
+    l2,
+  );
   resetAll();
   ["Saucy Dog", "Vaundy", "超特急", "NEXZ", "My Hair is Bad"].forEach((n) =>
     ST.setFavArtist(n, true),
   );
   c = card("共演ライブ");
-  const why = (c.match(/<p class="why-line">[\s\S]*?<\/p>/) || [""])[0];
+  l2 = (c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0];
   check(
-    "「なぜ」の行は3人まで並べて、残りは「ほか◯組」",
-    (why.match(/class="why-item"/g) || []).length === 3 &&
-      why.includes("ほか2組"),
+    "登録した人が枠より多いときは、枠を広げて全員見せる（5人＋ほか1組）",
+    (l2.match(/class="art-item is-fav"/g) || []).length === 5 &&
+      (l2.match(/class="art-item[ "]/g) || []).length === 5 &&
+      l2.includes("ほか1組") &&
+      !c.includes("why-line"),
   );
   check(
-    "「なぜ」の行は読み上げ用の前置きを持つ",
-    why.includes('class="sr-only">お気に入りアーティスト：'),
+    "登録した人が全員出ていても、「くわしく」には出演者の全員が並ぶ（隠れた1組も）",
+    c.includes('class="art-detail"') &&
+      c
+        .slice(c.indexOf('class="art-detail"'))
+        .includes('data-artist="Ayumu Imazu"'),
   );
 
   // イベントの登壇者
@@ -1132,6 +1185,21 @@ console.log("\n--- カードの部品 ---");
       ec5.includes('class="art-detail"') &&
       ec5.slice(ec5.indexOf('class="art-detail"')).includes('data-artist="戊"'),
   );
+  {
+    ST.setFavArtist("戊", true);
+    const ef = cardHtml(evTab, evBy("登壇者5人"), ST.STATES.event, []);
+    const gf = (ef.match(/<p class="guest-line">[\s\S]*?<\/p>/) || [""])[0];
+    check(
+      "登壇者の5人目を登録すると、登壇者行の先頭に並ぶ（枠は3人のまま・ほか2名）",
+      /<span class="art-item is-fav">[\s\S]*?戊/.test(gf) &&
+        gf.indexOf("戊") < gf.indexOf("甲") &&
+        (gf.match(/class="art-item[ "]/g) || []).length === 3 &&
+        gf.includes("ほか2名") &&
+        !ef.includes("why-line"),
+      gf,
+    );
+    ST.setFavArtist("戊", false);
+  }
   check(
     "登壇者の一覧のラベルはタブの語（イベント=出演者）",
     ec5.includes("出演者</span>"),
@@ -1196,16 +1264,17 @@ console.log("\n--- 前回から追加 ---");
       !isNew("Saucy Dog ARENA TOUR"),
   );
   check(
-    "新着の行は「前回から追加」の印が、「なぜ」の行の中に出る（バッジ列ではない）",
+    "新着の行は「前回から追加」の印が、出演行の末尾に出る（バッジ列ではない）",
     (() => {
       const c = cardHtml(TABS.live, liveBy("共演ライブ"), ST.STATES.live, []);
-      const why = (c.match(/<p class="why-line">[\s\S]*?<\/p>/) || [""])[0];
+      const line = (c.match(/<p class="lineup-line">[\s\S]*?<\/p>/) || [""])[0];
       const badge = (c.match(
         /<span class="badge-stack">[\s\S]*?<\/span>\s*<\/div>/,
       ) || [""])[0];
       return (
-        why.includes('class="new-tag">前回から追加</span>') &&
-        !badge.includes("前回から追加")
+        line.endsWith('class="new-tag">前回から追加</span></p>') &&
+        !badge.includes("前回から追加") &&
+        !c.includes("why-line")
       );
     })(),
   );

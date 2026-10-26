@@ -744,13 +744,14 @@ function chipButton({
 function pinChipHtml() {
   return `<button type="button" class="chip flag-chip favartist-chip" data-key="__pinArtist" aria-pressed="${pinFavArtists()}">お気に入りアーティストを先頭にまとめる</button><button type="button" class="chip flag-chip favspot-chip" data-key="__pinFav" aria-pressed="${pinFavSpots()}">お気に入りスポットを先頭にまとめる</button>`;
 }
-/* お気に入りアーティストは、登録の入口がカードの人のボタンだけだと、まだ公演がデータに無い人
-   （発表待ち）を登録できない。管理シートを、お気に入りが空でも開ける場所に置く。
+/* 「保存」の絞り込み（行きたい・お気に入りスポット・お気に入りアーティスト）の並びにも、
+   お気に入りの管理シートへの入口を置く。件数の行の「お気に入り管理」を知らない人も、
+   お気に入りで絞る場所でなら見つけられる。
    押すと状態が変わるチップではなく、シートを開くだけのボタンなので .chip にはしない。
    絞り込みのチップと同じ丸い形だと、押すと絞り込まれるように見えるので、「›」を付けた
    別の形（.manage-link）にして、別の画面が開くことが形で分かるようにする。 */
-function manageArtistsBtnHtml() {
-  return `<button type="button" class="manage-link" data-manage-artists="1">${PERSON_ICON}<span>お気に入りアーティストを登録・管理</span><span aria-hidden="true">›</span></button>`;
+function manageFavBtnHtml() {
+  return `<button type="button" class="manage-link" data-manage-fav="1" aria-haspopup="dialog">${CAL_ICON.star}<span>お気に入り管理</span><span aria-hidden="true">›</span></button>`;
 }
 
 export function renderFilterChips() {
@@ -791,7 +792,7 @@ export function renderFilterChips() {
         )
         .join(
           "",
-        )}${g.name === "保存" ? manageArtistsBtnHtml() : ""}${g.name === "表示" ? pinChipHtml() : ""}
+        )}${g.name === "保存" ? manageFavBtnHtml() : ""}${g.name === "表示" ? pinChipHtml() : ""}
     </div>`,
     )
     .join("");

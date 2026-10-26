@@ -89,6 +89,7 @@
     <link rel="modulepreload" href="assets/js/ui-calendar.js" />
     <link rel="modulepreload" href="assets/js/ui-controls.js" />
     <link rel="modulepreload" href="assets/js/ui-favartist.js" />
+    <link rel="modulepreload" href="assets/js/ui-favmanage.js" />
     <link rel="modulepreload" href="assets/js/ui-favspot.js" />
     <link rel="modulepreload" href="assets/js/ui-lineup.js" />
     <link rel="modulepreload" href="assets/js/ui-map.js" />
@@ -476,32 +477,34 @@
           aria-label="適用中の絞り込み"
           hidden
         ></div>
-        <!-- 件数の行に、お気に入りアーティストの管理シートの入口を常に置く。先頭セクションの
-             見出しの「管理」は、登録した人の公演があるときしか出ないため -->
+        <!-- 件数の行の右に、お気に入りの管理シートの入口を文字のリンクとして置く。左の3つ
+             （日程・エリア・絞り込み）は一覧を絞るための操作で、お気に入りの管理は絞り込みでは
+             ないので、ボタンの列には混ぜない。先頭セクションの見出しの「管理」は、登録した人や
+             場所の催しがあるときしか出ないため、入口はここに常に置く -->
         <div class="count-row">
           <p class="result-count" id="resultCount" role="status"></p>
           <button
             type="button"
-            class="art-entry"
-            id="artistEntry"
-            aria-label="お気に入りアーティストを登録・管理する"
+            class="fav-entry"
+            id="favEntry"
+            aria-haspopup="dialog"
           >
             <svg
-              class="person-ico"
               viewBox="0 0 24 24"
-              width="16"
-              height="16"
+              width="15"
+              height="15"
               fill="none"
               stroke="currentColor"
               stroke-width="1.9"
-              stroke-linecap="round"
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <circle cx="12" cy="8" r="3.6" />
-              <path d="M4.8 20.2c.8-3.9 3.7-6 7.2-6s6.4 2.1 7.2 6z" />
+              <path
+                d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8L3.6 9.6l5.8-.8z"
+              />
             </svg>
-            <span>お気に入りアーティスト</span><span aria-hidden="true">›</span>
+            <span class="fe-label">お気に入り管理</span
+            ><span aria-hidden="true">›</span>
           </button>
         </div>
       </div>
@@ -901,32 +904,6 @@
       </div>
     </div>
 
-    <!-- お気に入りスポット（★）の管理。登録した場所の一覧と、外す・戻す操作 -->
-    <div
-      class="map-sheet"
-      id="favSheet"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="favSheetTitle"
-      hidden
-    >
-      <div class="map-sheet-inner">
-        <div class="map-sheet-head">
-          <h2 id="favSheetTitle">お気に入りスポット</h2>
-          <button
-            type="button"
-            class="popover-close"
-            id="favSheetClose"
-            aria-label="とじる"
-          >
-            ×
-          </button>
-        </div>
-        <p class="map-sheet-help" id="favSheetHelp"></p>
-        <div class="fav-sheet-body" id="favSheetBody"></div>
-      </div>
-    </div>
-
     <!-- お気に入りアーティストの出演予定（出演者の名前を押すと開く。3タブをまとめて数える） -->
     <div
       class="map-sheet"
@@ -955,45 +932,107 @@
       </div>
     </div>
 
-    <!-- お気に入りアーティストの管理。登録した人の一覧と、名前の手入力による追加 -->
+    <!-- お気に入りの管理。アーティストとスポットを1枚にまとめ、上の切り替えで行き来する。
+         登録した一覧・外す／元に戻す・名前の手入力による追加が、どちらも同じ形で並ぶ -->
     <div
       class="map-sheet"
-      id="favArtistSheet"
+      id="favManage"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="favArtistTitle"
+      aria-labelledby="favManageTitle"
       hidden
     >
       <div class="map-sheet-inner">
         <div class="map-sheet-head">
-          <h2 id="favArtistTitle">お気に入りアーティスト</h2>
+          <h2 id="favManageTitle">お気に入り</h2>
           <button
             type="button"
             class="popover-close"
-            id="favArtistClose"
+            id="favManageClose"
             aria-label="とじる"
           >
             ×
           </button>
         </div>
-        <p class="map-sheet-help" id="favArtistHelp"></p>
-        <div class="fav-sheet-body">
-          <form class="vr-add" id="favArtistForm" autocomplete="off">
-            <input
-              id="favArtistInput"
-              class="venue-search"
-              type="text"
-              maxlength="100"
-              enterkeyhint="done"
-              placeholder="アーティスト名を入力"
-              aria-label="追加するアーティスト名"
-              aria-describedby="favArtistStatus"
-            />
-            <button type="submit" class="mini-btn">追加</button>
-          </form>
-          <p class="vr-status" id="favArtistStatus" role="status"></p>
-          <div class="sugg" id="favArtistSugg" hidden></div>
-          <ul class="venue-rows" id="favArtistRows"></ul>
+        <div class="fav-tabs" role="tablist" aria-label="お気に入りの種類">
+          <button
+            type="button"
+            class="fav-tab"
+            id="favTabArtist"
+            role="tab"
+            data-fm-tab="artist"
+            aria-selected="true"
+            aria-controls="favManagePanel"
+          >
+            <svg
+              class="person-ico"
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="3.6" />
+              <path d="M4.8 20.2c.8-3.9 3.7-6 7.2-6s6.4 2.1 7.2 6z" />
+            </svg>
+            アーティスト<span class="n" id="favManageCountArtist"></span>
+          </button>
+          <button
+            type="button"
+            class="fav-tab"
+            id="favTabSpot"
+            role="tab"
+            data-fm-tab="spot"
+            aria-selected="false"
+            tabindex="-1"
+            aria-controls="favManagePanel"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="17"
+              height="17"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8L3.6 9.6l5.8-.8z"
+              />
+            </svg>
+            スポット<span class="n" id="favManageCountSpot"></span>
+          </button>
+        </div>
+        <div
+          class="fav-panel"
+          id="favManagePanel"
+          role="tabpanel"
+          aria-labelledby="favTabArtist"
+        >
+          <p class="map-sheet-help" id="favManageHelp"></p>
+          <div class="fav-sheet-body">
+            <form class="vr-add" id="favManageForm" autocomplete="off">
+              <input
+                id="favManageInput"
+                class="venue-search"
+                type="text"
+                maxlength="100"
+                enterkeyhint="done"
+                placeholder="アーティスト名を入力"
+                aria-label="追加するアーティスト名"
+                aria-describedby="favManageStatus"
+              />
+              <button type="submit" class="mini-btn">追加</button>
+            </form>
+            <p class="vr-status" id="favManageStatus" role="status"></p>
+            <div class="sugg" id="favManageSugg" hidden></div>
+            <ul class="venue-rows" id="favManageRows"></ul>
+          </div>
         </div>
       </div>
     </div>

@@ -406,7 +406,16 @@ await page.evaluate(() =>
 await page.waitForTimeout(1200);
 await audit("お気に入り先頭セクション", "#list .fav-head");
 await click('[data-fav-act="manage"]', 800);
-await audit("お気に入り管理シート", "#favSheet");
+await audit("お気に入り管理シート（スポット）", "#favManage");
+// スポットの名前入力（名簿の候補。先頭の候補に Enter の印が付く）
+await page.fill("#favManageInput", "アリーナ");
+await page.waitForTimeout(500);
+if (await page.$("#favManageSugg .sugg-btn"))
+  await audit("お気に入り管理シート（スポットの候補）", "#favManage");
+else cantCheck("スポットの名前入力で、名簿の候補が出ない");
+await page.fill("#favManageInput", "存在しない仮の会場名");
+await page.waitForTimeout(400);
+await audit("お気に入り管理シート（スポット・名簿に無い名前）", "#favManage");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 // 6c. お気に入りアーティスト。人を登録した状態で開き直して測る。先頭セクション・「なぜ」の行・
@@ -486,8 +495,8 @@ await page.waitForTimeout(400);
   else {
     if (!(await page.$("#liveList .new-tag")))
       cantCheck("ライブ: 「前回から追加」の印が出ない");
-    if (!(await page.$("#liveList .why-line")))
-      cantCheck("ライブ: 「なぜ先頭か」の行が出ない");
+    if (!(await page.$("#liveList .lineup-line .art-item.is-fav")))
+      cantCheck("ライブ: 登録した人のかたまり（出演行）が出ない");
     await audit(
       "お気に入りアーティスト先頭（ライブ）",
       "#liveList > :nth-child(-n+7)",
@@ -558,7 +567,9 @@ await page.waitForTimeout(400);
     }
     await page.evaluate(() => {
       const c = [...document.querySelectorAll("#liveList .card")].find(
-        (x) => x.querySelector(".why-line") && x.querySelector(".lineup-btn"),
+        (x) =>
+          x.querySelector(".lineup-line .art-item.is-fav") &&
+          x.querySelector(".lineup-btn"),
       );
       c?.querySelector(".lineup-btn")?.click();
     });
@@ -572,18 +583,18 @@ await page.waitForTimeout(400);
     await top();
     await click('#liveList [data-art-act="manage"]', 800);
     // 外した行（薄い・点線・「元に戻す」）と、先頭の候補（Enter で登録される印）
-    await click("#favArtistRows li:first-child .vr-act", 500);
-    await page.fill("#favArtistInput", "あ");
+    await click("#favManageRows li:first-child .vr-act", 500);
+    await page.fill("#favManageInput", "あ");
     await page.waitForTimeout(500);
-    await audit("お気に入りアーティスト管理シート", "#favArtistSheet");
+    await audit("お気に入りアーティスト管理シート", "#favManage");
     // データに無い名前（「のまま登録」のボタンと、Enter では登録しない旨の案内）
-    await page.fill("#favArtistInput", "存在しない仮の名前");
-    await page.press("#favArtistInput", "Enter");
+    await page.fill("#favManageInput", "存在しない仮の名前");
+    await page.press("#favManageInput", "Enter");
     await page.waitForTimeout(500);
-    if (await page.$("#favArtistSugg .sugg-raw"))
+    if (await page.$("#favManageSugg .sugg-raw"))
       await audit(
         "お気に入りアーティスト管理シート（のまま登録）",
-        "#favArtistSheet",
+        "#favManage",
       );
     else cantCheck("ライブ: データに無い名前で「のまま登録」のボタンが出ない");
     await page.keyboard.press("Escape");

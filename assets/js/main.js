@@ -86,9 +86,6 @@ import {
 import {
   initFavSpots,
   toggleSpot,
-  openFavSheet,
-  closeFavSheet,
-  isFavSheetOpen,
   onFavReflow,
   showToast,
   hideToast,
@@ -100,10 +97,13 @@ import {
   openArtistSheet,
   closeArtistSheet,
   isArtistSheetOpen,
-  openArtistManage,
-  closeArtistManage,
-  isArtistManageOpen,
 } from "./ui-favartist.js";
+import {
+  initFavManage,
+  openFavManage,
+  closeFavManage,
+  isFavManageOpen,
+} from "./ui-favmanage.js";
 import { syncSeen } from "./artists.js";
 import {
   initControls,
@@ -134,12 +134,11 @@ export function setActiveTab(tab, opts = {}) {
 
   if (isPopoverOpen()) closePopover();
   if (isMapSheetOpen()) closeMapSheet();
-  if (isPlaceSheetOpen()) closePlaceSheet();
+  if (isPlaceSheetOpen()) closePlaceSheet({ noBack: true });
   if (isLineupSheetOpen()) closeLineupSheet();
   if (isCalAddSheetOpen()) closeCalAddSheet();
-  if (isFavSheetOpen()) closeFavSheet();
   if (isArtistSheetOpen()) closeArtistSheet({ noBack: true });
-  if (isArtistManageOpen()) closeArtistManage();
+  if (isFavManageOpen()) closeFavManage();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
   syncSearchForTab();
@@ -304,9 +303,10 @@ async function boot() {
   initCalAddSheet();
   initFavSpots();
   initFavArtists({ onGoToItem: goToItem });
+  initFavManage();
   document
-    .getElementById("artistEntry")
-    ?.addEventListener("click", () => openArtistManage());
+    .getElementById("favEntry")
+    ?.addEventListener("click", () => openFavManage());
   onFavReflow(renderVenueList);
   initControls();
   initTabs();
@@ -322,10 +322,10 @@ async function boot() {
         onReset: resetFilters,
         onResetShared: resetSharedFilters,
         onToggleSpot: (name) => toggleSpot(name),
-        onManageSpots: openFavSheet,
+        onManageSpots: () => openFavManage({ kind: "spot" }),
         onToggleArtist: (name) => toggleArtist(name),
         onOpenArtist: openArtistSheet,
-        onManageArtists: openArtistManage,
+        onManageArtists: () => openFavManage({ kind: "artist" }),
         // 「この◯本でしぼる」は、会場シートの「この会場でしぼりこむ」と同じ操作
         onChainFilter: (chain) => {
           setPlaceFilter(curState(), "venue", chain);
@@ -340,8 +340,8 @@ async function boot() {
   // 絞り込みチップ（件数つき）の押下
   document.getElementById("catBody").addEventListener("click", (e) => {
     // 管理シートを開くだけのボタン（状態を持たないので、チップの処理には回さない）
-    if (e.target.closest("[data-manage-artists]")) {
-      openArtistManage();
+    if (e.target.closest("[data-manage-fav]")) {
+      openFavManage();
       return;
     }
     const chip = e.target.closest(".chip");

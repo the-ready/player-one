@@ -114,6 +114,87 @@ SYNTH.set(
 );
 await Promise.all([D.loadSpots(), D.loadTheaters(), D.loadVenues()]);
 
+/* ================= 1b. 管理シートの名前の入力（候補と Enter） ================= */
+console.log("\n--- 管理シートの名前の入力（名簿から候補を出す） ---");
+{
+  const none = () => false;
+  const sug = (q, isFav = none, limit) =>
+    names(S.suggestSpots(q, isFav, limit));
+  check(
+    "空の入力・空白だけの入力は候補を出さない",
+    eq(sug(""), []) && eq(sug("  　 "), []),
+  );
+  check(
+    "名簿の名前の一部で引ける。名前の短い（前方が同じなら）ほうが先",
+    eq(sug("ミッドタウン"), ["東京ミッドタウン", "東京ミッドタウン日比谷"]),
+    JSON.stringify(sug("ミッドタウン")),
+  );
+  check(
+    "前方が合うものが並び、同じ前方なら名前の短いほうが先",
+    eq(sug("東京").slice(0, 2), ["東京ミッドタウン", "東京国際フォーラム"]) &&
+      sug("フォーラム").length === 1,
+    JSON.stringify(sug("東京")),
+  );
+  check(
+    "全角・半角・大小の違いと空白は吸収する",
+    new Set(sug("ｔｏｈｏ")).size === 2 &&
+      new Set(sug("TOHO シネマズ")).size === 2 &&
+      eq(sug("ａ館"), ["Ａ館"]),
+    JSON.stringify(sug("ｔｏｈｏ")),
+  );
+  check(
+    "チェーンの店舗は、劇場の名前で引ける（チェーン名そのものは場所ではない）",
+    eq(
+      new Set(sug("日比谷")),
+      new Set(["東京ミッドタウン日比谷", "TOHOシネマズ日比谷"]),
+    ),
+  );
+  check(
+    "すでに登録した場所は候補に出さない",
+    eq(
+      sug("ミッドタウン", (n) => n === "東京ミッドタウン"),
+      ["東京ミッドタウン日比谷"],
+    ),
+  );
+  check("件数の上限を守る", sug("館", none, 2).length === 2);
+  check("名簿に無い文字は、候補が空", eq(sug("存在しない会場名"), []));
+
+  const plan = (raw, isFav = none) => S.planAddSpot(raw, isFav);
+  check(
+    "空の入力は empty",
+    plan("").kind === "empty" && plan("   ").kind === "empty",
+  );
+  check(
+    "名簿の名前と同じなら、その場所を登録する（表記ゆれは名簿の名前に直す）",
+    eq(plan("東京国際フォーラム"), { kind: "add", name: "東京国際フォーラム" }) &&
+      eq(plan("ｔｏｈｏシネマズ新宿"), {
+        kind: "add",
+        name: "TOHOシネマズ新宿",
+      }),
+    JSON.stringify(plan("ｔｏｈｏシネマズ新宿")),
+  );
+  check(
+    "一部だけなら、先頭の候補を登録する（Enter は先頭の候補）",
+    eq(plan("フォーラム"), { kind: "add", name: "東京国際フォーラム" }),
+  );
+  check(
+    "完全一致が登録済みなら dup（候補があっても、別の場所を登録しない）",
+    eq(
+      plan("東京ミッドタウン", (n) => n === "東京ミッドタウン"),
+      { kind: "dup", name: "東京ミッドタウン" },
+    ),
+  );
+  check(
+    "名簿に無い名前は登録しない（どの催しとも結びつかないため）",
+    eq(plan("存在しない会場名"), { kind: "none", typed: "存在しない会場名" }),
+  );
+  check(
+    "一部が合う場所が全部登録済みなら、none（登録済みの別名で出直させない）",
+    plan("フォーラム", () => true).kind === "none",
+  );
+}
+
+
 const m = (v) => names(S.matchSpots(v));
 check(
   "完全一致",

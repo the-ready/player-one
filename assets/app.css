@@ -988,7 +988,6 @@ html.sky-night
     .stat-chip,
     .wp-toggle,
     .sort-btn,
-    .art-entry,
     input[type="search"],
     .search-toggle
   ) {
@@ -1056,11 +1055,14 @@ html.sky-night .controls {
   --text-faint: #bfc3da;
   --bar-line: #080b1e;
 }
-/* 件数の行の「お気に入りアーティスト」の人のアイコン。昼用の空色（#4f7382）のままだと、
+/* 件数の行の「お気に入り管理」の星のアイコン。昼用の空色（#4f7382）のままだと、
    暗い面の上で 2.33:1 になる（WCAG 1.4.11 は 3:1）。操作バーは body の直下で、上の
    `body > :not(.pop-header)` の色の道具（--sky）を直接受けるため、同じ詳しさで後ろに置く */
 html.sky-night body > .controls {
   --sky: #9ccfe0;
+}
+html.sky-night .fav-entry {
+  color: #f4efe4;
 }
 /* 0件のときの解除ボタン。昼用の黒い文字（--ink）のままだと暗い地に沈む。他の夜のボタンと同じ組み合わせにする */
 html.sky-night .empty-reset {
@@ -1697,7 +1699,11 @@ input[type="search"]:focus-visible {
 .ended-chip[aria-pressed="true"] {
   --chip-c: var(--text-soft);
 }
-/* 件数の行。右に、お気に入りアーティストの管理シートの入口を常に置く */
+/* 件数の行。右に、お気に入りの管理シートの入口を文字のリンクとして常に置く。
+   枠つきのボタンにしないのは、左の日程・エリア・絞り込みが「一覧を絞るボタン」で、お気に入りの
+   管理はそうではないため（ボタンの列に混ぜると、絞り込みの仲間に見える）。
+   件数の文字とリンクの文字は、同じ字体・大きさ・行の高さにして、align-items で中央をそろえる
+   （行の高さが違うと、文字の中央線が数pxずれて見える）。 */
 .count-row {
   display: flex;
   flex-wrap: wrap;
@@ -1707,31 +1713,43 @@ input[type="search"]:focus-visible {
   margin-top: 0.5rem;
 }
 .count-row .result-count {
-  margin-top: 0;
+  /* 余白を残すと、flex の中央揃えが「余白を含めた箱」の中央になり、文字がリンクの文字より
+     上へずれる（p の既定の下余白12pxで、6pxずれていた） */
+  margin: 0;
+  line-height: 1.5;
 }
 .controls.compact .count-row {
   margin-top: 0;
 }
-.art-entry {
+.fav-entry {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-height: 32px;
-  padding: 0.1rem 0.7rem 0.1rem 0.5rem;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--surface);
+  margin-left: auto;
+  min-height: 32px; /* 押しどころの下限（WCAG 2.2 の 2.5.8） */
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--text);
-  font-size: 12.5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.5;
   cursor: pointer;
 }
-.art-entry svg {
+.fav-entry svg {
   flex: none;
   color: var(--sky);
 }
+.fav-entry .fe-label {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.fav-entry:hover .fe-label {
+  text-decoration-style: solid;
+}
 /* 縮んだ操作バーでは件数と同じく並びから外す（絞り込みの横に並べる場所が無い） */
-.controls.compact .art-entry {
+.controls.compact .fav-entry {
   display: none;
 }
 .result-count {
@@ -4096,7 +4114,7 @@ footer p {
   width: 26px;
   height: 24px;
   /* 名前のボタンとの間を空ける（右の余白）。押す場所が隣り合うと、指で押し間違える */
-  margin: -3px 7px 0 -4px;
+  margin: -3px 5px 0 -4px;
   padding: 0;
   vertical-align: -6px;
   border: 0;
@@ -4112,28 +4130,6 @@ footer p {
 .art-btn svg {
   width: 18px;
   height: 18px;
-}
-/* 人の形だけでは「アカウント」に見えるので、押していない間は「＋」、登録したら「✓」の小さな印を付ける
-   （フォローの付け外しと同じ約束）。押せる範囲は ::after の側で広げてあり、この印は見た目だけ */
-.art-btn::before {
-  content: "+";
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--sky);
-  color: var(--on-accent);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 12px;
-  text-align: center;
-  pointer-events: none;
-}
-.art-btn[aria-pressed="true"]::before {
-  content: "✓";
-  font-size: 8px;
 }
 .art-btn:hover,
 .art-btn[aria-pressed="true"] {
@@ -4179,12 +4175,30 @@ footer p {
 .art-link:hover {
   text-decoration-style: solid;
 }
-/* 登録済みの人は、人のボタンの塗りに加えて名前にも地色を付ける。ボタンの違い（中抜き／塗り）は
-   小さく、名前を読みながらでは見落とすため。余白は影で作り、行の折り返しを変えない */
-.art-item.is-fav .art-link {
+/* 登録済みの人は、人のボタンと名前をひとかたまりの地色（丸い帯）で囲む。ボタンの違い（中抜き／塗り）は
+   小さく、名前を読みながらでは見落とすため。
+   align-items は上の .art-item のまま（基準線）にする。中央揃えにすると、かたまりの高さの中央に
+   名前が置かれ、行の頭の文字や隣の名前の高さとずれる。人のボタンだけが自分で中央に寄る。 */
+.art-item.is-fav {
+  padding: 0.06rem 0.6rem 0.06rem 0.45rem;
+  border-radius: 999px;
   background: var(--sky-tint);
-  box-shadow: 0 0 0 0.18rem var(--sky-tint);
-  border-radius: 5px;
+  color: var(--text);
+}
+.art-item.is-fav .art-btn {
+  margin-right: 0.3rem;
+}
+/* 帯どうし・帯と次の名前の間は、自分の余白で空ける（間の「・」は置かない。cards.js の artistItemsHtml） */
+.art-item.is-fav {
+  margin-right: 0.35rem;
+}
+/* フェスで、登録した人の出る日。かたまりの中の名前の後ろに小さく添える */
+.fav-day {
+  min-width: 0;
+  margin-left: 0.35rem;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-soft);
 }
 /* 「ほか◯組」。押すと「くわしく」の中の全員の一覧へ移る */
 .art-more {
@@ -4229,53 +4243,11 @@ footer p {
   vertical-align: baseline;
 }
 
-/* お気に入りの人が出る公演の「なぜここにいるか」の行。部品ごとに折り返さない
-   （人の名前・日付・「前回から追加」が途中で2行に割れると、何の印か読めなくなる）。
-   名前が長すぎるときだけ、その部品の中で省略記号にする。 */
-.why-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.35rem;
-  margin: 0 0 0.5rem;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.5;
-}
-.why-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0.1rem 0.6rem 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: var(--sky-tint);
-  color: var(--text);
-  white-space: nowrap;
-}
-.why-item svg {
-  flex: none;
-  width: 15px;
-  height: 15px;
-  color: var(--sky);
-  fill: var(--sky);
-}
-.why-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.why-day {
-  flex: none;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-soft);
-}
-.why-rest {
-  padding-inline: 0.2rem;
-  background: none;
-  color: var(--text-soft);
+/* 「前回から追加」の札は、出演の行の末尾に置く。折り返さない（部品の途中で割れると、何の印か読めない） */
+.lineup-line .new-tag,
+.guest-line .new-tag {
+  margin-left: 0.45rem;
+  vertical-align: 1px;
 }
 .new-tag,
 .fh-new {
@@ -4500,6 +4472,72 @@ footer p {
 }
 .vr-row.is-off .vr-ico svg {
   fill: none;
+}
+/* スポットの行の印は★（黄）。人（空色）と色と形の両方で見分ける */
+.vr-row .vr-ico.is-spot {
+  color: var(--sunny);
+}
+.vr-row .vr-ico.is-spot svg {
+  fill: var(--sunny);
+}
+.vr-row.is-off .vr-ico.is-spot svg {
+  fill: none;
+}
+
+/* お気に入りの管理シートの切り替え（アーティスト／スポット）。選んでいるほうを塗って目立たせる */
+.fav-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0.25rem;
+  background: var(--sheet);
+}
+.fav-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.2rem 0.6rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fav-tab svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+.fav-tab .n {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.fav-tab[aria-selected="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+.fav-tab[aria-selected="true"] .n {
+  color: #fff;
+}
+html.sky-night .fav-tab[aria-selected="true"] {
+  background: #f4efe4;
+  color: #2b3365;
+}
+html.sky-night .fav-tab[aria-selected="true"] .n {
+  color: #2b3365;
+}
+/* 切り替えの下（説明・入力欄・一覧）。残りの高さを使い、一覧だけをスクロールさせる */
+.fav-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .vr-row.is-off {
   border-style: dashed;

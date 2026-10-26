@@ -469,7 +469,8 @@ function onMapLocate() {
 const ps = {};
 let placeMap = null,
   placeLayer = null,
-  placeReturnFocus = null;
+  placeReturnFocus = null,
+  placeBack = null; // 閉じたあとに戻る先（お気に入りの管理シートの名前から開いたとき）
 
 export function initPlaceSheet() {
   ps.sheet = document.getElementById("placeSheet");
@@ -479,7 +480,7 @@ export function initPlaceSheet() {
   ps.info = document.getElementById("placeInfo");
   ps.close = document.getElementById("placeSheetClose");
 
-  ps.close.addEventListener("click", closePlaceSheet);
+  ps.close.addEventListener("click", () => closePlaceSheet());
   ps.sheet.addEventListener("click", (e) => {
     if (e.target === ps.sheet) closePlaceSheet();
     // シートの中では並べ替えを保留し、閉じたときにまとめて反映する（背面のカードを動かさない）
@@ -623,8 +624,10 @@ function placeStars(name, chain) {
   return "";
 }
 
-export function openPlaceSheet(name) {
+/** back: 閉じたあとに戻る先（お気に入りの管理シートの名前から開いたとき）。 */
+export function openPlaceSheet(name, { back = null } = {}) {
   placeReturnFocus = openerElement();
+  placeBack = back;
   closePopover();
   if (!el.sheet.hidden) closeMapSheet();
   ps.sheet.hidden = false;
@@ -658,7 +661,7 @@ export function openPlaceSheet(name) {
 
   document.getElementById("placeFilterBtn").addEventListener("click", () => {
     setPlaceFilter(curState(), "venue", name);
-    closePlaceSheet();
+    closePlaceSheet({ noBack: true });
     updateMapAreaStatus();
     renderVenueList();
     refreshNow({ push: true });
@@ -687,7 +690,8 @@ export function openPlaceSheet(name) {
   );
 }
 
-export function closePlaceSheet() {
+/** noBack: 管理シートへは戻らない（絞り込みやタブ切替など、別の画面へ移るとき）。 */
+export function closePlaceSheet({ noBack = false } = {}) {
   ps.sheet.hidden = true;
   document.body.style.overflow = "";
   setBackgroundInert(false, [document.querySelector(".controls")]);
@@ -698,6 +702,13 @@ export function closePlaceSheet() {
   // シートの中で★を付け外ししていたら、閉じたときに一覧の並びへ反映する。
   // 戻り先の判定より先に行う（再描画で元のボタンが消えることがあるため）。
   flushFavChange();
+  const returnTo = placeBack;
+  placeBack = null;
+  if (returnTo && !noBack) {
+    placeReturnFocus = null;
+    returnTo();
+    return;
+  }
   const back =
     placeReturnFocus && placeReturnFocus.offsetParent !== null
       ? placeReturnFocus

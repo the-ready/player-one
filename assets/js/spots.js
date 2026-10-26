@@ -188,6 +188,54 @@ export function favSpotEntries() {
   return favSpotNames().map((n) => spotByName(n) || { name: n, missing: true });
 }
 
+/* ---------- 管理シートの手入力 ----------
+   打った文字に合う会場の候補と、Enter（「追加」）が何をするか。画面に触れない純粋な関数にして、
+   DOM なしで試せるようにしている（tools/fav_spots_test.mjs）。
+
+   候補は名簿の場所だけにする。★の照合は名簿の名前（と、その名前で始まる表記）で行うので、
+   名簿に無い名前を登録しても、どの催しにも当たらず、先頭に何も出ないまま残ってしまう
+   （アーティストの手入力と違い、「発表前の人」のように後から当たる見込みも無い）。 */
+const squashSpot = (s) => spotFold(s).replace(/\s+/g, "");
+
+/** 名簿の全場所。 */
+export const allSpots = () => [...build().byKey.values()];
+
+/** 打った文字に合う場所。すでに登録した場所は出さない。前方が合うものを先に、
+    同じ並びの中では名前の短いものを先に（`横浜アリーナ` が `横浜アリーナ南館` より前）、
+    最後は五十音順。 */
+export function suggestSpots(query, isFav, limit = 8) {
+  const q = squashSpot(query);
+  if (!q) return [];
+  return allSpots()
+    .map((e) => ({ e, f: squashSpot(e.name) }))
+    .filter(({ e, f }) => f.includes(q) && !isFav(e.name))
+    .sort(
+      (a, b) =>
+        Number(b.f.startsWith(q)) - Number(a.f.startsWith(q)) ||
+        a.f.length - b.f.length ||
+        a.f.localeCompare(b.f, "ja"),
+    )
+    .slice(0, limit)
+    .map(({ e }) => e);
+}
+
+/* Enter（「追加」）の動き。
+     名簿の名前と同じ → その場所を登録（登録済みなら、そう伝える）
+     候補がある       → 先頭の候補を登録
+     どちらも無い     → 登録しない（名簿に無い名前は、どの催しとも結びつかない） */
+export function planAddSpot(raw, isFav) {
+  const text = String(raw == null ? "" : raw);
+  if (!squashSpot(text)) return { kind: "empty" };
+  const exact = spotByName(text);
+  if (exact)
+    return isFav(exact.name)
+      ? { kind: "dup", name: exact.name }
+      : { kind: "add", name: exact.name };
+  const first = suggestSpots(text, isFav, 1)[0];
+  if (first) return { kind: "add", name: first.name };
+  return { kind: "none", typed: text.trim() };
+}
+
 /** お気に入りの劇場をチェーンごとにまとめる。映画の新作はチェーン名でしか記録されて
     いないので、劇場を★にした人には「そのチェーンの新作」を別枠で案内する。 */
 export function favChainGroups() {

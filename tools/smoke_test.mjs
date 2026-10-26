@@ -354,14 +354,57 @@ check(
 await page.locator('#list [data-fav-act="manage"]').click();
 await page.waitForTimeout(300);
 check(
-  "管理シートに登録した場所が出る",
-  (await page.locator("#favSheet").isVisible()) &&
-    (await page.locator("#favSheetBody .vr-name").first().innerText()) ===
+  "管理シートがスポットを選んだ状態で開き、登録した場所が出る",
+  (await page.locator("#favManage").isVisible()) &&
+    (await page.locator("#favTabSpot").getAttribute("aria-selected")) ===
+      "true" &&
+    (await page.locator("#favManageRows .vr-name").first().innerText()) ===
       spotName,
+);
+// スポットも名前の入力欄から足せる。候補は名簿の場所だけ（名簿に無い名前は登録しない）
+const spotRows = page.locator("#favManageRows li");
+const spotsBefore = await spotRows.count();
+await page.fill("#favManageInput", "ぜったいにない会場めい");
+await page.press("#favManageInput", "Enter");
+await page.waitForTimeout(250);
+check(
+  "名簿に無い場所は Enter でも登録されず、理由が出る",
+  (await spotRows.count()) === spotsBefore &&
+    /合う場所がありません/.test(
+      await page.locator("#favManageStatus").innerText(),
+    ),
+);
+await page.fill("#favManageInput", "ドーム");
+await page.waitForTimeout(250);
+check(
+  "名簿の場所が候補に出て、先頭の候補に Enter の印が付く",
+  (await page.locator("#favManageSugg .sugg-btn").count()) > 0 &&
+    (await page
+      .locator("#favManageSugg .sugg-btn")
+      .first()
+      .evaluate((e) => e.classList.contains("is-first"))),
+);
+await page.press("#favManageInput", "Enter");
+await page.waitForTimeout(300);
+check(
+  "Enter で先頭の候補が登録され、切り替えの数も増える",
+  (await spotRows.count()) === spotsBefore + 1 &&
+    /を追加しました/.test(await page.locator("#favManageStatus").innerText()) &&
+    (await page.locator("#favManageCountSpot").innerText()).trim() ===
+      String(spotsBefore + 1),
+);
+await page.click("#favTabArtist");
+await page.waitForTimeout(200);
+check(
+  "アーティストへ切り替えると、入力欄とヒントがアーティストのものになる",
+  (await page.locator("#favManageInput").getAttribute("placeholder")) ===
+    "アーティスト名を入力" &&
+    (await page.locator("#favTabArtist").getAttribute("aria-selected")) ===
+      "true",
 );
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
-check("管理シートが閉じる", !(await page.locator("#favSheet").isVisible()));
+check("管理シートが閉じる", !(await page.locator("#favManage").isVisible()));
 await page.click("#catBtn");
 await page.waitForTimeout(300);
 await page.locator('#catBody .chip[data-key="favSpotOnly"]').click();
@@ -405,20 +448,44 @@ check(
     )),
 );
 check(
-  "件数の行に、お気に入りアーティストの管理の入口が常にある（登録0件でも）",
-  (await page.locator("#artistEntry").isVisible()) &&
+  "件数の行に、お気に入り管理の入口が文字のリンクとして常にある（登録0件でも）",
+  (await page.locator("#favEntry").isVisible()) &&
+    (await page.locator("#favEntry").innerText()).replace(/\s+/g, "") ===
+      "お気に入り管理›" &&
     (await page.evaluate(
       () =>
-        document.getElementById("artistEntry").parentElement ===
+        document.getElementById("favEntry").parentElement ===
         document.getElementById("resultCount").parentElement,
     )),
 );
 check(
-  "押していない人のボタンには「＋」の印が付く",
+  "入口は日程・エリア・絞り込みのボタンの列には混ぜない（絞り込みではないため）",
+  (await page.locator(".control-row #favEntry").count()) === 0 &&
+    (await page.locator(".control-row .sort-btn").count()) === 3,
+);
+check(
+  "件数の文字と入口の中央線が揃う（0.6px以内）",
+  await page.evaluate(() => {
+    const mid = (n) => {
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      const b = r.getBoundingClientRect();
+      return (b.top + b.bottom) / 2;
+    };
+    return (
+      Math.abs(
+        mid(document.getElementById("resultCount")) -
+          mid(document.querySelector("#favEntry .fe-label")),
+      ) <= 0.6
+    );
+  }),
+);
+check(
+  "人のボタンには「＋」「✓」の印を付けない",
   (await page
     .locator("#liveList .card .art-btn")
     .first()
-    .evaluate((e) => getComputedStyle(e, "::before").content)) === '"+"',
+    .evaluate((e) => getComputedStyle(e, "::before").content)) !== '"+"',
 );
 // 「ほか◯組」を押すと「くわしく」が開いて、全員の一覧が見える
 const moreBtn = page.locator("#liveList .card button.art-more").first();
@@ -466,9 +533,11 @@ check(
 await page.locator("#favToast button.primary").click();
 await page.waitForTimeout(600);
 check(
-  "「先頭にまとめる」で先頭セクションが出て、カードに「なぜ」の行が付く",
+  "「先頭にまとめる」で先頭セクションが出て、カードの出演行に登録した人のかたまりが付く（「なぜ」の行は出ない）",
   (await page.locator("#liveList .fav-head.art").count()) === 1 &&
-    (await page.locator("#liveList .why-line").count()) > 0,
+    (await page.locator("#liveList .lineup-line .art-item.is-fav").count()) >
+      0 &&
+    (await page.locator("#liveList .why-line").count()) === 0,
 );
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForSelector("#liveList .card");
@@ -520,24 +589,24 @@ await page.waitForTimeout(300);
 check(
   "絞り込みに「お気に入りアーティストだけ」と管理の入口がある",
   (await page.locator('#catBody .chip[data-key="favArtistOnly"]').count()) ===
-    1 && (await page.locator("#catBody [data-manage-artists]").count()) === 1,
+    1 && (await page.locator("#catBody [data-manage-fav]").count()) === 1,
 );
-await page.locator("#catBody [data-manage-artists]").click();
+await page.locator("#catBody [data-manage-fav]").click();
 await page.waitForTimeout(400);
 check(
   "管理シートが開き、登録した人が並ぶ",
-  (await page.locator("#favArtistSheet").isVisible()) &&
-    (await page.locator("#favArtistRows .vr-name").first().innerText()) ===
+  (await page.locator("#favManage").isVisible()) &&
+    (await page.locator("#favManageRows .vr-name").first().innerText()) ===
       artistName,
 );
-const outRow = page.locator("#favArtistRows li").first();
+const outRow = page.locator("#favManageRows li").first();
 await outRow.locator(".vr-act").click();
 await page.waitForTimeout(250);
 check(
   "「外す」を押すと行が薄くなり、ボタンが「元に戻す」に変わる",
   (await outRow.evaluate((e) => e.classList.contains("is-off"))) &&
     (await outRow.locator(".vr-act").innerText()) === "元に戻す" &&
-    /外しました/.test(await page.locator("#favArtistStatus").innerText()),
+    /外しました/.test(await page.locator("#favManageStatus").innerText()),
 );
 await outRow.locator(".vr-act").click();
 await page.waitForTimeout(250);
@@ -546,43 +615,43 @@ check(
   !(await outRow.evaluate((e) => e.classList.contains("is-off"))) &&
     (await outRow.locator(".vr-act").innerText()) === "外す",
 );
-await page.fill("#favArtistInput", "まだデータに無い人");
-await page.press("#favArtistInput", "Enter");
+await page.fill("#favManageInput", "まだデータに無い人");
+await page.press("#favManageInput", "Enter");
 await page.waitForTimeout(300);
 check(
   "データに無い名前は Enter では登録されず、理由と「のまま登録」のボタンが出る（打ちかけの文字を登録しない）",
-  !(await page.locator("#favArtistRows .vr-name").allInnerTexts()).includes(
+  !(await page.locator("#favManageRows .vr-name").allInnerTexts()).includes(
     "まだデータに無い人",
   ) &&
     /データに「まだデータに無い人」はありません/.test(
-      await page.locator("#favArtistStatus").innerText(),
+      await page.locator("#favManageStatus").innerText(),
     ) &&
-    (await page.locator("#favArtistSugg .sugg-raw").count()) === 1,
+    (await page.locator("#favManageSugg .sugg-raw").count()) === 1,
 );
-await page.locator("#favArtistSugg .sugg-raw").click();
+await page.locator("#favManageSugg .sugg-raw").click();
 await page.waitForTimeout(300);
 check(
   "データに無い名前も、「のまま登録」で登録でき、「いま予定なし」と出る",
-  (await page.locator("#favArtistRows .vr-name").allInnerTexts()).includes(
+  (await page.locator("#favManageRows .vr-name").allInnerTexts()).includes(
     "まだデータに無い人",
   ) &&
     /いま予定なし/.test(
       await page
-        .locator("#favArtistRows li", { hasText: "まだデータに無い人" })
+        .locator("#favManageRows li", { hasText: "まだデータに無い人" })
         .innerText(),
     ),
 );
-await page.fill("#favArtistInput", "まだデータに無い人");
-await page.locator("#favArtistSugg .sugg-raw").click();
+await page.fill("#favManageInput", "まだデータに無い人");
+await page.locator("#favManageSugg .sugg-raw").click();
 await page.waitForTimeout(200);
 check(
   "同じ名前は二重に登録されない",
-  (await page.locator("#favArtistRows .vr-name").allInnerTexts()).filter(
+  (await page.locator("#favManageRows .vr-name").allInnerTexts()).filter(
     (t) => t === "まだデータに無い人",
   ).length === 1 &&
-    /すでに登録/.test(await page.locator("#favArtistStatus").innerText()),
+    /すでに登録/.test(await page.locator("#favManageStatus").innerText()),
 );
-await page.locator("#favArtistClose").click();
+await page.locator("#favManageClose").click();
 await page.waitForTimeout(500);
 await page.click("#catBtn");
 await page.waitForTimeout(300);

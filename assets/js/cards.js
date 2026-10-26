@@ -13,6 +13,7 @@ import {
   fmtWhen,
   fold,
   haversineKm,
+  artistKey,
   artistHead,
   PERSON_ICON,
   WD,
@@ -130,6 +131,44 @@ function hasLineup(it) {
   return lineupArtistNames(it.lineupId).length > 0;
 }
 
+/* 登録した人が出演行の枠に収まらず「ほか◯組」に隠れると、なぜこのカードが先頭にあるのか
+   手がかりが消える。そこで登録した人は出演行の先頭に並べる。枠は、登録した人が全員見える
+   まで広げる（上限まで。超えた分は「ほか」と「くわしく」に回る）。 */
+const FAV_LINE_MAX = 8;
+const isFavName = (n) => isFavArtist(artistHead(n));
+const visibleCount = (names, base) =>
+  Math.max(base, Math.min(names.filter(isFavName).length, FAV_LINE_MAX));
+
+/* 出演行の並び。検索語に当たった人 → 登録した人 → そのほか（それぞれ元の並びのまま）。 */
+function favNamesFirst(names, terms) {
+  const rank = (n) =>
+    terms && terms.length && matchesTerms(n, terms) ? 0 : isFavName(n) ? 1 : 2;
+  return names
+    .map((n, i) => [n, i])
+    .sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1])
+    .map((x) => x[0]);
+}
+
+/* 名前の並び。区切りの「・」は、前が登録した人のかたまり（丸い帯）でないときだけ置く。
+   帯どうしは自分の余白（CSSの .art-item.is-fav）で離れていて、帯の後ろの「・」は行末に
+   取り残されやすく、帯の形で区切りがもう見えているため。 */
+function artistItemsHtml(names, terms) {
+  return names
+    .map(
+      (n, i) =>
+        `${i > 0 && !isFavName(names[i - 1]) ? "・" : ""}${artistItemHtml(n, terms)}`,
+    )
+    .join("");
+}
+
+/* フェスで、登録した人が出る日（これから先のもの）。日が決まっていなければ空。 */
+function favDaysHtml(h) {
+  if (!h.days.length) return "";
+  const days = h.days.slice(0, FAV_DAYS).map(dayLabel).join("・");
+  const more = h.days.length > FAV_DAYS ? "ほか" : "";
+  return `<small class="fav-day">${esc(days)}${more}出演</small>`;
+}
+
 /* 3タブとも画像を持たない（権利者の許諾は自社サイトでの掲載に対するもので、
    第三者サイトへの転載・直リンクの許諾ではないため。docs/DESIGN.md 第7.1節）。
    カードの絵柄はカテゴリの色分けとタイポグラフィだけで作る。
@@ -138,31 +177,36 @@ function hasLineup(it) {
    入口で、単独公演（出演者が1組）のカードにも入口が要るため。名前がタイトルと二重に並ぶ
    ことは、入口があることを優先して許している（設計書 第5.14節）。artists 列を持たない
    タブでは names が空になり、この関数は自然に何も返さない。
+   「出演：」の語は出さない（名前が並ぶだけで出演者と読めるため）。読み上げには残す。
 
    フェスは日割りラインナップを持つので、出演者を列挙しても「全◯組の日程を見る」
-   ボタンの中身と二重になる。そこでこの行はボタンだけにする（第12.12節）。
-   検索中に主要8組へ入っていないアーティストがヒットしたときだけは、
-   「なぜこのカードが出たか」の手がかりとしてその1組をボタンの前に出す。 */
+   ボタンの中身と二重になる。そこでこの行は、登録した人（と出る日）とボタンだけにする
+   （第12.12節）。検索中に主要8組へ入っていないアーティストがヒットしたときだけは、
+   「なぜこのカードが出たか」の手がかりとして、その1組もボタンの前に出す。 */
 function artistLineHtml(it, terms, canOpen = true) {
   const all = lineupArtistNames(it.lineupId);
   if (all.length) {
+    const favs = favArtistsOf(it).slice(0, FAV_LINE_MAX);
     const hit =
       terms && terms.length ? all.find((n) => matchesTerms(n, terms)) : null;
+    const hitIsFav = hit && favs.some((h) => h.key === artistKey(hit));
+    const lead =
+      favs
+        .map((h) => artistItemHtml(h.name, terms, favDaysHtml(h)))
+        .join("") + (hit && !hitIsFav ? highlight(hit, terms) : "");
     const btn = `<button type="button" class="lineup-btn"
         aria-label="${esc(it.title)}の出演者を日程ごとに見る（全${all.length}組）"
       >全${all.length}組の日程を見る ▸</button>`;
-    return hit
-      ? `<p class="lineup-line">${highlight(hit, terms)}${btn}</p>`
-      : `<p class="lineup-line">${btn}</p>`;
+    return `<p class="lineup-line">${lead}${btn}</p>`;
   }
 
-  const names = orderForTerms(it.artists || [], all, terms);
+  const names = favNamesFirst(orderForTerms(it.artists || [], all, terms), terms);
   if (!names.length) return "";
 
-  const shown = names.slice(0, LINEUP_VISIBLE);
+  const shown = names.slice(0, visibleCount(names, LINEUP_VISIBLE));
   const rest = names.length - shown.length;
   const more = rest > 0 ? moreArtistsHtml(it, rest, "組", canOpen) : "";
-  return `<p class="lineup-line">出演：${shown.map((n) => artistItemHtml(n, terms)).join("・")}${more}</p>`;
+  return `<p class="lineup-line"><span class="sr-only">出演：</span>${artistItemsHtml(shown, terms)}${more}</p>`;
 }
 
 /* ---------- お気に入りスポットの★ ----------
@@ -190,11 +234,12 @@ export function artistBtnHtml(name, { big = false } = {}) {
     return `<button type="button" class="star-big art-big" data-artist="${esc(head)}" aria-pressed="${on}" aria-label="${esc(label)}">${PERSON_ICON}<span data-artist-text>${on ? "お気に入りアーティスト（登録済み）" : "お気に入りアーティストにする"}</span></button>`;
   return `<button type="button" class="art-btn" data-artist="${esc(head)}" aria-pressed="${on}" title="${on ? "お気に入りアーティストから外す" : "お気に入りアーティストにする"}" aria-label="${esc(label)}">${PERSON_ICON}</button>`;
 }
-function artistItemHtml(name, terms) {
+function artistItemHtml(name, terms, tail = "") {
   const head = artistHead(name);
-  // 登録済みの人は、人のボタンだけでなく名前にも地色を付ける（CSS の .art-item.is-fav）。
-  // ボタンの形（中抜き／塗り）の違いは小さく、名前を読みながらでは見落とすため
-  return `<span class="art-item${isFavArtist(head) ? " is-fav" : ""}">${artistBtnHtml(head)}<button type="button" class="art-link" data-artist-open="${esc(head)}" aria-label="${esc(head)}の出演予定を見る">${highlight(name, terms)}</button></span>`;
+  // 登録済みの人は、人のボタンと名前をひとかたまりの地色で囲む（CSS の .art-item.is-fav）。
+  // ボタンの形（中抜き／塗り）の違いは小さく、名前を読みながらでは見落とすため。
+  // tail は、かたまりの中に添える小さな文字（フェスの出演日）
+  return `<span class="art-item${isFavArtist(head) ? " is-fav" : ""}">${artistBtnHtml(head)}<button type="button" class="art-link" data-artist-open="${esc(head)}" aria-label="${esc(head)}の出演予定を見る">${highlight(name, terms)}</button>${tail}</span>`;
 }
 
 /* 「ほか◯組」。出演行に収まらなかった人は「くわしく」の中に全員並んでいる（morePerformersHtml）
@@ -213,33 +258,34 @@ export function dayLabel(ymd) {
     ? ymd
     : `${t.getMonth() + 1}/${t.getDate()}(${WD[t.getDay()]})`;
 }
-const WHY_NAMES = 3; // 1行に並べる人数。超えた分は「ほか◯組」
-const WHY_DAYS = 3;
+const FAV_DAYS = 3; // 登録した人の出演日を並べる数。超えた分は「ほか」
 
-/* お気に入りの人が出る公演に、「なぜ先頭にあるか」を1行で書く。出演行には「ほか◯組」や
-   「全◯組」に隠れた人がいて、名前が見えないことがあるため。日割りが決まっているフェスは、
-   その人の出る日（これから先のもの）も添える。出演日はイベントと映画では人ごとに分からない
-   ので、日は書かない（行全体の出演日を、その人の出演日として言い切らないため）。
+/* 出演の行（ライブの出演者・イベントと映画の登壇者）と、その末尾の「前回から追加」。
 
-   「前回から追加」は、**同じ行の中の別の部品**として置く。日付の横のバッジ列に置くと、
-   日付が長い行（開演時刻の注記つき）ではバッジの幅が足りず、文字が2行に折れる。
-   この行は幅いっぱいを使えるうえ、部品ごとに折り返さない（CSSの .why-item / .new-tag）。 */
-function favWhyHtml(it) {
-  const hits = favArtistsOf(it);
-  if (!hits.length) return "";
-  const items = hits.slice(0, WHY_NAMES).map((h) => {
-    const days = h.days.slice(0, WHY_DAYS).map(dayLabel).join("・");
-    const more = h.days.length > WHY_DAYS ? "ほか" : "";
-    return `<span class="why-item">${PERSON_ICON}<span class="why-name">${esc(h.name)}</span>${days ? `<small class="why-day">${esc(days)}${more}出演</small>` : ""}</span>`;
-  });
-  if (hits.length > WHY_NAMES)
-    items.push(
-      `<span class="why-item why-rest">ほか${hits.length - WHY_NAMES}組</span>`,
-    );
-  const fresh = isNewSinceVisit(it)
-    ? `<span class="new-tag">前回から追加</span>`
-    : "";
-  return `<p class="why-line"><span class="sr-only">お気に入りアーティスト：</span>${fresh}${items.join("")}</p>`;
+   登録した人が出る公演には、以前は「なぜ先頭にあるか」の行を別に足していた。同じ名前が
+   上の行と出演の行に2回並ぶため、いまは出演の行そのものに登録した人を先頭に出す（artistItemHtml）。
+   日割りが決まっているフェスは、その人の出る日（これから先のもの）を名前に添える。出演日は
+   イベントと映画では人ごとに分からないので、日は書かない（行全体の出演日を、その人の出演日として
+   言い切らないため）。
+
+   「前回から追加」は、**出演の行の末尾**に置く。日付の横のバッジ列に置くと、日付が長い行
+   （開演時刻の注記つき）ではバッジの幅が足りず、文字が2行に折れる。この行は幅いっぱいを使え、
+   札は折り返さない（CSSの .new-tag）。出演の行を持たない行（まとめたカードなど）でも、
+   登録した人が出ることは伝える。 */
+function personLinesHtml(tab, it, terms, merged) {
+  let html =
+    artistLineHtml(it, terms, !merged) +
+    (merged ? "" : guestLineHtml(tab, it, terms));
+  const favs = favArtistsOf(it);
+  if (!favs.length) return html;
+  if (!html)
+    html = `<p class="lineup-line">${favs
+      .slice(0, FAV_LINE_MAX)
+      .map((h) => artistItemHtml(h.name, terms, favDaysHtml(h)))
+      .join("")}</p>`;
+  if (!isNewSinceVisit(it)) return html;
+  const i = html.lastIndexOf("</p>");
+  return `${html.slice(0, i)}<span class="new-tag">前回から追加</span>${html.slice(i)}`;
 }
 
 /* お気に入りの劇場のチェーンで公開中の新作。映画の新作はチェーン名でしか記録されて
@@ -314,7 +360,7 @@ export function parkingBadgesHtml(it) {
 
    出すのは `activeGuests`（いま残っている出演者）だけ。出演日を過ぎた人は、行そのものが
    会期中でも出さない。出演日が決まっていれば、これからの日だけを名前の後ろに添える。
-   検索語に当たった名前は先頭へ繰り上げる（4人目以降に隠れると手がかりが無くなる）。
+   検索語に当たった名前と登録した人は先頭へ繰り上げる（4人目以降に隠れると手がかりが無くなる）。
    guestWords を持たないタブ（ライブ）では何も返さない。 */
 const GUEST_VISIBLE = 3;
 function guestLineHtml(tab, it, terms) {
@@ -322,19 +368,15 @@ function guestLineHtml(tab, it, terms) {
   const names = words ? activeGuests(it) : [];
   if (!names.length) return "";
 
-  const hit = (n) => (terms && terms.length && matchesTerms(n, terms) ? 0 : 1);
-  const ordered = names
-    .map((n, i) => [n, i])
-    .sort((a, b) => hit(a[0]) - hit(b[0]) || a[1] - b[1])
-    .map((x) => x[0]);
-  const shown = ordered.slice(0, GUEST_VISIBLE);
+  const ordered = favNamesFirst(names, terms);
+  const shown = ordered.slice(0, visibleCount(names, GUEST_VISIBLE));
   const rest = names.length - shown.length;
   const more = rest > 0 ? moreArtistsHtml(it, rest, "名", true) : "";
   const days = upcomingGuestDates(it);
   const when = days.length
     ? `<span class="guest-when">（${esc(fmtSpan(null, null, days))}）</span>`
     : "";
-  return `<p class="guest-line"><span class="guest-label">${esc(words.label)}</span>${shown.map((n) => artistItemHtml(n, terms)).join("・")}${more}${when}</p>`;
+  return `<p class="guest-line"><span class="guest-label">${esc(words.label)}</span>${artistItemsHtml(shown, terms)}${more}${when}</p>`;
 }
 
 /* 「くわしく」の中の補足（いつ・どんな形で出るか）。guest_note は出演者がいま残って
@@ -345,13 +387,16 @@ function guestDetailHtml(tab, it) {
   return `<p class="fact-list"><span class="vd-row"><span class="vd-label">${esc(tab.guestWords.note)}</span>${esc(it.guestNote)}</span></p>`;
 }
 
-/* 出演行（「出演：A・B・C・D ほか2組」）に収まらなかった人を、「くわしく」の中に全員並べる。
+/* 出演行（「A・B・C・D ほか2組」）に収まらなかった人を、「くわしく」の中に全員並べる。
    隠れた人にも人のボタンを届けるため。出演行に全員が出ているカードには出さない。
    フェスは出演者シートが全員を持つので出さない。 */
 function morePerformersHtml(tab, it) {
   if (hasLineup(it)) return "";
   const names = tab.guestWords ? activeGuests(it) : it.artists || [];
-  const visible = tab.guestWords ? GUEST_VISIBLE : LINEUP_VISIBLE;
+  const visible = visibleCount(
+    names,
+    tab.guestWords ? GUEST_VISIBLE : LINEUP_VISIBLE,
+  );
   if (names.length <= visible) return "";
   return `<p class="art-detail"><span class="vd-label">${esc(tab.guestWords ? tab.guestWords.label : "出演")}者</span><span class="art-list">${names.map((n) => artistItemHtml(n)).join("")}</span></p>`;
 }
@@ -850,9 +895,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
         </span>
       </div>
       <h3 class="title">${highlight(it.title, terms)}${merged ? "" : parkingBadgesHtml(it)}</h3>
-      ${favWhyHtml(it)}
-      ${artistLineHtml(it, terms, !merged)}
-      ${merged ? "" : guestLineHtml(tab, it, terms)}
+      ${personLinesHtml(tab, it, terms, merged)}
       ${
         merged
           ? `${groupPlaceHtml(members, terms)}${officialLink ? `<p class="meta">${officialLink}</p>` : ""}`
