@@ -323,7 +323,7 @@ check(
 );
 check(
   "お気に入りが空のうちは先頭セクションが出ない",
-  (await page.locator("#list .fav-head").count()) === 0,
+  (await page.locator("#list [data-fav]").count()) === 0,
 );
 const star = page.locator("#list .star-btn").first();
 const spotName = await star.getAttribute("data-star");
@@ -336,22 +336,25 @@ check(
 );
 check(
   "押した瞬間には一覧を並べ替えない",
-  (await page.locator("#list .fav-head").count()) === 0,
+  (await page.locator("#list [data-fav]").count()) === 0,
 );
 await page.locator("#favToast button.primary").click();
 await page.waitForTimeout(500);
 check(
-  "「先頭にまとめる」で先頭セクションが出る",
-  (await page.locator("#list .fav-head").count()) === 1 &&
-    (await page.locator("#list .list-divider").count()) <= 1,
+  "「先頭にまとめる」で先頭セクションが出る（先頭のカードに印。見出しは出さず、「そのほか」の区切りは残る）",
+  (await page.locator('#list [data-fav="spot"]').count()) >= 1 &&
+    (await page.locator("#list .fav-head").count()) === 0 &&
+    (await page.locator("#list .list-divider").count()) === 1,
 );
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1500);
 check(
   "リロードしてもお気に入りが残る",
-  (await page.locator("#list .fav-head").count()) === 1,
+  (await page.locator('#list [data-fav="spot"]').count()) >= 1,
 );
-await page.locator('#list [data-fav-act="manage"]').click();
+await page.locator("#favEntry").click();
+await page.waitForTimeout(300);
+await page.locator("#favTabSpot").click();
 await page.waitForTimeout(300);
 check(
   "管理シートがスポットを選んだ状態で開き、登録した場所が出る",
@@ -436,7 +439,7 @@ check(
 );
 check(
   "お気に入りが空のうちは先頭セクションが出ない",
-  (await page.locator("#liveList .fav-head").count()) === 0,
+  (await page.locator("#liveList [data-fav]").count()) === 0,
 );
 check(
   "未登録・未読なら、一覧の先頭に使い方の案内が出る",
@@ -528,13 +531,14 @@ check(
 );
 check(
   "押した瞬間には一覧を並べ替えない",
-  (await page.locator("#liveList .fav-head").count()) === 0,
+  (await page.locator("#liveList [data-fav]").count()) === 0,
 );
 await page.locator("#favToast button.primary").click();
 await page.waitForTimeout(600);
 check(
-  "「先頭にまとめる」で先頭セクションが出て、カードの出演行に登録した人のかたまりが付く（「なぜ」の行は出ない）",
-  (await page.locator("#liveList .fav-head.art").count()) === 1 &&
+  "「先頭にまとめる」で先頭セクションが出て、カードの出演行に登録した人のかたまりが付く（見出しも「なぜ」の行も出ない）",
+  (await page.locator('#liveList [data-fav="art"]').count()) >= 1 &&
+    (await page.locator("#liveList .fav-head").count()) === 0 &&
     (await page.locator("#liveList .lineup-line .art-item.is-fav").count()) >
       0 &&
     (await page.locator("#liveList .why-line").count()) === 0,
@@ -544,7 +548,7 @@ await page.waitForSelector("#liveList .card");
 await page.waitForTimeout(1500);
 check(
   "リロードしても登録が残る",
-  (await page.locator("#liveList .fav-head.art").count()) === 1,
+  (await page.locator('#liveList [data-fav="art"]').count()) >= 1,
 );
 await page
   .locator(`#liveList .art-link[data-artist-open="${artistName}"]`)
@@ -660,7 +664,7 @@ await page.waitForTimeout(400);
 check(
   "「お気に入りアーティストだけ」で絞れて、URLに載る",
   (await page.locator("#liveList .card").count()) > 0 &&
-    (await page.locator("#liveList .fav-head").count()) === 0 &&
+    (await page.locator("#liveList [data-fav]").count()) === 0 &&
     /f=favartist/.test(new URL(page.url()).search),
 );
 await page.keyboard.press("Escape");
@@ -682,6 +686,7 @@ if (await lineupCard.count()) {
   await lineupCard.locator("button.lineup-btn").scrollIntoViewIfNeeded();
   await lineupCard.locator("button.lineup-btn").click();
   await page.waitForTimeout(500);
+  const lineupKey = await lineupCard.getAttribute("data-key");
   const luRow = page.locator("#lineupBody .lu-artist").nth(1);
   const luBtn = luRow.locator(".art-btn");
   await luBtn.click();
@@ -693,14 +698,20 @@ if (await lineupCard.count()) {
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
+  // 先頭は6件まで。そのフェスが「お気に入りのほか◯件」の裏にいても確かめられるよう、開いておく
+  const moreFav = page.locator('#liveList [data-art-act="more"]');
+  if (
+    (await moreFav.count()) &&
+    (await moreFav.getAttribute("aria-expanded")) === "false"
+  ) {
+    await moreFav.click();
+    await page.waitForTimeout(500);
+  }
   check(
-    "シートを閉じると一覧に反映される（組数が増える）",
-    /[2-9]組/.test(
-      (await page.locator("#liveList .fav-head.art").innerText()).replace(
-        /\s+/g,
-        " ",
-      ),
-    ),
+    "シートを閉じると一覧に反映される（そのフェスのカードが先頭セクションに出る）",
+    (await page
+      .locator(`#liveList .card[data-key="${lineupKey}"][data-fav="art"]`)
+      .count()) === 1,
   );
 } else check("（出演者シートを持つフェスが無いのでスキップ）", true);
 // イベント・映画の登壇者にも人のボタンが付く
@@ -1029,8 +1040,10 @@ async function scanPanels(isoTime) {
   await p.evaluate(() =>
     document.querySelector("#favToast button.primary")?.click(),
   );
-  await p.waitForSelector("#list .fav-head", { timeout: 8000 }).catch(() => {});
-  await scan("お気に入り先頭セクション", "#list .fav-head");
+  await p
+    .waitForSelector('#list [data-fav="spot"]', { timeout: 8000 })
+    .catch(() => {});
+  await scan("お気に入り先頭セクション", '#list [data-fav="spot"]');
   await p.evaluate(() =>
     document.querySelector("section.directory").scrollIntoView(),
   );
@@ -1083,10 +1096,12 @@ async function scanPanels(isoTime) {
     favNames,
   );
   await p.goto(BASE, { waitUntil: "networkidle" });
-  await p.waitForSelector("#list .fav-head", { timeout: 8000 }).catch(() => {});
+  await p
+    .waitForSelector('#list [data-fav="spot"]', { timeout: 8000 })
+    .catch(() => {});
   await p.waitForTimeout(800);
   res.favMore = await p.locator("#list > .fav-more").count();
-  await scan("先頭セクションの「ほか◯件を表示」", "#list > .fav-more");
+  await scan("先頭セクションの「お気に入りのほか◯件を表示」", "#list > .fav-more");
   await p.evaluate(() => document.querySelector("#tabMovieBtn").click());
   await p
     .waitForSelector("#movieList > .chain-row", { timeout: 8000 })

@@ -88,6 +88,9 @@ const report = {
   contexts: [],
   extra: [],
 };
+// 状態を作れなくて測れなかった部品を、指摘とは別に「点検できず」として残す。
+// 使う場所より前で定義する（const は定義より前では呼べず、状態を作れなかった回に落ちるため）
+const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: what });
 async function audit(label, rootSel, shot = true) {
   await page.waitForTimeout(400);
   // ポップアップは開くとき不透明度が 0 → 1 に遷移する。負荷が高いと 400ms では終わらず、
@@ -404,8 +407,9 @@ await page.evaluate(() =>
   document.querySelector("#favToast button.primary")?.click(),
 );
 await page.waitForTimeout(1200);
-await audit("お気に入り先頭セクション", "#list .fav-head");
-await click('[data-fav-act="manage"]', 800);
+await audit("お気に入り先頭セクション", '#list [data-fav="spot"]');
+await click("#favEntry", 800);
+await click("#favTabSpot", 400);
 await audit("お気に入り管理シート（スポット）", "#favManage");
 // スポットの名前入力（名簿の候補。先頭の候補に Enter の印が付く）
 await page.fill("#favManageInput", "アリーナ");
@@ -447,7 +451,6 @@ await page.waitForTimeout(400);
   await page.evaluate((n) => {
     localStorage.setItem("eventboard.favartists.v1", JSON.stringify(n));
     for (const k of [
-      "eventboard.favartfold.v1",
       "eventboard.favartpin.v1",
       "eventboard.favartseen.v1",
       "eventboard.arthint.v1",
@@ -490,7 +493,7 @@ await page.waitForTimeout(400);
     content: ".grid.is-entering .card{animation:none;opacity:1}",
   });
   await top();
-  if (!(await page.$("#liveList > .fav-head.art")))
+  if (!(await page.$('#liveList [data-fav="art"]')))
     cantCheck("ライブ: 人を登録しても先頭セクションが出ない");
   else {
     if (!(await page.$("#liveList .new-tag")))
@@ -524,13 +527,6 @@ await page.waitForTimeout(400);
     if (await page.$("[data-wc-more]"))
       await audit("出演者の一覧（くわしく）", "#liveList [data-wc-more]");
     else cantCheck("ライブ: 出演者が4組を超えても一覧が出ない");
-    // たたんだ状態
-    await click('#liveList [data-art-act="fold"]', 900);
-    await audit(
-      "お気に入りアーティスト（たたんだ）",
-      "#liveList > .fav-head.art",
-    );
-    await click('#liveList [data-art-act="fold"]', 900);
     // トースト（まだ登録していない人を押す）
     await page.evaluate(() => {
       const b = [...document.querySelectorAll("#liveList .art-btn")].find(
@@ -549,7 +545,7 @@ await page.waitForTimeout(400);
     );
     await page.waitForTimeout(500);
     // 出演予定のシート
-    await click("#liveList > .fav-head.art ~ .card .art-link", 1000);
+    await click('#liveList [data-fav="art"] .art-link', 1000);
     if (await page.$("#artistSheet:not([hidden])")) {
       await audit("出演予定のシート", "#artistSheet");
       await page.keyboard.press("Escape");
@@ -574,6 +570,11 @@ await page.waitForTimeout(400);
       c?.querySelector(".lineup-btn")?.click();
     });
     await page.waitForTimeout(900);
+    // シートは先頭の日のタブで開く。お気に入りの人が出ない日だと行が出ないので、印のある日のタブへ移す
+    await page.evaluate(() =>
+      document.querySelector("#lineupSheet .lu-tab:has(.art-dot)")?.click(),
+    );
+    await page.waitForTimeout(500);
     if (await page.$("#lineupSheet:not([hidden]) .lu-artist.is-art")) {
       await audit("出演者シート（お気に入りの人）", "#lineupSheet");
       await page.keyboard.press("Escape");
@@ -581,7 +582,8 @@ await page.waitForTimeout(400);
     } else cantCheck("ライブ: 出演者シートにお気に入りの行が出ない");
     // 管理シート（候補・状態の行）
     await top();
-    await click('#liveList [data-art-act="manage"]', 800);
+    await click("#favEntry", 800);
+    await click("#favTabArtist", 400);
     // 外した行（薄い・点線・「元に戻す」）と、先頭の候補（Enter で登録される印）
     await click("#favManageRows li:first-child .vr-act", 500);
     await page.fill("#favManageInput", "あ");
@@ -615,7 +617,6 @@ await page.waitForTimeout(400);
     for (const k of [
       "eventboard.favartists.v1",
       "eventboard.favartseen.v1",
-      "eventboard.favartfold.v1",
       "eventboard.favartpin.v1",
       "eventboard.arthint.v1",
     ])
@@ -784,7 +785,6 @@ await click("#tabEventBtn", 1500);
 // 9. 場所を★にした人にだけ出る部品（先頭セクションの見出し・「ほか◯件を表示」・チェーンの新作の
 //    まとめ行・「そのほか」の区切り・条件で隠れたときの注記）。ここまでの画面には出てこないので、
 //    ★を付けた状態で開き直して3タブとも測る。点検の漏れで、夜のまとめ行のボタンが読めないまま残っていた
-const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: what });
 {
   const names = await page.evaluate(async () => {
     const { THEATERS } = await import(
@@ -821,7 +821,6 @@ const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: wha
   });
   await page.evaluate((n) => {
     localStorage.setItem("eventboard.favspots.v1", JSON.stringify(n));
-    localStorage.removeItem("eventboard.favfold.v1");
     localStorage.removeItem("eventboard.favpin.v1");
   }, names);
   await page.goto(BASE);
@@ -840,7 +839,7 @@ const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: wha
   ]) {
     await click(btn, 1800);
     await top();
-    if (!(await page.$(`${list} > .fav-head`))) {
+    if (!(await page.$(`${list} [data-fav="spot"]`))) {
       cantCheck(`${noun}: ★を付けても先頭セクションが出ない`);
       continue;
     }
@@ -856,9 +855,6 @@ const cantCheck = (what) => report.extra.push({ kind: "点検できず", el: wha
     await audit("お気に入り先頭（ほかも表示）", "#list > .fav-more");
     await click('#list [data-fav-act="more"]', 900);
   } else cantCheck("イベント: 先頭の上限を超えても「ほか◯件を表示」が出ない");
-  await click('#list [data-fav-act="fold"]', 900);
-  await audit("お気に入り先頭（たたんだ）", "#list > .fav-head");
-  await click('#list [data-fav-act="fold"]', 900);
   // 条件で★の場所の催しが全部隠れたときの注記。★の無いカードの題名で検索して作る
   const q = await page.evaluate(
     () =>

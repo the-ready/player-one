@@ -30,7 +30,7 @@ import {
   closePopover,
   openerElement,
 } from "./ui-popover.js";
-import { showToast, hideToast, revealFavHead } from "./ui-favspot.js";
+import { showToast, hideToast, revealFav } from "./ui-favspot.js";
 
 const el = {}; // 出演予定のシート
 let pendingReorder = false; // 人の状態に、画面の並びがまだ追いついていない
@@ -82,7 +82,7 @@ function applyReorder() {
   // 出演予定・管理のシートから付けた場合、開いたままだと並び替わった結果が背面に隠れて見えない
   closePopover();
   refreshNow({ url: false });
-  revealFavHead(".fav-head.art");
+  revealFav("art");
 }
 
 /** 人を登録する／外す。silent は、シートの中など「閉じたときにまとめて反映する」場面向け。

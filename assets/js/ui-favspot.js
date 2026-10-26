@@ -76,24 +76,30 @@ export function showToast(text, actions) {
   armToast();
 }
 
-/** 先頭セクションが見える位置へ。操作バー（sticky）の高さは画面幅と縮み具合で変わるので、
-    固定の余白ではなく、伸びたときの操作バーの高さに合わせる。先頭セクションは一覧の最上部に
-    あり、そこへ戻るのは上へのスクロールなので、着いたときのバーは伸びている
-    （縮んだときの高さで合わせると、伸びたバーが見出しを覆っていた） */
-export function revealFavHead(selector = ".fav-head:not(.art)") {
+/** 先頭セクション（kind: "spot"＝場所・"art"＝人）の先頭のカードが見える位置へ。操作バー（sticky）の
+    高さは画面幅と縮み具合で変わるので、固定の余白ではなく、伸びたときの操作バーの高さに合わせる。
+    先頭セクションは一覧の最上部にあり、そこへ戻るのは上へのスクロールなので、着いたときのバーは
+    伸びている（縮んだときの高さで合わせると、伸びたバーがカードを覆っていた）。
+    カードは上端からカテゴリの札が出っ張っているので、その分も余白に足す。
+    カードが無ければ（劇場チェーンのまとめ行だけ・条件で隠れた注記だけ）、その行へ移る。 */
+export function revealFav(kind = "spot") {
   const list = document.getElementById(TABS[activeTab].listId);
-  const target = list && list.querySelector(selector);
-  if (target) scrollToElement(target);
+  const target =
+    list &&
+    (list.querySelector(`[data-fav="${kind}"]`) ||
+      (kind === "spot" ? list.querySelector(".chain-row") : null) ||
+      list.querySelector(".fav-note"));
+  if (target) scrollToElement(target, target.matches(".card") ? 36 : 12);
 }
 
 /** 要素を、操作バー（sticky）の下に見える位置へ。バーは伸びたときの高さで見込む
     （縮んだ高さで合わせると、上へ戻って伸びたバーが要素を覆う）。 */
-export function scrollToElement(target) {
+export function scrollToElement(target, gap = 12) {
   const top =
     target.getBoundingClientRect().top +
     window.scrollY -
     barExpandedHeight() -
-    12;
+    gap;
   const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   window.scrollTo({
     top: Math.max(0, top),
@@ -107,7 +113,7 @@ function applyReorder() {
   // エリアの一覧から付けた場合、開いたままだと並び替わった結果が背面に隠れて見えない
   closePopover();
   refreshNow({ url: false });
-  revealFavHead();
+  revealFav("spot");
 }
 
 /** このタブで、いまの絞り込みのもとに、その場所の催しが何件あるか。 */

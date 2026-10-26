@@ -337,11 +337,14 @@ console.log("\n--- 保存（localStorage） ---");
   ST.loadFavSpots();
   check("文字列でない・空の要素は捨てる", eq(ST.favSpotNames(), ["x", "y"]));
   store.set("eventboard.favpin.v1", "0");
-  store.set("eventboard.favfold.v1", "{壊れ");
+  store.set("eventboard.favfold.v1", '{"event":true}');
+  store.set("eventboard.favartfold.v1", '{"live":true}');
   ST.loadFavView();
   check(
-    "表示設定: 「まとめない」を覚え、壊れたたたみ状態は既定に戻る",
-    ST.pinFavSpots() === false && ST.isFavSecFolded("event") === false,
+    "表示設定: 「まとめない」を覚える。廃止した「たたむ」の保存値は、読み込みのときに消す",
+    ST.pinFavSpots() === false &&
+      !store.has("eventboard.favfold.v1") &&
+      !store.has("eventboard.favartfold.v1"),
   );
   store.clear();
   ST.loadFavView();
@@ -410,7 +413,7 @@ reset();
   const h = draw("event");
   check(
     "A. お気に入りが空なら先頭セクションは出ない",
-    !h.includes("fav-head") && !h.includes("list-divider"),
+    !h.includes("data-fav=") && !h.includes("list-divider"),
   );
   check(
     "A. 全カードが出る（重複なし）",
@@ -432,7 +435,17 @@ reset();
   const vis = R.visibleItems("event");
   const favItems = vis.filter((it) => S.isFavSpotItem(it));
   const ks = keysIn(h);
-  check("B. 先頭セクションが出る", h.includes("fav-head"));
+  check(
+    "B. 先頭セクションが出る（先頭のカードに data-fav=\"spot\"）。見出しは出さない",
+    h.includes('data-fav="spot"') &&
+      !h.includes("fav-head") &&
+      !h.includes("fh-count") &&
+      !h.includes("たたむ"),
+  );
+  check(
+    "B. 「そのほか」の区切りは残る",
+    /class="list-divider"><span>そのほかの[^<]+<\/span><span class="n">\d+件<\/span>/.test(h),
+  );
   // 先頭セクションは6件までに抑える。超えた分は「ほか◯件を表示」の先にあり、描かれない
   const hiddenByCap = Math.max(0, favItems.length - 6);
   check(
@@ -450,8 +463,8 @@ reset();
     `${before.length}件`,
   );
   check(
-    "B. 見出しの件数が実際と合う",
-    h.includes(`1か所・${favItems.length}件`),
+    "B. 先頭のカード（data-fav）の枚数は、上限6件を考えた件数と合う",
+    (h.match(/data-fav="spot"/g) || []).length === shownCap,
   );
   check(
     "B. ★の付いた会場名の★は押された状態で描かれる",
@@ -473,7 +486,7 @@ reset();
   const h = draw("event");
   check(
     "C. まとめない設定では先頭セクションも区切りも出ない",
-    !h.includes("fav-head") && !h.includes("list-divider"),
+    !h.includes("data-fav=") && !h.includes("list-divider"),
   );
   check(
     "C. 並びは通常（日付順）のまま",
@@ -499,7 +512,10 @@ reset();
       R.visibleItems("event").every((it) => S.isFavSpotItem(it)),
     `${ks.length}件`,
   );
-  check("D. このとき先頭セクションの見出しは出ない", !h.includes("fav-head"));
+  check(
+    "D. このとき先頭セクションも区切りも出ない",
+    !h.includes("data-fav=") && !h.includes("list-divider"),
+  );
   const flagN = F.flagCounts(TABS.event, ST.STATES.event, D.ITEMS.event);
   check(
     "D. チップの件数は絞り込み結果と同じ数え方",
@@ -530,7 +546,7 @@ reset();
   const h = draw("event");
   check(
     "E. 条件で隠れたときは理由の1行が出る",
-    h.includes("fav-note") && h.includes("いまの絞り込みでは0件"),
+    h.includes("fav-note") && h.includes("いまの絞り込みに合うものがありません"),
   );
   check("E. 「そのほか」は残る", keysIn(h).length >= 1);
   ST.STATES.event.q = "";
@@ -546,7 +562,7 @@ reset();
     const h2 = draw("event");
     check(
       "E. このタブに予定の無い場所だけをお気に入りにしていても、イベントタブは静か",
-      !h2.includes("fav-head") && !h2.includes("fav-note"),
+      !h2.includes("data-fav=") && !h2.includes("fav-note"),
     );
     ST.STATES.event.q = "";
   } else {
@@ -554,7 +570,7 @@ reset();
   }
 }
 
-// --- F. 上限6件と「ほか◯件を表示」、たたむ
+// --- F. 上限6件と「お気に入りのほか◯件を表示」
 reset();
 {
   let total = 0;
@@ -571,10 +587,10 @@ reset();
   ).length;
   const divAt = h.indexOf("list-divider");
   check(
-    "F. 先頭の件数が6を超えると、6件までに抑えて「ほか◯件を表示」を出す",
+    "F. 先頭の件数が6を超えると、6件までに抑えて「お気に入りのほか◯件を表示」を出す",
     favN > 6 &&
       keysIn(h.slice(0, divAt)).length === 6 &&
-      h.includes(`ほか${favN - 6}件を表示`),
+      h.includes(`お気に入りのほか${favN - 6}件を表示`),
     `お気に入りの催し${favN}件`,
   );
   ST.setFavSecMoreOpen("event", true);
@@ -583,20 +599,9 @@ reset();
   check(
     "F. 開くと全件が先頭に並ぶ",
     keysIn(h.slice(0, divAt2)).length === favN &&
-      h.includes("先頭の表示をへらす"),
+      h.includes("お気に入りの表示をへらす"),
   );
   ST.setFavSecMoreOpen("event", false);
-  ST.setFavSecFolded("event", true);
-  h = draw("event");
-  const total2 = keysIn(h).length;
-  check(
-    "F. たたむと先頭のカードを隠す（見出しは残り、「そのほか」は残る）",
-    h.includes("fav-head") &&
-      h.includes("ひらく") &&
-      total2 === R.visibleItems("event").length - favN,
-    `${total2}枚`,
-  );
-  ST.setFavSecFolded("event", false);
 }
 
 // --- G. 映画: チェーンの劇場を★にすると、チェーンの新作は1行にまとまる
@@ -720,12 +725,11 @@ reset();
     const h = draw("event");
     const ks = keysIn(h);
     const vis = R.visibleItems("event");
-    const folded = ST.isFavSecFolded("event");
     const expectedMax = vis.length;
     check(
       `I. ${p.name}: 重複なし・件数が絞り込み結果を超えない`,
       new Set(ks).size === ks.length && ks.length <= expectedMax,
-      `${ks.length}/${vis.length}${folded ? "（たたみ）" : ""}`,
+      `${ks.length}/${vis.length}`,
     );
     // 先頭に出たカードは、すべて絞り込みに合う催しである
     check(

@@ -310,13 +310,14 @@ export function toggleFavSpot(name) {
 export const favSpotNames = () => [...favSpots.values()];
 export const favSpotCount = () => favSpots.size;
 
-/* 先頭にまとめる設定と、先頭セクションをたたんだ状態。どちらも「見え方の好み」で、
-   絞り込みではないので URL には載せない（共有した相手には相手のお気に入りがあるため、
-   載せても意味が通らない）。保存できなくても既定（まとめる・ひらく）で動く。 */
+/* 先頭にまとめる設定。「見え方の好み」で、絞り込みではないので URL には載せない
+   （共有した相手には相手のお気に入りがあるため、載せても意味が通らない）。保存できなくても
+   既定（まとめる）で動く。
+   先頭セクションの「たたむ」は、見出しごと廃止した。以前の保存値（OBSOLETE_FOLD_KEYS）は、
+   使われないまま端末に残らないよう読み込みのときに消す。 */
 const PIN_KEY = "eventboard.favpin.v1";
-const FOLD_KEY = "eventboard.favfold.v1";
+const OBSOLETE_FOLD_KEYS = ["eventboard.favfold.v1", "eventboard.favartfold.v1"];
 let pinFav = true;
-let folded = {};
 let moreOpen = {}; // 「ほか◯件を表示」は覚えない（開いたままだと次に来た人が長い先頭に驚く）
 
 export function loadFavView() {
@@ -326,10 +327,9 @@ export function loadFavView() {
     pinFav = true;
   }
   try {
-    const raw = JSON.parse(localStorage.getItem(FOLD_KEY) || "{}");
-    folded = raw && typeof raw === "object" ? raw : {};
+    OBSOLETE_FOLD_KEYS.forEach((k) => localStorage.removeItem(k));
   } catch {
-    folded = {};
+    /* 消せなくても害は無い（読まれない保存値が残るだけ） */
   }
 }
 export const pinFavSpots = () => pinFav;
@@ -337,16 +337,6 @@ export function setPinFavSpots(on) {
   pinFav = !!on;
   try {
     localStorage.setItem(PIN_KEY, pinFav ? "1" : "0");
-  } catch {
-    /* 保存できなくても動く */
-  }
-}
-export const isFavSecFolded = (tabKey) => !!folded[tabKey];
-export function setFavSecFolded(tabKey, on) {
-  if (on) folded[tabKey] = true;
-  else delete folded[tabKey];
-  try {
-    localStorage.setItem(FOLD_KEY, JSON.stringify(folded));
   } catch {
     /* 保存できなくても動く */
   }
@@ -439,14 +429,12 @@ export const favArtistCount = () => favArtists.size;
 export const favArtistByKey = (k) => favArtists.get(k);
 export const favArtistRev = () => favArtistRevision;
 
-/* 先頭にまとめる設定と、先頭セクションをたたんだ状態は、お気に入りスポットとは別に持つ。
-   場所だけ・人だけを使う人が、片方の設定に引きずられないため。URL には載せない理由は
-   スポットと同じ（共有した相手には相手のお気に入りがあるため、載せても意味が通らない）。 */
+/* 先頭にまとめる設定は、お気に入りスポットとは別に持つ。場所だけ・人だけを使う人が、片方の
+   設定に引きずられないため。URL には載せない理由はスポットと同じ（共有した相手には相手の
+   お気に入りがあるため、載せても意味が通らない）。 */
 const ART_PIN_KEY = "eventboard.favartpin.v1";
-const ART_FOLD_KEY = "eventboard.favartfold.v1";
 const ART_HINT_KEY = "eventboard.arthint.v1";
 let pinArtist = true;
-let artFolded = {};
 let artMoreOpen = {};
 let artHintSeen = false;
 
@@ -475,28 +463,12 @@ export function loadFavArtistView() {
   } catch {
     pinArtist = true;
   }
-  try {
-    const raw = JSON.parse(localStorage.getItem(ART_FOLD_KEY) || "{}");
-    artFolded = raw && typeof raw === "object" ? raw : {};
-  } catch {
-    artFolded = {};
-  }
 }
 export const pinFavArtists = () => pinArtist;
 export function setPinFavArtists(on) {
   pinArtist = !!on;
   try {
     localStorage.setItem(ART_PIN_KEY, pinArtist ? "1" : "0");
-  } catch {
-    /* 保存できなくても動く */
-  }
-}
-export const isArtSecFolded = (tabKey) => !!artFolded[tabKey];
-export function setArtSecFolded(tabKey, on) {
-  if (on) artFolded[tabKey] = true;
-  else delete artFolded[tabKey];
-  try {
-    localStorage.setItem(ART_FOLD_KEY, JSON.stringify(artFolded));
   } catch {
     /* 保存できなくても動く */
   }

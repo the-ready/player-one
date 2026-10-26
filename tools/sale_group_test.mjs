@@ -341,7 +341,8 @@ console.log("\n--- 絞り込み・★ ---");
   draw();
   ST.setFavSpot("三井アウトレットパーク 幕張", true);
   h = render();
-  const favHead = h.indexOf("fav-head");
+  // 先頭セクションの先頭のカード（data-fav は開きタグの中なので、そのカードの <article の位置）
+  const favHead = h.lastIndexOf("<article", h.indexOf('data-fav="spot"'));
   const divider = h.indexOf("list-divider");
   const mopAt = h.indexOf("5施設で同時開催");
   check(
@@ -352,7 +353,10 @@ console.log("\n--- 絞り込み・★ ---");
     "まとめたカードの中でも、お気に入りの施設が先頭に並ぶ",
     /<li class="is-fav">[^]*?幕張/.test(h.slice(mopAt, mopAt + 2500)),
   );
-  check("見出しの件数は、まとめたカードを1件と数える", /1か所・1件/.test(h));
+  check(
+    "先頭セクションの印は、まとめたカードを1枚と数える",
+    (h.match(/data-fav="spot"/g) || []).length === 1,
+  );
   check(
     "「★お気に入りスポットだけ」は、お気に入りの施設の行だけに絞る（まとめる相手が残らないので単独のカード）",
     (() => {

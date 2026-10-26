@@ -8,7 +8,6 @@ import {
   fmtKm,
   searchTerms,
   debounce,
-  spotKey,
   PERSON_ICON,
   EXT_ICON,
 } from "./util.js";
@@ -36,34 +35,23 @@ import {
   hasSharedFilter,
   carryPlan,
   syncUrl,
-  isFavSpot,
   favSpotCount,
   pinFavSpots,
-  isFavSecFolded,
-  setFavSecFolded,
   isFavSecMoreOpen,
   setFavSecMoreOpen,
   favArtistCount,
   pinFavArtists,
   isArtHintSeen,
   markArtHintSeen,
-  isArtSecFolded,
-  setArtSecFolded,
   isArtSecMoreOpen,
   setArtSecMoreOpen,
 } from "./state.js";
 import {
   isFavSpotItem,
-  spotsOfItem,
   favChainGroups,
   chainNamesOf,
 } from "./spots.js";
-import {
-  favArtistsOf,
-  isFavArtistItem,
-  isNewSinceVisit,
-  performersOf,
-} from "./artists.js";
+import { isFavArtistItem, performersOf } from "./artists.js";
 import { schedulePhase } from "./schedule.js";
 import { fitGrid, refitCard, watchGrid } from "./grid-fit.js";
 
@@ -170,6 +158,8 @@ export function renderList() {
   const terms = searchTerms(st.q);
   markEntering(listEl);
   const card = (e) => cardHtml(tab, e.rep, st, terms, e.members);
+  const pinned = (e, section) =>
+    cardHtml(tab, e.rep, st, terms, e.members, section);
   setListHtml(
     listEl,
     artHintHtml(entries) +
@@ -177,6 +167,7 @@ export function renderList() {
         ? favListHtml(tab, st, entries, chainRows, card, {
             spot: favBlocks,
             artist: artBlocks,
+            pinned,
           })
         : entries.map(card).join("")),
   );
@@ -213,11 +204,12 @@ function setListHtml(listEl, html) {
   lastListHtml.set(listEl, html);
 }
 
-/* ---------- お気に入りスポットの先頭セクション ----------
-   お気に入りスポットで開かれる催しを、見出し付きで一覧の先頭にまとめる。並べ替えるだけに
-   しない理由は、「なぜこの順なのか」が見出しで分かること（日付順のつもりで見た人が、
-   遠い日付のカードが先頭にあって混乱しない）。絞り込みはセクションの内外どちらにも効き、
-   並び順（日付・新着・現在地）もセクションの中でそのまま効く。 */
+/* ---------- お気に入りの先頭セクション ----------
+   お気に入りスポットの催し・お気に入りアーティストの公演を、一覧の先頭にまとめて、後ろに
+   「そのほかの◯◯」の区切りを置く。並べ替えるだけにしない理由は、「なぜこの順なのか」が
+   区切りで分かること（日付順のつもりで見た人が、遠い日付のカードが先頭にあって混乱しない）。
+   セクションの見出しは持たない（下の artistSectionHtml）。絞り込みはセクションの内外どちらにも
+   効き、並び順（日付・新着・現在地）もセクションの中でそのまま効く。 */
 
 const FAV_CAP = 6; // スマホで「そのほか」が遠くならない量。超えた分は「ほか◯件を表示」
 const NOW_PHASES = new Set(["opening", "ongoing", "last", "openrun"]);
@@ -259,9 +251,17 @@ function chainRowsFor(tab, st) {
    公演に当たる確率が高いため。同じカードを2回は出さず、両方に当たる公演は上（人）に1枚だけ
    出す（その場所の★は、カードの会場名の★で見える）。
 
-   「◯◯だけ」で絞っているときは、絞り込みの結果そのものを見出しなしで並べる。見出しで
-   区切ると、すでに全件が該当しているのに「そのほか」が残るように見えるため。 */
-function favListHtml(tab, st, entries, chainRows, card, { spot, artist }) {
+   「◯◯だけ」で絞っているときは、絞り込みの結果そのものを区切りなしで並べる。区切ると、
+   すでに全件が該当しているのに「そのほか」が残るように見えるため。
+   pinned は、先頭に出すカードの描き方（どちらのセクションかの目印 data-fav を付ける）。 */
+function favListHtml(
+  tab,
+  st,
+  entries,
+  chainRows,
+  card,
+  { spot, artist, pinned },
+) {
   const chainHtml = chainRows
     .map((r) => chainRowHtml(r.group, r.count, r.now))
     .join("");
@@ -281,9 +281,9 @@ function favListHtml(tab, st, entries, chainRows, card, { spot, artist }) {
   const shownKeys = new Set(
     entries.flatMap((e) => e.members.map((m) => m.key)),
   );
-  const artHtml = artist ? artistSectionHtml(tab, art, card, shownKeys) : "";
+  const artHtml = artist ? artistSectionHtml(tab, art, pinned, shownKeys) : "";
   const spotHtml = spot
-    ? spotSectionHtml(tab, st, fav, chainRows, chainHtml, card, shownKeys)
+    ? spotSectionHtml(tab, st, fav, chainRows, chainHtml, pinned, shownKeys)
     : "";
   if (!artHtml && !spotHtml) return rest.map(card).join("");
   const divider = rest.length
@@ -292,17 +292,18 @@ function favListHtml(tab, st, entries, chainRows, card, { spot, artist }) {
   return artHtml + spotHtml + divider + rest.map(card).join("");
 }
 
-/* 先頭セクションの見出し。人・場所で同じ作りにして、色と文言だけを変える。 */
-function sectionHead({ cls, aria, icon, title, countHtml, act, folded }) {
-  return `<div class="fav-head${cls ? " " + cls : ""}" role="group" aria-label="${esc(aria)}">
-      <span class="fh-main"><span class="fh-title">${icon}${esc(title)}</span>${countHtml}</span>
-      <span class="fh-acts"><button type="button" class="mini-btn" data-${act}="manage">管理</button><button type="button" class="mini-btn" data-${act}="fold" aria-expanded="${!folded}">${folded ? "ひらく" : "たたむ"}</button></span>
-    </div>`;
-}
-const moreBtn = (act, more, total) =>
-  `<div class="fav-more"><button type="button" class="mini-btn" data-${act}="more" aria-expanded="${more}">${more ? "先頭の表示をへらす" : `ほか${total - FAV_CAP}件を表示`}</button></div>`;
+/* 先頭セクションの出し方。見出し（「お気に入りアーティスト 2組・5件」など）は出さない。
+   お気に入りの公演が先頭にまとまっていることは、カードの登録した人の帯・会場名の★と、
+   後ろの「そのほかの◯◯」の区切りで読める。見出しの「管理」は件数の行の「お気に入り管理」が、
+   「たたむ」は「先頭にまとめる」の設定が受け持つので、見出しは持たない。
 
-function artistSectionHtml(tab, art, card, shownKeys) {
+   先頭のカードには data-fav を付ける（"art"＝人・"spot"＝場所）。見た目には何も足さず、
+   「先頭にまとめる」のあとにそのカードへ移る（ui-favspot.js の revealFav）目印と、
+   どのセクションに出たかの判定（tools/*_test.mjs）に使う。 */
+const moreBtn = (act, more, total) =>
+  `<div class="fav-more"><button type="button" class="mini-btn" data-${act}="more" aria-expanded="${more}">${more ? "お気に入りの表示をへらす" : `お気に入りのほか${total - FAV_CAP}件を表示`}</button></div>`;
+
+function artistSectionHtml(tab, art, pinned, shownKeys) {
   // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
   // 区別する（スポットと同じ。条件のせいなら一言添え、予定が無いだけなら何も出さない）。
   let hidden = 0;
@@ -312,43 +313,17 @@ function artistSectionHtml(tab, art, card, shownKeys) {
     ).length;
   if (!art.length && !hidden) return "";
 
-  const folded = isArtSecFolded(tab.key);
   const more = isArtSecMoreOpen(tab.key);
   const shown = more ? art : art.slice(0, FAV_CAP);
-  const people = new Set();
-  art.forEach((e) =>
-    e.members.forEach((it) =>
-      favArtistsOf(it).forEach((h) => people.add(h.key)),
-    ),
-  );
-  const fresh = art.filter((e) => e.members.some(isNewSinceVisit)).length;
-  const countText = hidden
-    ? "いまの絞り込みでは0件"
-    : `${people.size}組・${art.length}件`;
-  const countHtml =
-    `<span class="fh-count">${esc(countText)}</span>` +
-    (fresh ? `<span class="fh-new">前回から＋${fresh}件</span>` : "");
-
-  const head = sectionHead({
-    cls: "art",
-    aria: `お気に入りアーティストの${tab.noun}`,
-    icon: `<span class="fh-ico" aria-hidden="true">${PERSON_ICON}</span>`,
-    title: "お気に入りアーティスト",
-    countHtml,
-    act: "art-act",
-    folded,
-  });
   let body = "";
-  if (!folded) {
-    if (hidden)
-      body = `<p class="fav-note">お気に入りアーティストの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
-    body += shown.map(card).join("");
-    if (art.length > FAV_CAP) body += moreBtn("art-act", more, art.length);
-  }
-  return head + body;
+  if (hidden)
+    body = `<p class="fav-note">お気に入りアーティストの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
+  body += shown.map((e) => pinned(e, "art")).join("");
+  if (art.length > FAV_CAP) body += moreBtn("art-act", more, art.length);
+  return body;
 }
 
-function spotSectionHtml(tab, st, fav, chainRows, chainHtml, card, shownKeys) {
+function spotSectionHtml(tab, st, fav, chainRows, chainHtml, pinned, shownKeys) {
   // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
   // 区別する。条件のせいなら一言添える（理由が無いと、設定が効いていないように見える）。
   // そもそも予定が無い（別のタブの場所だけを登録している等）なら何も出さない。
@@ -360,43 +335,14 @@ function spotSectionHtml(tab, st, fav, chainRows, chainHtml, card, shownKeys) {
     ).length;
   if (!fav.length && !chainRows.length && !hidden) return "";
 
-  const folded = isFavSecFolded(tab.key);
   const more = isFavSecMoreOpen(tab.key);
   const shown = more ? fav : fav.slice(0, FAV_CAP);
-  const spots = new Set();
-  fav.forEach((e) =>
-    e.members.forEach((it) =>
-      spotsOfItem(it).forEach((sp) => {
-        if (isFavSpot(sp.name)) spots.add(spotKey(sp.name));
-      }),
-    ),
-  );
-  chainRows.forEach((r) =>
-    r.group.theaters.forEach((t) => spots.add(spotKey(t.name))),
-  );
-  const chainTotal = chainRows.reduce((n, r) => n + r.count, 0);
-  const countText = hidden
-    ? "いまの絞り込みでは0件"
-    : `${spots.size}か所・${fav.length}件${chainTotal ? `＋新作${chainTotal}本` : ""}`;
-
-  const head = sectionHead({
-    aria: `お気に入りスポットの${tab.noun}`,
-    icon: `<span class="fh-star" aria-hidden="true">★</span>`,
-    title: "お気に入りスポット",
-    countHtml: `<span class="fh-count">${esc(countText)}</span>`,
-    act: "fav-act",
-    folded,
-  });
-
   let body = "";
-  if (!folded) {
-    if (hidden)
-      body = `<p class="fav-note">お気に入りスポットの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
-    body += shown.map(card).join("");
-    if (fav.length > FAV_CAP) body += moreBtn("fav-act", more, fav.length);
-    body += chainHtml;
-  }
-  return head + body;
+  if (hidden)
+    body = `<p class="fav-note">お気に入りスポットの${esc(tab.noun)}が${hidden}件ありますが、いまの絞り込みに合うものがありません。条件を外すと表示されます。</p>`;
+  body += shown.map((e) => pinned(e, "spot")).join("");
+  if (fav.length > FAV_CAP) body += moreBtn("fav-act", more, fav.length);
+  return body + chainHtml;
 }
 
 /** カード内の操作から元データを引く。 */
@@ -432,10 +378,8 @@ export function bindList(
     onReset,
     onResetShared,
     onToggleSpot,
-    onManageSpots,
     onToggleArtist,
     onOpenArtist,
-    onManageArtists,
     onChainFilter,
   },
 ) {
@@ -502,12 +446,7 @@ export function bindList(
     const artAct = e.target.closest("button[data-art-act]");
     if (artAct) {
       const key = activeTab;
-      const act = artAct.dataset.artAct;
-      if (act === "manage") onManageArtists();
-      else if (act === "fold") {
-        setArtSecFolded(key, !isArtSecFolded(key));
-        refreshNow({ url: false });
-      } else if (act === "more") {
+      if (artAct.dataset.artAct === "more") {
         setArtSecMoreOpen(key, !isArtSecMoreOpen(key));
         refreshNow({ url: false });
       }
@@ -516,12 +455,7 @@ export function bindList(
     const favAct = e.target.closest("button[data-fav-act]");
     if (favAct) {
       const key = activeTab;
-      const act = favAct.dataset.favAct;
-      if (act === "manage") onManageSpots();
-      else if (act === "fold") {
-        setFavSecFolded(key, !isFavSecFolded(key));
-        refreshNow({ url: false });
-      } else if (act === "more") {
+      if (favAct.dataset.favAct === "more") {
         setFavSecMoreOpen(key, !isFavSecMoreOpen(key));
         refreshNow({ url: false });
       }

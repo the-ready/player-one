@@ -27,9 +27,7 @@ import {
   setPinFavSpots,
   pinFavArtists,
   setPinFavArtists,
-  setFavSecFolded,
   setFavSecMoreOpen,
-  setArtSecFolded,
   setArtSecMoreOpen,
   setPlaceFilter,
   rememberTab,
@@ -158,7 +156,7 @@ export function setActiveTab(tab, opts = {}) {
 /* ---------- 出演予定のシートの公演 → そのカード ----------
    行を押したら、シートを閉じてその公演のカードまで移り、少しのあいだ目立たせる。
    別のタブの公演ならタブも切り替える。カードが見つからないときは理由で分ける:
-     先頭セクションのたたみ・「ほか◯件」の裏にいる → 広げて描き直す
+     先頭セクションの「ほか◯件」の裏にいる       → 広げて描き直す
      いまの絞り込みで隠れている                   → そう伝え、外すボタンを出す
    どちらでもなければ（描画の途中でデータが入れ替わったなど）、何も起こさず黙る。 */
 const cardIn = (tabKey, key) => {
@@ -185,9 +183,7 @@ function flashCard(card) {
 function showCard(tabKey, key, again) {
   let card = cardIn(tabKey, key);
   if (!card && visibleItems(tabKey).some((it) => it.key === key)) {
-    // 見たい公演がたたまれた先頭セクションの中にあるので、そのタブのセクションを広げる
-    setFavSecFolded(tabKey, false);
-    setArtSecFolded(tabKey, false);
+    // 見たい公演が先頭セクションの「ほか◯件」の裏にあるので、そのタブのセクションを広げる
     setFavSecMoreOpen(tabKey, true);
     setArtSecMoreOpen(tabKey, true);
     refreshNow({ url: false });
@@ -322,10 +318,8 @@ async function boot() {
         onReset: resetFilters,
         onResetShared: resetSharedFilters,
         onToggleSpot: (name) => toggleSpot(name),
-        onManageSpots: () => openFavManage({ kind: "spot" }),
         onToggleArtist: (name) => toggleArtist(name),
         onOpenArtist: openArtistSheet,
-        onManageArtists: () => openFavManage({ kind: "artist" }),
         // 「この◯本でしぼる」は、会場シートの「この会場でしぼりこむ」と同じ操作
         onChainFilter: (chain) => {
           setPlaceFilter(curState(), "venue", chain);

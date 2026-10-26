@@ -818,7 +818,9 @@ export function gcalUrl(it, override) {
 
 /* ---------- カード本体 ---------- */
 
-export function cardHtml(tab, it, st, terms, members = [it]) {
+/* section: お気に入りの先頭セクションに出すカードの目印（"art"＝人・"spot"＝場所）。data-fav として
+   付けるだけで、見た目は変えない（render.js の artistSectionHtml）。 */
+export function cardHtml(tab, it, st, terms, members = [it], section = "") {
   const badge = statusMeta(tab.statusTable, it.status);
   const onsale = onsaleState(it);
   const href = safeUrl(it.url || it.officialUrl);
@@ -882,7 +884,7 @@ export function cardHtml(tab, it, st, terms, members = [it]) {
       ${detailBody.trim() ? `<div class="desc" id="${descId}">${detailBody}</div>` : ""}`;
 
   return `
-  <article class="card" data-key="${esc(it.key)}">
+  <article class="card" data-key="${esc(it.key)}"${section ? ` data-fav="${esc(section)}"` : ""}>
     ${mainCat ? `<span class="cat-badge" style="background:${mainCat.c};color:var(--on-accent)">${esc(mainCat.label)}</span>` : ""}
     ${isNewlyAnnounced(it) ? `<span class="new-badge">NEW</span>` : ""}
     <div class="card-body">

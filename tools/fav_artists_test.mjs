@@ -278,28 +278,25 @@ console.log("\n--- 保存 ---");
   ST.loadFavArtists();
 
   store.set("eventboard.favartpin.v1", "0");
-  store.set("eventboard.favartfold.v1", "{壊れ");
   ST.loadFavArtistView();
   check(
-    "表示設定: 「まとめない」を覚え、壊れたたたみ状態は既定に戻る",
-    ST.pinFavArtists() === false && ST.isArtSecFolded("event") === false,
+    "表示設定: 「まとめない」を覚える",
+    ST.pinFavArtists() === false,
   );
   store.clear();
   ST.loadFavArtistView();
-  check(
-    "表示設定の既定は「まとめる」・たたまない",
-    ST.pinFavArtists() === true && ST.isArtSecFolded("live") === false,
-  );
-  ST.setArtSecFolded("live", true);
-  ST.loadFavArtistView();
-  check(
-    "たたんだ状態を覚える（タブごと）",
-    ST.isArtSecFolded("live") === true && ST.isArtSecFolded("event") === false,
-  );
+  check("表示設定の既定は「まとめる」", ST.pinFavArtists() === true);
+  ST.setPinFavArtists(false);
   check(
     "お気に入りスポットの設定とは別のキーで持つ",
-    store.has("eventboard.favartfold.v1") &&
-      !store.has("eventboard.favfold.v1"),
+    store.has("eventboard.favartpin.v1") && !store.has("eventboard.favpin.v1"),
+  );
+  store.set("eventboard.favfold.v1", '{"event":true}');
+  store.set("eventboard.favartfold.v1", '{"live":true}');
+  ST.loadFavView();
+  check(
+    "廃止した「たたむ」の保存値は、読み込みのときに消す（使われないまま端末に残さない）",
+    !store.has("eventboard.favfold.v1") && !store.has("eventboard.favartfold.v1"),
   );
   store.clear();
   ST.loadFavArtistView();
@@ -784,7 +781,7 @@ const keysIn = (h) =>
   let h = draw("live");
   check(
     "お気に入りが空なら先頭セクションも区切りも出ない",
-    !h.includes("fav-head") && !h.includes("list-divider"),
+    !h.includes("data-fav=") && !h.includes("list-divider"),
   );
 
   ST.setFavArtist("Saucy Dog", true);
@@ -792,15 +789,22 @@ const keysIn = (h) =>
   const artEnd = h.indexOf("list-divider");
   const secKeys = keysIn(h.slice(0, artEnd));
   check(
-    "お気に入りアーティストの見出しが出る（人のアイコンつき）",
-    h.includes('class="fav-head art"') &&
-      h.includes("お気に入りアーティスト") &&
-      h.includes("person-ico"),
+    "お気に入りの公演が先頭に並び、先頭のカードに data-fav=\"art\" が付く。見出し（「お気に入りアーティスト ◯組・◯件」）は出さない",
+    h.includes('data-fav="art"') &&
+      !h.includes("fav-head") &&
+      !h.includes("fh-count") &&
+      !h.includes("お気に入りアーティスト</span>") &&
+      !h.includes("たたむ") &&
+      !h.includes('data-art-act="manage"'),
   );
   check(
-    "見出しの件数が実際と合う（1組・これから出る3件。終わった公演は数えない）",
-    h.includes("1組・3件"),
-    (h.match(/fh-count">([^<]*)/) || [])[1],
+    "先頭のカードの枚数が実際と合う（これから出る3件。終わった公演は数えない）",
+    (h.match(/data-fav="art"/g) || []).length === 3,
+    String((h.match(/data-fav="art"/g) || []).length),
+  );
+  check(
+    "「そのほかの◯◯」の区切りは残る",
+    /class="list-divider"><span>そのほかの[^<]+<\/span><span class="n">\d+件<\/span>/.test(h),
   );
   check(
     "区切りの前には、その人の出る公演だけが並ぶ（終わった公演は出ない）",
@@ -845,8 +849,8 @@ const keysIn = (h) =>
       h.indexOf(`data-key="${ariake}"`) < h.indexOf("list-divider"),
   );
   check(
-    "場所の公演がすべて人のセクションに出ているときは、場所の見出しを出さない（0件の見出しを残さない）",
-    h.includes('class="fav-head art"') && !h.includes('<div class="fav-head" '),
+    "場所の公演がすべて人のセクションに出ているときは、場所のカードを重ねて出さない（data-fav=\"spot\" が無い）",
+    h.includes('data-fav="art"') && !h.includes('data-fav="spot"'),
   );
   const all2 = keysIn(h);
   check(
@@ -858,8 +862,11 @@ const keysIn = (h) =>
   // 場所だけに当たる公演（人は当たらない）がある場合
   ST.setFavSpot("テスト会場", true);
   h = draw("live");
-  const artHead = h.indexOf('class="fav-head art"');
-  const spotHead = h.indexOf('<div class="fav-head" ');
+  // data-fav はカードの開きタグの中にあるので、そのカードの先頭（<article）の位置で比べる
+  const secAt = (kind) =>
+    h.lastIndexOf("<article", h.indexOf(`data-fav="${kind}"`));
+  const artHead = secAt("art");
+  const spotHead = secAt("spot");
   const div = h.indexOf("list-divider");
   check(
     "順番は、お気に入りアーティスト → お気に入りスポット → そのほか",
@@ -886,9 +893,8 @@ const keysIn = (h) =>
   ST.setPinFavArtists(false);
   h = draw("live");
   check(
-    "「まとめない」では人の見出しは出ないが、カードの登録した人のかたまりは残る",
-    !h.includes('class="fav-head art"') &&
-      favLines(h) === 3,
+    "「まとめない」では先頭にまとめず（data-fav が無い）、カードの登録した人のかたまりは残る",
+    !h.includes("data-fav=") && favLines(h) === 3,
   );
   check(
     "「まとめない」では並びが通常（日付順）のまま",
@@ -903,14 +909,14 @@ const keysIn = (h) =>
   ST.STATES.live.flags.favArtistOnly = true;
   h = draw("live");
   check(
-    "「お気に入りアーティストだけ」では見出しも区切りも出ず、該当だけが並ぶ",
-    !h.includes("fav-head") &&
+    "「お気に入りアーティストだけ」では区切りも先頭の印も出ず、該当だけが並ぶ",
+    !h.includes("data-fav=") &&
       !h.includes("list-divider") &&
       keysIn(h).length === 3,
   );
   ST.STATES.live.flags.favArtistOnly = false;
 
-  // 6件の上限・「ほか◯件を表示」・たたむ
+  // 6件の上限・「お気に入りのほか◯件を表示」
   ST.setFavArtist("Saucy Dog", false);
   const many = [
     "Saucy Dog",
@@ -933,10 +939,10 @@ const keysIn = (h) =>
   h = draw("live");
   const d3 = h.indexOf("list-divider");
   check(
-    "先頭の件数が6を超えると、6件までに抑えて「ほか◯件を表示」を出す",
+    "先頭の件数が6を超えると、6件までに抑えて「お気に入りのほか◯件を表示」を出す",
     favN > 6 &&
       keysIn(h.slice(0, d3)).length === 6 &&
-      h.includes(`ほか${favN - 6}件を表示`) &&
+      h.includes(`お気に入りのほか${favN - 6}件を表示`) &&
       h.includes('data-art-act="more"'),
     `お気に入りの公演${favN}件`,
   );
@@ -945,18 +951,9 @@ const keysIn = (h) =>
   check(
     "開くと全件が先頭に並ぶ",
     keysIn(h.slice(0, h.indexOf("list-divider"))).length === favN &&
-      h.includes("先頭の表示をへらす"),
+      h.includes("お気に入りの表示をへらす"),
   );
   ST.setArtSecMoreOpen("live", false);
-  ST.setArtSecFolded("live", true);
-  h = draw("live");
-  check(
-    "たたむと先頭のカードを隠す（見出しは残り、「そのほか」は残る）",
-    h.includes("fav-head art") &&
-      h.includes("ひらく") &&
-      keysIn(h).length === R.visibleItems("live").length - favN,
-  );
-  ST.setArtSecFolded("live", false);
 
   // 条件で隠れたとき
   ST.STATES.live.q = "存在しない言葉ひるむ";
@@ -972,7 +969,6 @@ const keysIn = (h) =>
     "お気に入りの公演が条件で隠れているときは、その旨の注記が出る（一覧には条件に合う公演が残る）",
     h.includes("fav-note") &&
       h.includes("いまの絞り込みに合うものがありません") &&
-      h.includes("いまの絞り込みでは0件") &&
       h.includes(`data-key="${keyOf("エスケープ試験")}"`),
   );
   ST.STATES.live.q = "";
@@ -983,15 +979,15 @@ const keysIn = (h) =>
   h = draw("live");
   check(
     "ライブタブに予定が無い人だけを登録しているときは、ライブタブに何も出さない",
-    !h.includes("fav-head") && !h.includes("list-divider"),
+    !h.includes("data-fav=") && !h.includes("list-divider"),
   );
   const hEv = draw("event");
   check(
     "同じ人がイベントタブの登壇者なら、イベントタブでは先頭に出る",
-    hEv.includes('class="fav-head art"') && hEv.includes("1組・1件"),
+    (hEv.match(/data-fav="art"/g) || []).length === 1,
   );
   const hMv = draw("movie");
-  check("映画タブでも先頭に出る", hMv.includes('class="fav-head art"'));
+  check("映画タブでも先頭に出る", hMv.includes('data-fav="art"'));
 }
 
 /* ================= 6. カードの部品 ================= */
@@ -1676,7 +1672,7 @@ console.log("\n--- 実データ ---");
   const capped = Math.max(0, expected.size - 6);
   check(
     "先頭セクションのカードは、同じデータから数えた「出演する公演」と一致する（上限6件まで）",
-    h.includes('class="fav-head art"') &&
+    h.includes('data-fav="art"') &&
       [...before].every((k) => expected.has(k)) &&
       before.size === Math.min(6, expected.size),
     `${before.size}/${expected.size}`,
@@ -1752,7 +1748,7 @@ console.log("\n--- 実データ ---");
   // 総当たり: 乱数で作った「お気に入り・並びの設定・絞り込み」の組み合わせを、テスト内に書いた
   // 別実装（仕様そのまま）と突き合わせる。一覧に出るカードの並びが、仕様と1枚も違わないこと。
   //   先頭 = お気に入りアーティスト → お気に入りスポット → そのほか。両方に当たる公演は上に1回だけ。
-  //   各セクションは6件まで（「ほか◯件を表示」で全部）、たたむと隠れる。「だけ」で絞ったときは見出しなし
+  //   各セクションは6件まで（「お気に入りのほか◯件を表示」で全部）。「だけ」で絞ったときは区切りなし
   {
     let seed = 20261025;
     const rnd = () => {
@@ -1818,11 +1814,10 @@ console.log("\n--- 実データ ---");
           fav.push(e);
         else rest.push(e);
       });
-      const cap = (arr, folded, more) =>
-        folded ? [] : more ? arr : arr.slice(0, 6);
+      const cap = (arr, more) => (more ? arr : arr.slice(0, 6));
       return [
-        ...cap(art, ST.isArtSecFolded(tabKey), ST.isArtSecMoreOpen(tabKey)),
-        ...cap(fav, ST.isFavSecFolded(tabKey), ST.isFavSecMoreOpen(tabKey)),
+        ...cap(art, ST.isArtSecMoreOpen(tabKey)),
+        ...cap(fav, ST.isFavSecMoreOpen(tabKey)),
         ...rest,
       ].map((e) => e.rep.key);
     };
@@ -1846,8 +1841,6 @@ console.log("\n--- 実データ ---");
       );
       ST.setPinFavArtists(rnd() < 0.8);
       ST.setPinFavSpots(rnd() < 0.8);
-      ST.setArtSecFolded(tabKey, rnd() < 0.2);
-      ST.setFavSecFolded(tabKey, rnd() < 0.2);
       ST.setArtSecMoreOpen(tabKey, rnd() < 0.4);
       ST.setFavSecMoreOpen(tabKey, rnd() < 0.4);
       const st = ST.STATES[tabKey];
