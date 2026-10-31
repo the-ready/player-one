@@ -400,8 +400,10 @@ const LIVE_COLUMNS = {
    すべて「配列 × OR、軸どうしは AND」に統一する。status は値が1つしかないが、
    配列に寄せることで実装を1本にできる。 */
 
-function facet(id, label, get, meta, keys) {
-  return { id, label, get, meta, keys };
+/* after は、特別チップの行（group 名）の直後に置きたいときだけ指定する。
+   指定が無い軸は、特別チップの行のあとに宣言順で並ぶ。 */
+function facet(id, label, get, meta, keys, after) {
+  return { id, label, get, meta, keys, after };
 }
 const pillMeta = (tbl) => (k) => {
   const m = tableMeta(tbl, k);
@@ -768,6 +770,7 @@ export const TABS = {
         (it) => it.liveType,
         pillMeta(LIVE_TYPES),
         () => Object.keys(LIVE_TYPES),
+        "注目",
       ),
       facet(
         "statuses",

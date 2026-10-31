@@ -46,11 +46,7 @@ import {
   isArtSecMoreOpen,
   setArtSecMoreOpen,
 } from "./state.js";
-import {
-  isFavSpotItem,
-  favChainGroups,
-  chainNamesOf,
-} from "./spots.js";
+import { isFavSpotItem, favChainGroups, chainNamesOf } from "./spots.js";
 import { isFavArtistItem, performersOf } from "./artists.js";
 import { schedulePhase } from "./schedule.js";
 import { fitGrid, refitCard, watchGrid } from "./grid-fit.js";
@@ -323,7 +319,15 @@ function artistSectionHtml(tab, art, pinned, shownKeys) {
   return body;
 }
 
-function spotSectionHtml(tab, st, fav, chainRows, chainHtml, pinned, shownKeys) {
+function spotSectionHtml(
+  tab,
+  st,
+  fav,
+  chainRows,
+  chainHtml,
+  pinned,
+  shownKeys,
+) {
   // お気に入りがあるのに先頭が空のとき、条件で隠れているのか、そもそも予定が無いのかを
   // 区別する。条件のせいなら一言添える（理由が無いと、設定が効いていないように見える）。
   // そもそも予定が無い（別のタブの場所だけを登録している等）なら何も出さない。
@@ -708,7 +712,33 @@ export function renderFilterChips() {
     g.flags.push(f);
   });
 
-  const flagRows = groups
+  const facetRow = (f) => {
+    const keys = f.keys(items);
+    if (!keys.length) return "";
+    return `<div class="chip-row" data-facet="${esc(f.id)}">
+      <span class="chip-label">${esc(f.label)}</span>
+      ${keys
+        .map((k) => {
+          const meta = f.meta(k);
+          return chipButton({
+            key: k,
+            text: meta.text,
+            count: fCounts[f.id][k] || 0,
+            pressed: st.sets[f.id].has(k),
+            color: meta.c,
+            textColor: meta.tx,
+            cls: "facet-chip",
+          });
+        })
+        .join("")}
+    </div>`;
+  };
+
+  /* 特別チップの行を並べ、軸の行は after で指名された行の直後に、指名の無いものは最後に置く。
+     ライブの「公演形態」は、見たいものを決める最初の手がかりなので「注目」の次に出す */
+  const groupNames = new Set(groups.map((g) => g.name));
+  const placed = (f) => f.after && groupNames.has(f.after);
+  const rows = groups
     .map(
       (g) => `
     <div class="chip-row">
@@ -727,32 +757,15 @@ export function renderFilterChips() {
         .join(
           "",
         )}${g.name === "保存" ? manageFavBtnHtml() : ""}${g.name === "表示" ? pinChipHtml() : ""}
-    </div>`,
+    </div>${tab.facets
+      .filter((f) => f.after === g.name)
+      .map(facetRow)
+      .join("")}`,
     )
     .join("");
-
   const facetRows = tab.facets
-    .map((f) => {
-      const keys = f.keys(items);
-      if (!keys.length) return "";
-      return `<div class="chip-row" data-facet="${esc(f.id)}">
-      <span class="chip-label">${esc(f.label)}</span>
-      ${keys
-        .map((k) => {
-          const meta = f.meta(k);
-          return chipButton({
-            key: k,
-            text: meta.text,
-            count: fCounts[f.id][k] || 0,
-            pressed: st.sets[f.id].has(k),
-            color: meta.c,
-            textColor: meta.tx,
-            cls: "facet-chip",
-          });
-        })
-        .join("")}
-    </div>`;
-    })
+    .filter((f) => !placed(f))
+    .map(facetRow)
     .join("");
 
   // 開いたまま押されるので、押していたチップにフォーカスを戻す
@@ -760,7 +773,7 @@ export function renderFilterChips() {
     document.activeElement && body.contains(document.activeElement)
       ? document.activeElement.dataset.key
       : null;
-  body.innerHTML = flagRows + facetRows;
+  body.innerHTML = rows + facetRows;
   if (focusKey) {
     const back = body.querySelector(`[data-key="${CSS.escape(focusKey)}"]`);
     if (back && !back.disabled) back.focus();

@@ -606,6 +606,18 @@ check(
   (await page.locator('#catBody .chip[data-key="favArtistOnly"]').count()) ===
     1 && (await page.locator("#catBody [data-manage-fav]").count()) === 1,
 );
+// ライブの絞り込みは「注目」の次に「公演形態」が来る（見たいものを決める最初の手がかり）
+const liveRows = await page.$$eval("#catBody .chip-row > .chip-label", (els) =>
+  els.map((e) => e.textContent.trim()),
+);
+check(
+  "ライブの絞り込みは「注目」の次に「公演形態」が来る",
+  liveRows[0] === "注目" &&
+    liveRows[1] === "公演形態" &&
+    liveRows.includes("ジャンル") &&
+    liveRows.indexOf("ジャンル") > liveRows.indexOf("公演形態"),
+  liveRows.join(" / "),
+);
 await page.locator("#catBody [data-manage-fav]").click();
 await page.waitForTimeout(400);
 check(
