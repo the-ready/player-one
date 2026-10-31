@@ -15,7 +15,7 @@
    VERSION が据え置きのままだと `updatefound` が発火せず、main.js の自動入れ替え
    （設計書 第10.3節）が動かない。SHELL はキャッシュ優先なので、開き直した人には
    前回のキャッシュがそのまま返り、新しいJSは「次の次の訪問」まで反映されない。 */
-const VERSION = "v48";
+const VERSION = "v49";
 const SHELL_CACHE = `eventboard-shell-${VERSION}`;
 const DATA_CACHE = `eventboard-data-${VERSION}`;
 
@@ -63,13 +63,32 @@ const SHELL = [
 
 const isData = (url) => /\/data\/[^/]+\.(csv|json)$/.test(url.pathname);
 
+/* 本体を取りに行くときは、ブラウザの HTTP キャッシュに答えさせない。
+   GitHub Pages の応答は max-age=600 なので、デプロイから10分以内に開いた人は、HTTP キャッシュに
+   残った**古い** HTML・JS を fetch が返してしまう。それを新しい版のキャッシュに入れると、
+   index.html と main.js で版が食い違い、起動に失敗する（VERSION を上げても直らない）。
+     install       … 新しい版の最初の中身なので、必ず取り直す（reload）。
+     裏の再取得     … 開くたびに本体の全ファイルを取るので、全文を取り直さず、サーバーに
+                     「変わったか」を確かめる（no-cache＝条件付き。変わっていなければ 304 で軽い）。
+   navigate のリクエストは Request を作り直すと mode が same-origin になるが、応答を返すだけなので
+   差し支えない。作り直せない環境では、鮮度より動くことを優先して元のリクエストで取る。 */
+function uncached(req, mode) {
+  try {
+    return new Request(req, { cache: mode });
+  } catch {
+    return req;
+  }
+}
+
 self.addEventListener("install", (e) => {
   // 1つでも欠けると install ごと失敗するので、個別に入れて落とさない
   e.waitUntil(
     caches
       .open(SHELL_CACHE)
       .then((cache) =>
-        Promise.all(SHELL.map((u) => cache.add(u).catch(() => null))),
+        Promise.all(
+          SHELL.map((u) => cache.add(uncached(u, "reload")).catch(() => null)),
+        ),
       ),
   );
 });
@@ -124,7 +143,7 @@ async function networkFirst(req) {
 async function staleWhileRevalidate(req) {
   const cache = await caches.open(SHELL_CACHE);
   const hit = await cache.match(req, { ignoreSearch: true });
-  const fetching = fetch(req)
+  const fetching = fetch(uncached(req, "no-cache"))
     .then((res) => {
       if (res && res.ok) cache.put(req, res.clone());
       return res;

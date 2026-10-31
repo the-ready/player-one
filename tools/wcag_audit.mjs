@@ -323,6 +323,31 @@ await audit("会場シート", "#placeSheet");
 }
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
+// 会場名の右の★（見出しの横。文字を持たないので、対比と押しどころが頼り）。名簿の1か所に当たる会場の
+// シートでだけ出る部品で、上の点検が開いた会場に出るとは限らないため、出る会場を選んで開く。
+// 未登録（縁だけ）と登録済み（塗り）の両方を測る。開けなかったときは「点検できず」として落とす
+{
+  const opened = await page.evaluate(() => {
+    const it = [...document.querySelectorAll("#list .place-item")].find(
+      (e) =>
+        e.querySelector(".star-btn") && e.querySelector("button.place-link"),
+    );
+    it?.querySelector("button.place-link").click();
+    return !!it;
+  });
+  await page.waitForTimeout(1500);
+  if (!opened || !(await page.$("#placeSheetStar button")))
+    cantCheck("会場シート: 見出しの横の★が出ない");
+  else {
+    await audit("会場シート（見出しの★・未登録）", "#placeSheet");
+    await click("#placeSheetStar button", 300);
+    await audit("会場シート（見出しの★・登録済み）", "#placeSheet");
+    // 押した分は戻す（あとの「場所を★にした人にだけ出る部品」の前提を変えない）
+    await click("#placeSheetStar button", 300);
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+}
 await top();
 await click("#sortLocBtn", 800);
 await click("#openMapBtn", 1800);

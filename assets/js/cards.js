@@ -191,16 +191,18 @@ function artistLineHtml(it, terms, canOpen = true) {
       terms && terms.length ? all.find((n) => matchesTerms(n, terms)) : null;
     const hitIsFav = hit && favs.some((h) => h.key === artistKey(hit));
     const lead =
-      favs
-        .map((h) => artistItemHtml(h.name, terms, favDaysHtml(h)))
-        .join("") + (hit && !hitIsFav ? highlight(hit, terms) : "");
+      favs.map((h) => artistItemHtml(h.name, terms, favDaysHtml(h))).join("") +
+      (hit && !hitIsFav ? highlight(hit, terms) : "");
     const btn = `<button type="button" class="lineup-btn"
         aria-label="${esc(it.title)}の出演者を日程ごとに見る（全${all.length}組）"
       >全${all.length}組の日程を見る ▸</button>`;
     return `<p class="lineup-line">${lead}${btn}</p>`;
   }
 
-  const names = favNamesFirst(orderForTerms(it.artists || [], all, terms), terms);
+  const names = favNamesFirst(
+    orderForTerms(it.artists || [], all, terms),
+    terms,
+  );
   if (!names.length) return "";
 
   const shown = names.slice(0, visibleCount(names, LINEUP_VISIBLE));
@@ -212,13 +214,14 @@ function artistLineHtml(it, terms, canOpen = true) {
 /* ---------- お気に入りスポットの★ ----------
    押せる範囲は見た目より広く取る（CSSの .star-btn::after）。会場名のリンクのすぐ隣に
    あり、指で押し間違えやすいため。ラベルは状態で変えず aria-pressed に任せる
-   （「追加する」「外す」を言い換えると、読み上げが二重に状態を告げる）。 */
-export function starBtnHtml(name, { big = false } = {}) {
+   （「追加する」「外す」を言い換えると、読み上げが二重に状態を告げる）。
+   head は会場シートの見出しの横に置く版。文字を持たず、状態は塗りと aria-pressed だけで伝える
+   （カードの★と同じ規則）。押す範囲は見た目の枠そのものを 44px 角にして、::after で広げない。
+   見出しの隣には広げる余白が無く、閉じるボタンを押し間違えやすいため。 */
+export function starBtnHtml(name, { head = false } = {}) {
   const on = isFavSpot(name);
   const label = `${name}をお気に入りスポットにする`;
-  if (big)
-    return `<button type="button" class="star-big" data-star="${esc(name)}" aria-pressed="${on}" aria-label="${esc(label)}">${ICON.star}<span data-star-text>${on ? "お気に入りスポット（登録済み）" : "お気に入りスポットにする"}</span></button>`;
-  return `<button type="button" class="star-btn" data-star="${esc(name)}" aria-pressed="${on}" title="${on ? "お気に入りスポットから外す" : "お気に入りスポットにする"}" aria-label="${esc(label)}">${ICON.star}</button>`;
+  return `<button type="button" class="star-btn${head ? " star-head" : ""}" data-star="${esc(name)}" aria-pressed="${on}" title="${on ? "お気に入りスポットから外す" : "お気に入りスポットにする"}" aria-label="${esc(label)}">${ICON.star}</button>`;
 }
 
 /* ---------- お気に入りアーティスト（人のボタン） ----------

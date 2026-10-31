@@ -166,7 +166,10 @@ console.log("\n--- 管理シートの名前の入力（名簿から候補を出�
   );
   check(
     "名簿の名前と同じなら、その場所を登録する（表記ゆれは名簿の名前に直す）",
-    eq(plan("東京国際フォーラム"), { kind: "add", name: "東京国際フォーラム" }) &&
+    eq(plan("東京国際フォーラム"), {
+      kind: "add",
+      name: "東京国際フォーラム",
+    }) &&
       eq(plan("ｔｏｈｏシネマズ新宿"), {
         kind: "add",
         name: "TOHOシネマズ新宿",
@@ -193,7 +196,6 @@ console.log("\n--- 管理シートの名前の入力（名簿から候補を出�
     plan("フォーラム", () => true).kind === "none",
   );
 }
-
 
 const m = (v) => names(S.matchSpots(v));
 check(
@@ -361,6 +363,49 @@ console.log("\n--- 保存（localStorage） ---");
   );
 }
 
+/* ================= 2b. 会場シートの見出しの★ =================
+   見出しの会場名の横に置く、文字を持たない★（cards.js の starBtnHtml の head）。文字が無いぶん、
+   名前（aria-label）と状態（aria-pressed）が読み上げの頼りになるので、そこを固定する。 */
+console.log("\n--- 会場シートの見出しの★（starBtnHtml の head） ---");
+{
+  store.clear();
+  ST.loadFavSpots();
+  const { starBtnHtml } = await import("../assets/js/cards.js");
+  const inner = (h) =>
+    h
+      .replace(/^<button[^>]*>/, "")
+      .replace(/<\/button>$/, "")
+      .replace(/<svg[\s\S]*<\/svg>/, "")
+      .trim();
+  const name = "東京国際フォーラム";
+  const off = starBtnHtml(name, { head: true });
+  check(
+    "カードの★（star-btn）に star-head を足した形で、カードの★は変わらない",
+    /class="star-btn star-head"/.test(off) &&
+      /class="star-btn"/.test(starBtnHtml(name)) &&
+      !/star-head/.test(starBtnHtml(name)),
+  );
+  check("文字を持たない（button の中身は ★ の svg だけ）", inner(off) === "");
+  check(
+    "名前は「◯◯をお気に入りスポットにする」、未登録は aria-pressed=false",
+    off.includes(`aria-label="${name}をお気に入りスポットにする"`) &&
+      off.includes('aria-pressed="false"') &&
+      off.includes(`data-star="${name}"`),
+  );
+  ST.setFavSpot(name, true);
+  const on = starBtnHtml(name, { head: true });
+  check(
+    "登録すると aria-pressed=true になり、名前は変えない（状態は aria-pressed に任せる）",
+    on.includes('aria-pressed="true"') &&
+      on.includes(`aria-label="${name}をお気に入りスポットにする"`),
+  );
+  ST.setFavSpot(name, false);
+  check(
+    "名前に引用符があっても属性が壊れない",
+    starBtnHtml('A"B', { head: true }).includes('data-star="A&quot;B"'),
+  );
+}
+
 /* ================= 3. 実データで画面の出し分けを見る ================= */
 console.log("\n--- 実データ ---");
 SYNTH.clear();
@@ -436,7 +481,7 @@ reset();
   const favItems = vis.filter((it) => S.isFavSpotItem(it));
   const ks = keysIn(h);
   check(
-    "B. 先頭セクションが出る（先頭のカードに data-fav=\"spot\"）。見出しは出さない",
+    'B. 先頭セクションが出る（先頭のカードに data-fav="spot"）。見出しは出さない',
     h.includes('data-fav="spot"') &&
       !h.includes("fav-head") &&
       !h.includes("fh-count") &&
@@ -444,7 +489,9 @@ reset();
   );
   check(
     "B. 「そのほか」の区切りは残る",
-    /class="list-divider"><span>そのほかの[^<]+<\/span><span class="n">\d+件<\/span>/.test(h),
+    /class="list-divider"><span>そのほかの[^<]+<\/span><span class="n">\d+件<\/span>/.test(
+      h,
+    ),
   );
   // 先頭セクションは6件までに抑える。超えた分は「ほか◯件を表示」の先にあり、描かれない
   const hiddenByCap = Math.max(0, favItems.length - 6);
@@ -546,7 +593,8 @@ reset();
   const h = draw("event");
   check(
     "E. 条件で隠れたときは理由の1行が出る",
-    h.includes("fav-note") && h.includes("いまの絞り込みに合うものがありません"),
+    h.includes("fav-note") &&
+      h.includes("いまの絞り込みに合うものがありません"),
   );
   check("E. 「そのほか」は残る", keysIn(h).length >= 1);
   ST.STATES.event.q = "";

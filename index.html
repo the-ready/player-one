@@ -215,15 +215,31 @@
           </div>
           <!-- 表示中のタブのデータの更新日。タブを切り替えると中身が変わるので、
            何の更新日なのかが読み上げからも分かるよう aria-label を付け直す。 -->
-          <!-- 押すと今週のボードが開く（ui-weekly.js）。見た目は以前の日付の表示のまま変えない。
-           何が開くかは読み上げの名前でだけ伝える（render.js の syncUpdatedLabel が付け直す）。 -->
+          <!-- 押すと今週のボードが開く（ui-weekly.js）。ただの日付の表示に見えて押せると気づかれないので、
+           末尾に小さな › を置いて「この先がある」ことを見た目で伝える（飾りなので読み上げない）。
+           何が開くかは読み上げの名前で伝える（render.js の syncUpdatedLabel が付け直す）。 -->
           <button
             type="button"
             class="stat-chip"
             id="statUpdatedChip"
             aria-haspopup="dialog"
           >
-            最終更新日 <b id="statUpdated">–</b>
+            最終更新日 <b id="statUpdated">–</b
+            ><svg
+              class="stat-go"
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M9 4.5l7.5 7.5L9 19.5" />
+            </svg>
           </button>
         </div>
         <p class="offline-note" id="offlineNote" role="status" hidden>
@@ -807,7 +823,13 @@
     >
       <div class="map-sheet-inner">
         <div class="map-sheet-head">
-          <h2 id="placeSheetTitle">会場</h2>
+          <!-- 会場名の右に、お気に入りスポットの★だけを置く（ui-map.js の openPlaceSheet が
+           会場が名簿の1か所に当たるときだけ入れる）。見出しの中に入れないのは、
+           ダイアログの名前（aria-labelledby）に★の名前が混ざらないようにするため -->
+          <div class="ps-title">
+            <h2 id="placeSheetTitle">会場</h2>
+            <span class="ps-star" id="placeSheetStar"></span>
+          </div>
           <button
             type="button"
             class="popover-close"
@@ -881,13 +903,18 @@
           ×
         </button>
         <div class="onb-art" id="welcomeArt" aria-hidden="true"></div>
-        <div class="onb-body">
+        <div class="onb-body" id="welcomeBody">
           <div aria-live="polite" aria-atomic="true">
             <p class="onb-step" id="welcomeStep"></p>
             <h2 class="onb-title" id="welcomeTitle"></h2>
             <p class="onb-text" id="welcomeText"></p>
           </div>
-          <div class="onb-dots" id="welcomeDots" aria-hidden="true"></div>
+          <div
+            class="onb-dots"
+            id="welcomeDots"
+            role="group"
+            aria-label="ページを選ぶ"
+          ></div>
           <div class="onb-nav">
             <button type="button" class="onb-skip" id="welcomeSkip">
               スキップ
@@ -949,6 +976,14 @@
             </div>
           </div>
           <span class="sr-only" id="weeklyCount"></span>
+          <!-- ページが変わったときだけ「n / Nページ：見出し」を伝える（開いた直後は空。ui-weekly.js の announce） -->
+          <span
+            class="sr-only"
+            id="weeklyLive"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          ></span>
           <div class="wk-body" id="weeklyBody"></div>
           <div class="wk-cta" id="weeklyCta"></div>
         </div>

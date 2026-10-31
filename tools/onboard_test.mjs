@@ -208,6 +208,63 @@ check(
 );
 store.set(O.WEEKLY_KEY, JSON.stringify({ seen: 1 }));
 check("形の違う記録も無いものとして扱う", O.readWeekly() === null);
+
+/* 記録の中身の型。外側の形だけ合っていて、タブの中身が壊れている記録を通すと、
+   diffUids が起動のたびに TypeError で止まり、ボードが二度と出ず、記録も書き直されない。
+   壊れた記録は「無い」ものとして baseline で書き直されること（＝起動が止まらないこと）まで確かめる。 */
+const withRec = (patch) => ({
+  ...REC,
+  ...Object.fromEntries(
+    Object.entries(patch).map(([k, v]) => [k, { ...REC[k], ...v }]),
+  ),
+});
+const BROKEN = {
+  "cur.event が数値（5）": withRec({ cur: { event: 5 } }),
+  "cur.movie が文字列": withRec({ cur: { movie: "m0,m1" } }),
+  "cur.live が配列でなくオブジェクト": withRec({ cur: { live: { a: 1 } } }),
+  "cur.event の要素が文字列でない": withRec({
+    cur: { event: ["e0", 1, null] },
+  }),
+  "fresh.event が数値": withRec({ fresh: { event: 3 } }),
+  "fresh.live が文字列": withRec({ fresh: { live: "l1" } }),
+  "fresh.movie の要素がオブジェクト": withRec({ fresh: { movie: [{}] } }),
+  "seen.event が数値": withRec({ seen: { event: 20261021 } }),
+  "seen.live が配列": withRec({ seen: { live: ["2026-10-23"] } }),
+  "cur が配列": { ...REC, cur: [] },
+  "seen が文字列": { ...REC, seen: "2026-10-21" },
+};
+for (const [name, rec] of Object.entries(BROKEN)) {
+  store.set(O.WEEKLY_KEY, JSON.stringify(rec));
+  const got = O.readWeekly();
+  let plan = null;
+  let threw = null;
+  try {
+    plan = O.planWeekly({
+      rec: got,
+      dates: dates("2026-10-28", "2026-10-29", "2026-10-30"),
+      uids: NOW,
+      welcomeNow: false,
+    });
+  } catch (e) {
+    threw = e;
+  }
+  check(
+    `壊れた記録（${name}）は無いものとして扱い、起動を止めず baseline で書き直す`,
+    got === null && !threw && plan.action === "baseline",
+    threw ? String(threw) : plan && plan.action,
+  );
+}
+// 正しい記録は通す（タブの項目が無い・null の書き方も、書かれ方の揺れとして通す）
+for (const [name, rec] of Object.entries({
+  完全な記録: REC,
+  "fresh が空オブジェクト": { ...REC, fresh: {} },
+  "タブの項目が null（読み込めなかったタブ）": withRec({
+    cur: { movie: null },
+  }),
+})) {
+  store.set(O.WEEKLY_KEY, JSON.stringify(rec));
+  check(`正しい記録（${name}）は通す`, O.readWeekly() !== null);
+}
 check("ようこそカードは、閉じる前は未読", O.isWelcomeSeen() === false);
 O.markWelcomeSeen();
 check("閉じたら既読になる", O.isWelcomeSeen() === true);
@@ -216,6 +273,12 @@ check("閉じたら既読になる", O.isWelcomeSeen() === true);
 console.log("\n--- ようこそカードの文言 ---");
 const slides = O.welcomeSlides();
 check("3枚ある", slides.length === 3);
+check(
+  "1枚目のタブの呼び名が、画面のタブ名「ライブ・フェス」と同じ（「/」にしない）で、読点で区切る",
+  slides[0].body.includes(`イベント、映画、${TABS.live.label}`) &&
+    !slides[0].body.includes("/"),
+  slides[0].body,
+);
 const third = slides[2];
 check(
   "3枚目の文章に ♡ ★ ☆ を書かない（強調しない）",
@@ -484,6 +547,40 @@ check(
 check(
   "ボードの組み立てが、閲覧者の絞り込みを変えない",
   S.STATES.event.flags.freeOnly === false && !S.STATES.event.rangeStart,
+);
+
+/* ボードの「◯件を見る」（main.js の applyBoardFilter）の配線。画面が要るので、描画回数・履歴・トーストは
+   ブラウザで確かめる（temp/ の使い捨て）。ここでは、一覧を3回描き履歴を2つ積む元の形に戻らないよう、
+   関数の中身が「描くのは最後の1回・持ち越しの知らせを出さない」形のままであることだけを固定する。 */
+console.log("\n--- ボードの「◯件を見る」の配線 ---");
+const mainSrc = fs.readFileSync("assets/js/main.js", "utf8");
+const fn = /function applyBoardFilter\([^)]*\) \{([\s\S]*?)\n\}\n/.exec(
+  mainSrc,
+)?.[1];
+check("applyBoardFilter を main.js に見つけられる", !!fn);
+if (fn) {
+  const calls = (re) => (fn.match(re) || []).length;
+  check(
+    "全タブの絞り込みを外す（resetAllStates）が、描画する resetFilters ではない",
+    calls(/\bresetAllStates\(\)/g) === 1 && calls(/\bresetFilters\(/g) === 0,
+  );
+  check(
+    "タブの切り替えは持ち越し無し・描画無し（「引き継げませんでした」を出さず、2度描かない）",
+    /setActiveTab\([^)]*carry: false[^)]*render: false[^)]*\)/.test(fn),
+  );
+  check(
+    "一覧を描くのは最後の1回（refreshNow が1回で、URL は積む）",
+    calls(/\brefreshNow\(/g) === 1 && /refreshNow\(\{ push: true \}\)/.test(fn),
+  );
+  check(
+    "外す前に絞り込みがあったときだけ知らせる",
+    /hasAnyFilter/.test(fn) && /if \(hadFilters\) toast\(/.test(fn),
+  );
+}
+// setActiveTab 側：render: false のとき描画を省く
+check(
+  "setActiveTab は render: false で最後の描画を省ける",
+  /opts\.render !== false\)\s*refreshNow\(/.test(mainSrc),
 );
 
 console.log(

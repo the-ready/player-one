@@ -3,7 +3,7 @@
    加えて、いま見えている状態をURLに写す。共有・ブックマーク・戻るボタンが
    効かないと「この週末の横浜のイベント」を人に渡せないため。 */
 
-import { TABS, TAB_ORDER, PREFS } from "./config.js";
+import { TABS, TAB_ORDER, PREFS, MAP_RADIUS_MAX_KM } from "./config.js";
 import { spotKey, artistKey, artistHead } from "./util.js";
 
 /* ---------- タブごとの状態 ---------- */
@@ -156,7 +156,7 @@ export function carryPlan(fromKey, toKey) {
      行き先にだけあるチップ（ライブに無い割引など）は出発側が知らないので触らない。 */
   fromTab.flags.forEach((f) => {
     const on = !!from.flags[f.id];
-    if (f.id in next.flags) next.flags[f.id] = on;
+    if (Object.hasOwn(next.flags, f.id)) next.flags[f.id] = on;
     else if (on) dropped.push(f.label(fromTab));
   });
 
@@ -316,7 +316,10 @@ export const favSpotCount = () => favSpots.size;
    先頭セクションの「たたむ」は、見出しごと廃止した。以前の保存値（OBSOLETE_FOLD_KEYS）は、
    使われないまま端末に残らないよう読み込みのときに消す。 */
 const PIN_KEY = "eventboard.favpin.v1";
-const OBSOLETE_FOLD_KEYS = ["eventboard.favfold.v1", "eventboard.favartfold.v1"];
+const OBSOLETE_FOLD_KEYS = [
+  "eventboard.favfold.v1",
+  "eventboard.favartfold.v1",
+];
 let pinFav = true;
 let moreOpen = {}; // 「ほか◯件を表示」は覚えない（開いたままだと次に来た人が長い先頭に驚く）
 
@@ -557,6 +560,35 @@ export function stateToQuery() {
   return p;
 }
 
+/* URL は手で書き換えられる前提で、受け付ける値を絞る。通した値は検索の索引・チップの文言・地図の
+   初期位置にそのまま使われるため、壊れた値は「効かない」ではなく「画面が壊れる」になる。 */
+
+// 2026-13-45 のように形だけ合っている日付を通さない（Date は 13月を翌年に繰り上げるので、戻して比べる）
+function isRealYmd(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+  if (!m) return false;
+  const [y, mo, d] = m.slice(1).map(Number);
+  const t = new Date(0);
+  t.setUTCFullYear(y, mo - 1, d);
+  return (
+    t.getUTCFullYear() === y &&
+    t.getUTCMonth() === mo - 1 &&
+    t.getUTCDate() === d
+  );
+}
+
+/** ?map=緯度,経度,半径km。地図で作れる範囲（緯度経度が地球上にあり、半径が選べる上限以下）だけ通す。 */
+function parseMapArea(raw) {
+  const parts = String(raw || "").split(",");
+  // Number() は "" を 0 に、"0x10" を 16 にする。書き出すのは toFixed の10進表記だけなので、それ以外は捨てる
+  if (parts.length !== 3 || !parts.every((x) => /^-?\d+(\.\d+)?$/.test(x)))
+    return null;
+  const [lat, lng, radiusKm] = parts.map(Number);
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  if (!(radiusKm > 0 && radiusKm <= MAP_RADIUS_MAX_KM)) return null;
+  return { lat, lng, radiusKm };
+}
+
 /** URLのクエリを読み、対象タブとその絞り込みを組み立てて返す。 */
 export function queryToState(search) {
   const p = new URLSearchParams(search);
@@ -569,19 +601,11 @@ export function queryToState(search) {
   st.q = p.get("q") || "";
   const from = p.get("from"),
     to = p.get("to");
-  if (
-    /^\d{4}-\d{2}-\d{2}$/.test(from || "") &&
-    /^\d{4}-\d{2}-\d{2}$/.test(to || "")
-  ) {
+  if (isRealYmd(from) && isRealYmd(to)) {
     st.rangeStart = from < to ? from : to;
     st.rangeEnd = from < to ? to : from;
   }
-  const map = p.get("map");
-  if (map) {
-    const [la, ln, r] = map.split(",").map(Number);
-    if ([la, ln, r].every(Number.isFinite) && r > 0)
-      st.mapArea = { lat: la, lng: ln, radiusKm: r };
-  }
+  st.mapArea = parseMapArea(p.get("map"));
   if (!st.mapArea && p.get("venue")) st.venue = p.get("venue");
   if (!st.mapArea && !st.venue && p.get("pref")) st.pref = p.get("pref");
 
@@ -591,7 +615,8 @@ export function queryToState(search) {
       raw
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        // constructor・__proto__ などは、どの表にも無い値なのに表引きが継承したものに当たる
+        .filter((v) => v && !(v in Object.prototype))
         .forEach((v) => st.sets[f.id].add(v));
   });
   const flags = (p.get("f") || "")
@@ -599,8 +624,9 @@ export function queryToState(search) {
     .map((s) => s.trim())
     .filter(Boolean);
   flags.forEach((name) => {
-    const id = FLAG_BY_PARAM[name] || name;
-    if (id in st.flags) st.flags[id] = true;
+    // どちらも自前のキーだけを引く（?f=constructor が継承したプロパティに当たらないように）
+    const id = Object.hasOwn(FLAG_BY_PARAM, name) ? FLAG_BY_PARAM[name] : name;
+    if (Object.hasOwn(st.flags, id)) st.flags[id] = true;
   });
   // 「受付中」と「発売前」は同時に成り立たない。URL直打ちでも矛盾させない。
   if (st.flags.onsaleOnly && st.flags.beforeOnly) st.flags.beforeOnly = false;

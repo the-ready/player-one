@@ -2,6 +2,8 @@
 
    モーダルにする（aria-modal + inert + フォーカスの閉じ込め）。一覧の前に立つぶん、閉じ方を
    必ず用意する：スキップ・×・最後の「さっそく探す」・Esc のどれでも閉じ、閉じたら二度と出さない。
+   暗幕（カードの外）を押しても閉じない：閉じると既読になって二度と見られず、スマホでは余白への
+   うっかりの接触で消えてしまうため。
    閉じたあとのフォーカスは本文の先頭へ戻す。開く元になった部品が無い（起動時に自動で開く）ので、
    検索欄へ戻すとスマホでキーボードが上がってしまうため。 */
 
@@ -53,6 +55,26 @@ const ART_BG = {
   favs: "var(--pink-tint)",
 };
 
+/* 点は、任意の枚へ移れるボタンにする（前の枚へ戻る手段が、これと ← キーしか無いため）。
+   枚が変わるたびに作り直すと、押した点からフォーカスが落ちる（キーボードで点を順に押している途中で
+   外れる）ので、枚数が変わったときだけ作り、あとは印だけを付け替える。 */
+function drawDots() {
+  if (el.dots.children.length !== slides.length) {
+    el.dots.innerHTML = slides
+      .map(
+        (_, i) =>
+          `<button type="button" class="onb-dot" data-i="${i}" aria-label="${i + 1}枚目へ"><i></i></button>`,
+      )
+      .join("");
+  }
+  Array.from(el.dots.children).forEach((b, i) => {
+    const on = i === index;
+    b.classList.toggle("on", on);
+    if (on) b.setAttribute("aria-current", "step");
+    else b.removeAttribute("aria-current");
+  });
+}
+
 function draw() {
   const s = slides[index];
   const last = index === slides.length - 1;
@@ -61,9 +83,7 @@ function draw() {
   el.step.textContent = `${index + 1} / ${slides.length}`;
   el.title.textContent = s.title;
   el.text.textContent = s.body;
-  el.dots.innerHTML = slides
-    .map((_, i) => `<i${i === index ? ' class="on"' : ""}></i>`)
-    .join("");
+  drawDots();
   el.next.textContent = last ? LAST_LABEL : NEXT_LABEL;
   el.skip.hidden = last;
 }
@@ -83,9 +103,16 @@ function preloadSlideFonts() {
 }
 
 function go(i) {
-  if (i < 0 || i >= slides.length) return;
+  if (i < 0 || i >= slides.length || i === index) return;
   index = i;
   draw();
+  // 背の低い画面（横向きのスマホ）では本文が自分の中でスクロールする。前の枚で下まで送って
+  // ボタンを押していても、新しい枚は見出しから読ませる
+  el.body.scrollTop = 0;
+  // 最後の枚ではスキップが消える。そこにフォーカスがあったときは、フォーカスが宙に浮く
+  // （そのあとの Esc・矢印が効かなくなる）ので、主ボタンへ移す
+  if (!el.sheet.contains(document.activeElement))
+    el.next.focus({ preventScroll: true });
 }
 
 export function initWelcome() {
@@ -95,10 +122,12 @@ export function initWelcome() {
   el.step = document.getElementById("welcomeStep");
   el.title = document.getElementById("welcomeTitle");
   el.text = document.getElementById("welcomeText");
+  el.body = document.getElementById("welcomeBody");
   el.dots = document.getElementById("welcomeDots");
   el.next = document.getElementById("welcomeNext");
   el.skip = document.getElementById("welcomeSkip");
   el.close = document.getElementById("welcomeClose");
+  el.inner = el.sheet.querySelector(".onb-inner");
 
   el.next.addEventListener("click", () => {
     if (index < slides.length - 1) go(index + 1);
@@ -106,14 +135,31 @@ export function initWelcome() {
   });
   el.skip.addEventListener("click", closeWelcome);
   el.close.addEventListener("click", closeWelcome);
-  // 背面（暗幕）を押しても閉じる。カードの中を押したときは閉じない
+  el.dots.addEventListener("click", (e) => {
+    const b = e.target instanceof Element ? e.target.closest(".onb-dot") : null;
+    if (b) go(Number(b.dataset.i));
+  });
+  // 暗幕を押しても閉じない。ただ、暗幕は押してもフォーカスを受けないので、そのままだと
+  // フォーカスが body に落ち、以後の Esc・矢印がこのシートに届かなくなる。枠へ戻しておく
   el.sheet.addEventListener("click", (e) => {
-    if (e.target === el.sheet) closeWelcome();
+    if (e.target === el.sheet && !el.sheet.contains(document.activeElement))
+      el.inner.focus({ preventScroll: true });
   });
   el.sheet.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
       closeWelcome();
+      return;
+    }
+    // ← → で枚を送る。Alt+← はブラウザの「戻る」なので、修飾キーつきは触らない
+    if (
+      (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      !e.metaKey
+    ) {
+      e.preventDefault();
+      go(index + (e.key === "ArrowRight" ? 1 : -1));
       return;
     }
     trapTab(el.sheet, e);
@@ -133,8 +179,11 @@ export function openWelcome() {
   // inert のあとで読む（getComputedStyle が、起動直後の一覧の描画と inert のスタイル計算を
   // 1回にまとめて済ませる。前に置くと2回に分かれる。ui-weekly.js の openWeekly と同じ）
   preloadSlideFonts();
-  // 初めは「つぎへ」に置く。Enter だけで3枚を読み進められ、閉じる操作も手前に残る
-  el.next.focus();
+  // 初めは「つぎへ」に置く。Enter だけで3枚を読み進められ、閉じる操作も手前に残る。
+  // preventScroll が要る：背の低い画面では本文が自分の中でスクロールし、ボタンを見せようとして
+  // 見出しが絵の下へ送られてしまうため
+  el.body.scrollTop = 0;
+  el.next.focus({ preventScroll: true });
   return true;
 }
 

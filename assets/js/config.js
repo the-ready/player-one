@@ -275,9 +275,19 @@ export const PLACE_UPCOMING_MAX = 8;
 
 export const DEFAULT_CENTER = [35.6812, 139.7671]; // 東京駅
 
+/* 地図で選べる範囲の半径の上限（km）。URL の ?map= を受け付ける線で、これを超える値は手で書き換えた
+   ものとして捨てる。ui-map.js は最も引いたとき（MAP_MIN_ZOOM=5）の赤道上で 1px が約4.9km になり、
+   円の半径は地図の短辺（シートの高さは最大780px）の 0.78 倍の半分なので、選べる最大は約1,490km。
+   端末ごとの差を見込んで丸めてある。ui-map.js の定数を変えたら tools/query_state_test.mjs が知らせる。 */
+export const MAP_RADIUS_MAX_KM = 1500;
+
 /* ---------- 表引き（未知の値でも落ちない） ---------- */
-export const tableMeta = (tbl, k) => tbl[k] || { label: k, c: "var(--text)" };
-export const statusMeta = (tbl, k) => tbl[k] || NEUTRAL_BADGE;
+/* 表は {} のリテラルなので、tbl[k] は継承したプロパティにも当たる。URL の ?cats=constructor で
+   Object.prototype の関数が返ると、ラベルが空のチップが出てしまう。自前のキーだけを引く。 */
+export const tableMeta = (tbl, k) =>
+  Object.hasOwn(tbl, k) ? tbl[k] : { label: k, c: "var(--text)" };
+export const statusMeta = (tbl, k) =>
+  Object.hasOwn(tbl, k) ? tbl[k] : NEUTRAL_BADGE;
 
 /* ---------- CSVの列マッピング ----------
    { 出力プロパティ: [CSVの列名, 変換関数] }。
@@ -419,7 +429,7 @@ const presentKeys = (tbl, getter) => (items) => {
   items.forEach((it) => getter(it).forEach((v) => present.add(v)));
   return Object.keys(tbl)
     .filter((k) => present.has(k))
-    .concat([...present].filter((k) => !(k in tbl)));
+    .concat([...present].filter((k) => !Object.hasOwn(tbl, k)));
 };
 const statusOf = (it) => (it.status ? [it.status] : []);
 

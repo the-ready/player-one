@@ -140,6 +140,8 @@ CSP（`Content-Security-Policy` の meta）も直す。直さないと、ブラ�
 ```bash
 node tools/lineup_test.mjs                  # データの繋ぎ・検索・シート（DOM不要）
 node tools/tab_carry_test.mjs               # タブ切替での絞り込みの持ち越し（DOM不要）
+node tools/query_state_test.mjs             # URL（?f= ?cats= ?from= ?map=）の改ざんに耐えるか：継承プロパティ・実在しない日付・範囲外の地図（DOM不要）
+node tools/sw_test.mjs                      # sw.js が本体を HTTP キャッシュ越しに取らないこと（install は reload・裏の再取得は no-cache。ブラウザ不要）
 node tools/free_filter_test.mjs             # 「無料のものだけ」の判定規則と配線（DOM不要）
 node tools/guest_filter_test.mjs            # 「出演あり」チップ：判定・日程連動・時間経過・カード（DOM不要）
 node tools/caladd_test.mjs                  # カレンダー追加の初期日付の分岐（DOM不要）

@@ -61,15 +61,26 @@ export function canPersist() {
 export const isWelcomeSeen = () => getLS(WELCOME_KEY) === "1";
 export const markWelcomeSeen = () => setLS(WELCOME_KEY, "1");
 
+/* 端末の記録は、拡張機能や手での書き換え・別の版の書式で壊れうる。型が違うまま通すと、
+   diffUids が起動のたびに TypeError で止まり、ボードが二度と自動で出ず、記録も書き直されない。
+   タブごとに型まで確かめ、1つでも合わなければ記録が無いものとして扱う
+   （次の起動で baseline として正しい形に書き直される）。
+     seen … 更新日の文字列か無し／cur・fresh … uid（文字列）の配列か無し */
+const isPlainObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const isStr = (v) => typeof v === "string";
+const isUidList = (v) => v == null || (Array.isArray(v) && v.every(isStr));
+
 const validWeekly = (v) =>
-  v &&
-  typeof v === "object" &&
-  v.seen &&
-  typeof v.seen === "object" &&
-  v.cur &&
-  typeof v.cur === "object" &&
-  v.fresh &&
-  typeof v.fresh === "object" &&
+  isPlainObj(v) &&
+  isPlainObj(v.seen) &&
+  isPlainObj(v.cur) &&
+  isPlainObj(v.fresh) &&
+  TAB_ORDER.every(
+    (k) =>
+      (v.seen[k] == null || isStr(v.seen[k])) &&
+      isUidList(v.cur[k]) &&
+      isUidList(v.fresh[k]),
+  ) &&
   v;
 
 export function readWeekly() {
@@ -148,7 +159,8 @@ export function welcomeSlides() {
     {
       art: "tabs",
       title: "関東の「行きたい」を、1つの画面で。",
-      body: `イベント・映画・ライブ/フェスを${n || "まとめて探せます。"}毎週、データを更新しています。`,
+      // タブの名前（ライブ・フェス）は「・」を含むので、並べるときは読点で区切る（4つに読まれないため）
+      body: `イベント、映画、ライブ・フェスを${n || "まとめて探せます。"}毎週、データを更新しています。`,
     },
     {
       art: "filters",

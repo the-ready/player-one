@@ -79,11 +79,12 @@ const INERT_TARGETS = () =>
     document.querySelector(".skip-link"),
   ].filter(Boolean);
 
-export function setBackgroundInert(on, extra = []) {
+/* except … inert の対象から外す要素。今週のボードは本文（main）を inert にせず、別の方法で隠す（ui-weekly.js） */
+export function setBackgroundInert(on, extra = [], except = []) {
   INERT_TARGETS()
     .concat(extra)
     .forEach((el) => {
-      if (!el) return;
+      if (!el || except.includes(el)) return;
       if (on) el.setAttribute("inert", "");
       else el.removeAttribute("inert");
     });

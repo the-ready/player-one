@@ -475,6 +475,7 @@ let placeMap = null,
 export function initPlaceSheet() {
   ps.sheet = document.getElementById("placeSheet");
   ps.title = document.getElementById("placeSheetTitle");
+  ps.star = document.getElementById("placeSheetStar");
   ps.help = document.getElementById("placeSheetHelp");
   ps.loading = document.getElementById("placeMapLoading");
   ps.info = document.getElementById("placeInfo");
@@ -594,9 +595,20 @@ function placeParking(name) {
   return `<p class="vi-facts vi-park">駐車場${parkBadgeHtml(sp[0].parking)}${esc(PARKING_KINDS[sp[0].parking].label)}</p>`;
 }
 
-/* お気に入りスポットの★。会場の表記が名簿のちょうど1か所に当たるときは大きな★、
-   複数に当たるとき（`A／B`）は場所ごとの★を並べる。チェーン名そのものは場所ではないので、
-   よく行く店舗に★を付けてもらうよう店舗の一覧を出す（店舗が何十もあるので、
+/* 会場名のすぐ右（見出しの横）に置く★。会場の表記が名簿のちょうど1か所に当たるときだけ出す。
+   「この会場を★にする」は見出しの会場名に対する操作なので、名前の隣に置くのが一番伝わる。
+   文字は添えず、状態は塗りと aria-pressed だけで伝える（カードの★と同じ。cards.js の starBtnHtml）。 */
+function placeHeadStar(name, chain) {
+  if (chain) return "";
+  const spots = matchSpots(name);
+  return spots.length === 1
+    ? starBtnHtml(spots[0].name, { head: true })
+    : "";
+}
+
+/* 見出しの横に置けない★。複数に当たるとき（`A／B`）は場所ごとの★を並べる（どの場所の★かは
+   名前の隣でないと分からず、見出しの横には1つしか置けないため）。チェーン名そのものは
+   場所ではないので、よく行く店舗に★を付けてもらうよう店舗の一覧を出す（店舗が何十もあるので、
    一覧は枠の中でスクロールさせる）。名簿に無い会場には出さない。 */
 function placeStars(name, chain) {
   if (chain) {
@@ -611,8 +623,6 @@ function placeStars(name, chain) {
         .join("")}</ul>`;
   }
   const spots = matchSpots(name);
-  if (spots.length === 1)
-    return `<p class="vi-star">${starBtnHtml(spots[0].name, { big: true })}</p>`;
   if (spots.length > 1)
     return `<p class="vi-facts">この表記は複数の場所を含みます。★を付ける場所を選んでください。</p>
       <ul class="venue-rows">${spots
@@ -636,6 +646,8 @@ export function openPlaceSheet(name, { back = null } = {}) {
 
   const chain = isKnownChain(name);
   ps.title.textContent = chain ? `${name}の店舗` : name;
+  // シートは開くたびに使い回すので、前の会場の★を必ず入れ替える（1か所に当たらない会場では空にする）
+  ps.star.innerHTML = placeHeadStar(name, chain);
   ps.help.textContent = chain
     ? `${name}の関東の店舗です。ピンをタップすると劇場のページを開けます。`
     : "会場の場所と、ここでこれから予定されているものです。";

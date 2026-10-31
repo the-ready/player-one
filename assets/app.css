@@ -215,8 +215,8 @@ h1.pop-title {
   gap: 0.6rem;
   align-items: center;
 }
-/* .tab-chip は押せるので min-height 44px を確保する。隣に並ぶ .stat-chip は
-   押せないが、同じ行で高さがずれると不揃いに見えるので同じ寸法にそろえる。 */
+/* .tab-chip は押せるので min-height 44px を確保する。隣に並ぶ .stat-chip も
+   今は押せる（今週のボードを開く。末尾の › はそのしるし）ので、同じ寸法にそろえる。 */
 .stat-chip {
   display: inline-flex;
   align-items: center;
@@ -899,6 +899,13 @@ html.sky-night
     .ts-tag.limited
   ) {
   background: #222951;
+}
+/* 限定・追加販売のタグは、昼は --sunny の塗りに --on-accent（昼は白）の文字。夜は塗りを上の藍へ
+   替えるが、--on-accent は夜に「明るい塗りの上の濃い文字」の色（#2a2438）になるため、
+   藍の上では 1.1:1 で読めなかった。夜は、塗りが暗いぶん文字を明るい黄（--sunny）にして、
+   昼の「黄のタグ」という識別を保つ */
+html.sky-night .card .ts-tag.limited {
+  color: var(--sunny);
 }
 html.sky-night .card :is(.price-compare, .coupon-note) {
   border-color: var(--line);
@@ -2857,6 +2864,18 @@ mark {
   font-size: 17px;
   margin: 0;
 }
+/* 会場シートの見出し。会場名と★を1かたまりにして、閉じるボタンだけを右端へ離す。
+   名前が長いときは名前のほうが折り返し、★は押しどころを保ったまま名前の右に残る */
+.ps-title {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.ps-star {
+  flex: none;
+  display: inline-flex;
+}
 .map-sheet-help {
   margin: 0;
   padding: 0.6rem 1rem;
@@ -3798,6 +3817,34 @@ footer p {
 .venue-rows .star-btn::after {
   inset: 0;
 }
+/* 会場シートの見出しの横の★（cards.js の starBtnHtml の head）。見た目の規則はカードの★と同じ
+   （塗りが登録済み・縁だけが未登録）で、文字は添えない。押す範囲は閉じるボタンと同じ 44px 角。
+   カードの★のように ::after で広げないのは、右隣が会場名・左隣がシートの縁で広げる余白が無く、
+   見えている枠がそのまま押せる範囲のほうが押し間違えにくいため */
+.star-head {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: 0 0 0 0.1rem;
+  vertical-align: baseline;
+  border-radius: 50%;
+}
+.star-head::after {
+  display: none;
+}
+.star-head svg {
+  width: 28px;
+  height: 28px;
+}
+/* 触って離した指の下に :hover が残る端末では、外した直後も黄色のままになり、
+   「外れた」が塗りの有無でしか分からなくなる。ホバーできる端末だけ色を変える */
+@media (hover: none) {
+  .star-head:not([aria-pressed="true"]):hover {
+    color: var(--text-faint);
+  }
+}
+/* 会場の★の文字つきの大きなボタンは廃止した（見出しの横の★に移した）。
+   この形は、アーティストのシートの人のボタン（.art-big）が引き続き使う */
 .star-big {
   display: inline-flex;
   align-items: center;
@@ -4682,6 +4729,12 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   justify-content: center;
   padding: 1rem;
 }
+/* 素早い2回タップ（iPhone の二度押しでの拡大）を無効にする。「つぎへ」を続けて押す案内なので、
+   2回目が拡大と取られると、枚も送られず画面だけ大きくなる */
+.onb-sheet,
+.onb-inner {
+  touch-action: manipulation;
+}
 .onb-inner {
   position: relative;
   width: min(400px, 100%);
@@ -4738,19 +4791,30 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   font-size: 14px;
   line-height: 1.7;
 }
+/* 点は押せるボタン。押しどころは 24×24px 以上（WCAG 2.2 の 2.5.8）にし、見える点は今の大きさのまま、
+   ボタンの中に置く。点の間隔は、ボタンの幅ぶん（24px）になる */
 .onb-dots {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin: 0.9rem 0;
+  margin: 0.5rem 0;
 }
-.onb-dots i {
+.onb-dot {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+}
+.onb-dot i {
   width: 8px;
   height: 8px;
   border: 2px solid var(--text-soft);
   border-radius: 50%;
 }
-.onb-dots i.on {
+.onb-dot.on i {
   width: 22px;
   border-radius: 999px;
   border-color: var(--text);
@@ -4785,6 +4849,69 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   text-align: center;
 }
 
+/* 背の低い画面。絵(180px)・本文・ボタンが縦に積まれると、スマホを横にした高さ（320〜390px）には
+   収まらず、本文が自分の中でスクロールして、見出しが絵の下に隠れたままになる。
+   縦向きでも小さい端末（高さ600px以下）では絵を縮め、横向きなど幅のある背の低い画面では、
+   絵を左・本文を右に並べて縦を節約する。どちらも見出しから読める位置を基準にする。 */
+@media (max-height: 600px) {
+  .onb-art {
+    height: 128px;
+  }
+  .onb-art svg {
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    padding: 0.4rem 0;
+  }
+  .onb-body {
+    padding-top: 0.8rem;
+    padding-bottom: 0.9rem;
+  }
+}
+@media (max-height: 480px) and (min-width: 480px) {
+  .onb-sheet {
+    padding: 0.5rem;
+  }
+  .onb-inner {
+    flex-direction: row;
+    width: min(720px, 100%);
+  }
+  .onb-art {
+    width: 36%;
+    height: auto;
+    border-right: 3px solid var(--ink);
+    border-bottom: 0;
+  }
+  .onb-art svg {
+    width: 100%;
+    height: auto;
+    padding: 0;
+  }
+  .onb-body {
+    flex: 1;
+    min-width: 0;
+    /* 右上の × が、見出しに重ならないようにする */
+    padding: 0.6rem 1rem 0.7rem;
+  }
+  .onb-step,
+  .onb-title {
+    padding-right: 2.6rem;
+  }
+  .onb-title {
+    font-size: 18px;
+  }
+  /* 枚ごとに文の長さが違うので、ボタンが動かないよう4行ぶんの高さを取っておく（幅が狭い 568px で
+     一番長い文が4行になる） */
+  .onb-text {
+    min-height: 6.4em;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .onb-dots {
+    margin: 0.2rem 0;
+  }
+}
+
 /* 今週のボード：画面を占有するストーリー。ページごとに色の違う地の上へ、白い大きな文字を置く。
    色は昼夜の空モードの変数を使わず固定する。地が昼夜で変わらない濃い色なので、白い文字の対比が
    どの時間帯でも同じに保てるため（どの色も白との対比は 4.5:1 以上）。
@@ -4793,6 +4920,13 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   align-items: stretch;
   padding: 0;
   background: #33302b;
+}
+/* ボードが開いている間の本文（ui-weekly.js の coverBackground）。ボードが全面を覆うので、
+   背面は inert ではなく、中身を計算も描画もしない状態にする。箱の高さは、開く直前の値を
+   --wk-main-h で保つ（保たないと、閉じたあとのスクロール位置が先頭へ寄る） */
+main.wk-under {
+  content-visibility: hidden;
+  contain-intrinsic-block-size: var(--wk-main-h);
 }
 .wk-inner {
   position: relative;
@@ -4810,6 +4944,8 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  /* 右をタップして続けて送るとき、素早い2回のタップが「拡大」と解釈されて画面が拡大されないようにする */
+  touch-action: manipulation;
 }
 .wk-inner:focus {
   outline: none;
@@ -4891,6 +5027,16 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   font-size: 12px;
   font-weight: 700;
 }
+/* 320px 幅では題名と更新日が並びきらず、語の途中で折り返す。折り返さず、足りない分は題名を「…」で省く
+   （更新日のほうが、見に来た目的に近い）。読み上げの名前（aria-labelledby）は省かれない全文のまま */
+.wk-who > span:not(.wk-av) {
+  white-space: nowrap;
+}
+#weeklyTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .wk-av {
   display: grid;
   flex: none;
@@ -4944,6 +5090,13 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   min-height: 0;
   overflow-y: auto;
   padding: 0.6rem 22px;
+}
+/* まだ下に続きがあるときだけ、下端をフェードさせる（ui-weekly.js の syncMore）。背の低い画面では
+   本文の一部しか見えず、スクロールできることが見た目では分からないため。マスクは枠に掛かり、
+   中身がスクロールしても下端に固定されるので、いちばん下まで読めば（.has-more が外れて）消える */
+.wk-body.has-more {
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 32px), transparent);
 }
 .wk-page {
   margin: auto 0;
@@ -5178,6 +5331,106 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
+/* 320px 前後では、帯の余白・丸ボタン・文字をわずかに詰めて、省かずに収める */
+@media (max-width: 340px) {
+  .wk-top {
+    gap: 0.4rem;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .wk-who {
+    gap: 6px;
+    font-size: 11px;
+  }
+  .wk-round {
+    width: 34px;
+    height: 34px;
+  }
+  .wk-ctl {
+    gap: 0.3rem;
+  }
+}
+/* さらに背の低い画面（スマホを横にした高さ 320〜430px）。帯・ボタンで縦が尽きて、本文が2〜3割しか
+   見えず、週末のページは題名の札がほとんど隠れる。帯とボタンを細くし、下のボタンは横に並べる（折り返しは許す）。
+   それでも溢れるぶんは、本文だけがスクロールする（下端のフェードが手がかり） */
+@media (max-height: 480px) {
+  .wk-bars {
+    padding: max(6px, env(safe-area-inset-top)) 14px 4px;
+  }
+  .wk-top {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .wk-av {
+    width: 24px;
+    height: 24px;
+  }
+  .wk-round {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .wk-body {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+  }
+  .wk-h {
+    margin-bottom: 0.25rem;
+    font-size: 20px;
+  }
+  .wk-kicker,
+  .wk-range {
+    font-size: 12px;
+  }
+  .wk-big {
+    margin: 0.1rem 0;
+    font-size: 34px;
+  }
+  .wk-big small {
+    font-size: 14px;
+  }
+  .wk-sub,
+  .wk-note,
+  .wk-text {
+    margin-bottom: 0.3rem;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .wk-note {
+    margin-top: 0.4rem;
+  }
+  .wk-updates,
+  .wk-list {
+    gap: 5px;
+    margin-top: 8px;
+  }
+  .wk-updates li {
+    padding: 4px 10px;
+  }
+  .wk-item {
+    min-height: 36px;
+    padding: 4px 10px;
+  }
+  .wk-group {
+    margin-top: 6px;
+  }
+  .wk-cta {
+    flex-flow: row wrap;
+    gap: 0.5rem;
+    padding: 0.3rem 22px max(10px, env(safe-area-inset-bottom));
+  }
+  .wk-cta .map-btn,
+  .wk-cta .map-btn.primary {
+    flex: 1 1 11em;
+    min-height: 40px;
+    padding: 0.3rem 0.6rem;
+    font-size: 13px;
+  }
+  .wk-hint {
+    flex: 1;
+    padding-top: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .wk-page {
     animation: none;
@@ -5186,12 +5439,31 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
     animation: none;
     transform: scaleX(1);
   }
+  /* 再開を押した人（ui-weekly.js が .is-resumed を付ける）の棒だけは動かす。上の animation: none では
+     animationend が来ず、再開しても進まないため。animation の一括指定は一時停止（.is-paused）の指定を
+     打ち消してしまうので、必要な4つだけを個別に書く */
+  .wk-sheet.is-resumed .wk-bar.cur .wk-fill {
+    animation-name: wk-fill;
+    animation-duration: var(--wk-dur, 7s);
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+    transform: scaleX(0);
+  }
 }
 
-/* 「最終更新日」はボタンでもある（今週のボードが開く）。見た目は以前の表示のまま変えない */
+/* 「最終更新日」はボタンでもある（今週のボードが開く）。日付の表示と見分けがつくよう、
+   末尾に小さな › を置く。色は文字と同じ（currentColor）にして、昼も夜も文字と同じ対比（3:1 以上）で
+   読めるようにする。幅は 12px ＋ 余白だけ増えるが、チップの高さ（44px）と並びは変わらない。
+   日付の数字に寄せて置くのは、離れると「別の部品」に見えて手がかりにならないため */
 button.stat-chip {
   color: inherit;
   line-height: inherit;
   text-align: left;
   cursor: pointer;
+}
+.stat-chip .stat-go {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-left: -0.15em;
 }

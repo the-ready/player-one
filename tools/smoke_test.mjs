@@ -191,6 +191,37 @@ check(
   (await page.locator("#appliedBar .applied-chip").count()) >= 1,
 );
 
+// --- 改ざんしたURL：継承プロパティの名前・実在しない日付・範囲外の地図で、画面が壊れない
+//     （node tools/query_state_test.mjs が状態層を固定している。ここでは実際の画面で空のチップが出ないことを見る）
+{
+  const errsBefore = consoleErrors.length;
+  await page.goto(
+    BASE +
+      "?cats=constructor,__proto__&f=constructor&from=2026-13-45&to=2026-13-46&map=999,999,99999",
+    { waitUntil: "networkidle" },
+  );
+  await page.waitForTimeout(1800);
+  const chips = await page
+    .locator("#appliedBar .applied-chip")
+    .allTextContents();
+  check(
+    "改ざんしたURLでも、空のラベルのチップや無効な日程・地図のチップが出ない",
+    chips.length === 0,
+    JSON.stringify(chips),
+  );
+  check(
+    "改ざんしたURLでも、一覧が出ている",
+    (await page.locator("#list .card").count()) > 0,
+  );
+  check(
+    "改ざんしたURLで、コンソールエラーが出ない",
+    consoleErrors.length === errsBefore,
+    consoleErrors.slice(errsBefore, errsBefore + 2).join(" / "),
+  );
+  await page.goto(BASE + "?tab=live&pref=tokyo", { waitUntil: "networkidle" });
+  await page.waitForTimeout(1800);
+}
+
 // --- ポップアップは非モーダル：開いたまま隣のボタンへ移れる
 await page.click("#sortDateBtn");
 await page.waitForTimeout(300);
@@ -363,6 +394,69 @@ check(
   "リロードしてもお気に入りが残る",
   (await page.locator('#list [data-fav="spot"]').count()) >= 1,
 );
+// 会場シートの★は、見出しの会場名のすぐ右に★だけで置く（設計書 第5.12節）。文字を持たないので、
+// 名前（aria-label）と状態（aria-pressed）が読み上げの頼り。カードの★と状態が揃い、押す範囲は 44px 角
+{
+  const pick = await page.evaluate(() => {
+    const it = [...document.querySelectorAll("#list .place-item")].find(
+      (e) =>
+        e.querySelector(".star-btn") && e.querySelector("button.place-link"),
+    );
+    if (!it) return null;
+    const name = it.querySelector(".star-btn").dataset.star;
+    it.querySelector("button.place-link").click();
+    return name;
+  });
+  await page.waitForTimeout(800);
+  const headStar = page.locator(
+    "#placeSheet .map-sheet-head #placeSheetStar button",
+  );
+  const cardOf = (n) =>
+    page.evaluate(
+      (x) =>
+        [
+          ...document.querySelectorAll(
+            `#list .star-btn[data-star="${CSS.escape(x)}"]`,
+          ),
+        ].map((b) => b.getAttribute("aria-pressed")),
+      n,
+    );
+  check(
+    "会場シートの★が、見出しの横に文字なしで出る（名前に会場名を含み、本文の中には重ねて出さない）",
+    !!pick &&
+      (await headStar.count()) === 1 &&
+      (await headStar.innerText()) === "" &&
+      ((await headStar.getAttribute("aria-label")) ?? "").includes(pick) &&
+      (await page.locator("#placeSheet #placeInfo [data-star]").count()) === 0,
+    String(pick),
+  );
+  const box = pick && (await headStar.boundingBox());
+  check(
+    "会場シートの★は 44px 角で押せる",
+    !!box && box.width >= 44 && box.height >= 44,
+    JSON.stringify(box),
+  );
+  if (pick) {
+    const before = await headStar.getAttribute("aria-pressed");
+    await headStar.click();
+    const after = await headStar.getAttribute("aria-pressed");
+    check(
+      "会場シートの★を押すと状態が変わり、カードの★と揃う（トーストは出さない）",
+      before !== after &&
+        (await cardOf(pick)).every((v) => v === after) &&
+        !(await page.locator("#favToast").isVisible()),
+      `${before} -> ${after}`,
+    );
+    await headStar.click();
+    check(
+      "もう一度押すと元の状態に戻り、カードの★と揃う",
+      (await headStar.getAttribute("aria-pressed")) === before &&
+        (await cardOf(pick)).every((v) => v === before),
+    );
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+}
 await page.locator("#favEntry").click();
 await page.waitForTimeout(300);
 await page.locator("#favTabSpot").click();
@@ -1295,6 +1389,19 @@ async function scanPanels(isoTime) {
       document.querySelector("main").hasAttribute("inert"),
     ),
   );
+  // 点で任意の枚へ移れ、← で戻れ、暗幕を押しても閉じない（閉じると既読になって二度と見られないため）
+  const step = () =>
+    p.evaluate(() => document.getElementById("welcomeStep").textContent);
+  await p.click('#welcomeDots .onb-dot[data-i="2"]');
+  check("ようこそカード: 3つ目の点で3枚目へ移る", (await step()) === "3 / 3");
+  await p.keyboard.press("ArrowLeft");
+  check("ようこそカード: ← で前の枚へ戻れる", (await step()) === "2 / 3");
+  await p.mouse.click(4, 4);
+  check(
+    "ようこそカード: 暗幕を押しても閉じず、既読にもならない",
+    !(await hid("welcomeSheet")) &&
+      (await ls("eventboard.welcome.v1")) === null,
+  );
   await p.keyboard.press("Escape");
   check(
     "Esc で閉じ、既読になる",
@@ -1393,8 +1500,21 @@ async function scanPanels(isoTime) {
     return b ? Number((b.textContent.match(/(\d+)件/) || [])[1]) : null;
   });
   if (want != null) {
+    const histBefore = await p.evaluate(() => history.length);
     await p.click("#weeklyCta button");
     await p.waitForTimeout(800);
+    check(
+      "「◯件を見る」で積む履歴は1つ（一覧を描き直すたびに積まない）",
+      (await p.evaluate(() => history.length)) === histBefore + 1,
+      String((await p.evaluate(() => history.length)) - histBefore),
+    );
+    check(
+      "「◯件を見る」で、持ち越しの「引き継げませんでした」を出さない",
+      await p.evaluate(
+        () =>
+          !/引き継げ/.test(document.getElementById("toast")?.textContent || ""),
+      ),
+    );
     const got = await p.evaluate(() =>
       Number(
         ((document.getElementById("resultCount").textContent || "").match(
@@ -1414,6 +1534,24 @@ async function scanPanels(isoTime) {
   await p.waitForTimeout(1500);
   check("同じ更新では、二度と自動では開かない", await hid("weeklySheet"));
 
+  // 型の壊れた記録（cur.event が数値）でも起動が止まらず、記録が基準として書き直される
+  await p.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem("eventboard.weekly.v1"));
+    r.cur.event = 5;
+    localStorage.setItem("eventboard.weekly.v1", JSON.stringify(r));
+  });
+  await p.reload({ waitUntil: "networkidle" });
+  await waitAllTabs(p);
+  await p.waitForTimeout(1500);
+  check(
+    "壊れた記録では、ボードを出さず、記録が正しい形で書き直される",
+    (await hid("weeklySheet")) &&
+      (await p.evaluate(() => {
+        const r = JSON.parse(localStorage.getItem("eventboard.weekly.v1"));
+        return Array.isArray(r.cur.event) && r.cur.event.length > 0;
+      })),
+  );
+
   // 日付のボタン
   check(
     "最終更新日は、押せるボタンになっている",
@@ -1421,11 +1559,55 @@ async function scanPanels(isoTime) {
       () => document.getElementById("statUpdatedChip").tagName === "BUTTON",
     ),
   );
+  check(
+    "日付のボタンの末尾に、押せると分かる › がある（飾りなので読み上げず、押せる範囲もボタン全体）",
+    await p.evaluate(() => {
+      const s = document.querySelector("#statUpdatedChip > svg.stat-go");
+      const b = document.getElementById("statUpdatedChip");
+      return (
+        !!s &&
+        s.getAttribute("aria-hidden") === "true" &&
+        s.getBoundingClientRect().width > 0 &&
+        b.getBoundingClientRect().height >= 44 &&
+        /最終更新日/.test(b.getAttribute("aria-label") || "")
+      );
+    }),
+  );
   const before = await ls("eventboard.weekly.v1");
   await p.focus("#statUpdatedChip");
   await p.keyboard.press("Enter");
   await p.waitForTimeout(500);
   check("日付のボタンから、今週のボードが開く", !(await hid("weeklySheet")));
+  check(
+    "ボードの間、背面の本文は隠れ、フォーカスも入らない（content-visibility か inert。第5.16節）",
+    await p.evaluate(() => {
+      const m = document.querySelector("main");
+      if (!m.classList.contains("wk-under") && !m.hasAttribute("inert"))
+        return false;
+      m.querySelector("button, a[href], input")?.focus();
+      return !m.contains(document.activeElement);
+    }),
+  );
+  await p.evaluate(() => document.getElementById("weeklyNext").click());
+  check(
+    "ページが変わると、読み上げ用の領域へ「n / Nページ：見出し」が入る",
+    await p.evaluate(() =>
+      /^2 \/ \d+ページ：.+/.test(
+        document.getElementById("weeklyLive").textContent,
+      ),
+    ),
+  );
+  // 戻る（ブラウザ・Android の戻るボタン）でボードが閉じ、サイトから離れない
+  const urlOpen = p.url();
+  await p.goBack();
+  await p.waitForTimeout(500);
+  check(
+    "戻るでボードが閉じる（サイトからは離れない）",
+    (await hid("weeklySheet")) && p.url() === urlOpen,
+  );
+  await p.focus("#statUpdatedChip");
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(500);
   await p.keyboard.press("Escape");
   check(
     "Esc で閉じ、フォーカスは日付のボタンへ戻る",

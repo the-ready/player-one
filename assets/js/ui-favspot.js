@@ -29,15 +29,7 @@ export function syncStars(root = document) {
   root.querySelectorAll("[data-star]").forEach((b) => {
     const on = isFavSpot(b.dataset.star);
     b.setAttribute("aria-pressed", String(on));
-    if (b.classList.contains("star-big")) {
-      const t = b.querySelector("[data-star-text]");
-      if (t)
-        t.textContent = on
-          ? "お気に入りスポット（登録済み）"
-          : "お気に入りスポットにする";
-    } else {
-      b.title = on ? "お気に入りスポットから外す" : "お気に入りスポットにする";
-    }
+    b.title = on ? "お気に入りスポットから外す" : "お気に入りスポットにする";
   });
 }
 

@@ -16,9 +16,12 @@ import {
 } from "./data.js";
 import {
   activeTab,
+  STATES,
   setActiveTabKey,
   curTab,
   curState,
+  resetAllStates,
+  hasAnyFilter,
   loadFavorites,
   loadFavSpots,
   loadFavView,
@@ -143,7 +146,9 @@ const tabPane = (k) => document.getElementById(TABS[k].paneId);
 export function setActiveTab(tab, opts = {}) {
   /* 日程・エリア・特別チップは切替先へ持ち越す（設計書 第4.2.2節）。
      戻る/進む（opts.carry === false）は URL から組み立てた状態が正なので、
-     出発側で上書きしない。起動時や同じタブの再選択は from === tab で何もしない。 */
+     出発側で上書きしない。起動時や同じタブの再選択は from === tab で何もしない。
+     opts.render === false は、呼び出し側がこの直後に状態を整えて自分で描くとき
+     （一覧を2度描かないため。applyBoardFilter）。 */
   const dropped = opts.carry === false ? [] : carryFilters(activeTab, tab);
   TAB_ORDER.forEach((k) => {
     const active = k === tab;
@@ -171,7 +176,8 @@ export function setActiveTab(tab, opts = {}) {
   syncAreaForTab();
   syncUpdatedLabel();
   ensureTabData(tab);
-  refreshNow({ push: opts.push !== false, url: opts.url !== false });
+  if (opts.render !== false)
+    refreshNow({ push: opts.push !== false, url: opts.url !== false });
   // 運べなかった条件があるときだけ知らせる。毎回出すとタブを移るたびにうるさい
   if (dropped.length)
     toast(
@@ -513,20 +519,29 @@ async function openBoardManually(viaKeyboard = false) {
 }
 
 /* ボードの「◯件を見る」。ほかの条件が残っていると、ボードの件数と押した先の件数が食い違うので、
-   いったん絞り込みをすべて外してから、この条件だけを掛ける。 */
+   全タブの絞り込みと検索語をいったん外してから、この条件だけを掛ける。
+
+   一覧を描くのも履歴を積むのも最後の1回だけにする。「外す→タブを移す→条件を掛ける」を
+   既存の操作（resetFilters・setActiveTab）で順に呼ぶと、そのたびに約500枚の一覧を描き直し
+   （遅い端末では1回に数秒かかる）、「戻る」で2回戻らないと元の画面に帰れなくなる。
+   だから、先に状態だけを作り、表示の塗り直しはタブの切り替えに任せ、描画と URL は最後に1度。
+   持ち越し（carry）は、全タブを空にしたあとで運ぶものが無いので使わない
+   （使うと「引き継げませんでした」という、この操作には意味のない知らせが出る）。 */
 function applyBoardFilter({ tab, kind }) {
   if (!TABS[tab]) return;
-  if (tab !== activeTab) setActiveTab(tab, { push: false, url: false });
-  resetFilters();
-  const st = curState();
+  // 外したことを知らせるかは、外す前にしか分からない
+  const hadFilters = TAB_ORDER.some((k) => hasAnyFilter(k));
+  resetAllStates();
+  const st = STATES[tab];
   if (kind === "weekend") {
     [st.rangeStart, st.rangeEnd] = presetRange("weekend");
-    resetCalendarCursor();
-    renderCalendar();
-  } else if (kind === "free") {
+  } else if (kind === "free" && Object.hasOwn(st.flags, "freeOnly")) {
     st.flags.freeOnly = true;
   }
+  // 同じタブでも通す。検索窓・カレンダー（週末の日程の反映）・エリアの表示を、いまの状態から塗り直すため
+  setActiveTab(tab, { carry: false, render: false });
   refreshNow({ push: true });
+  if (hadFilters) toast("ほかの絞り込みを外しました");
   const first = document.getElementById("resultCount");
   if (first) scrollToElement(first, 24);
 }
