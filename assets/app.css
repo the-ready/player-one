@@ -1121,7 +1121,7 @@ html.sky-night
 }
 /* 「現在地から近い順」「地図で範囲をえらぶ」は選んでいる状態ではなく操作の入口なので、
    生成りの塗り（＝選択中）にしない。昼の組み合わせ（前者は暗い塗りに白文字、後者は空色の塗り）を
-   夜の語彙に写す：前者は一段明るい藍（--surface）に生成りの文字、後者はパステルの空色に濃い文字。
+   夜の語彙に写す：前者は一段明るい藍（--surface）に生成りの文字、後者は深い青緑に白文字。
    どちらも縁は黒に近い紺、外側に生成りの細い輪（地との差は輪が受け持つ。WCAG 1.4.11 の 3:1） */
 html.sky-night :is(.popover-panel, .map-sheet-inner) .locate-cta {
   background: var(--surface);
@@ -1130,8 +1130,8 @@ html.sky-night :is(.popover-panel, .map-sheet-inner) .locate-cta {
   box-shadow: 0 0 0 1.5px rgba(251, 245, 230, 0.85);
 }
 html.sky-night :is(.popover-panel, .map-sheet-inner) .locate-cta.map-cta {
-  background: #9ccfe0;
-  color: #2a2438;
+  background: #2f6275;
+  color: #fff;
 }
 html.sky-night
   :is(.popover-panel, .map-sheet-inner, .cal-menu)
