@@ -4805,6 +4805,11 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   overflow: hidden;
   background: linear-gradient(160deg, #7b6b9b, #b3566e);
   color: #fff;
+  /* 長押しは「止めて読む」操作に使うので、iPhone などの文字選択（コピーの吹き出し・拡大鏡）と
+     リンクの長押しメニューを出さない。選択が始まると指の動きが奪われ、止める操作も途切れるため */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .wk-inner:focus {
   outline: none;

@@ -1338,6 +1338,13 @@ async function scanPanels(isoTime) {
     ),
   );
   check(
+    "ボードの中は文字を選択できない（長押しで止めるとき、選択の吹き出しを出さない）",
+    await p.evaluate(() => {
+      const el = document.querySelector("#weeklySheet .wk-inner");
+      return getComputedStyle(el).userSelect === "none";
+    }),
+  );
+  check(
     "ボードは画面を占有する（全面・色つきの地）",
     await p.evaluate(() => {
       const el = document.querySelector("#weeklySheet .wk-inner");
