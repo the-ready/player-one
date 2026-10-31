@@ -902,41 +902,63 @@
 
     <!-- 今週のボード（更新後に初めて開いたとき／日付のボタンから。ui-weekly.js・設計書 第5.16節） -->
     <div
-      class="map-sheet onb-sheet"
+      class="map-sheet wk-sheet"
       id="weeklySheet"
       role="dialog"
       aria-modal="true"
       aria-labelledby="weeklyTitle"
       hidden
     >
-      <div class="map-sheet-inner onb-inner wk-inner" tabindex="-1">
-        <div class="wk-bars" id="weeklyBars" aria-hidden="true"></div>
-        <div class="wk-top">
-          <p class="wk-who" id="weeklyTitle">今週のイベントボード</p>
-          <div class="wk-ctl">
-            <button
-              type="button"
-              class="popover-close wk-pause"
-              id="weeklyPause"
-              aria-pressed="false"
-              aria-label="自動で進むのを止める"
-            ></button>
-            <button
-              type="button"
-              class="popover-close"
-              id="weeklyClose"
-              aria-label="とじる"
-            >
-              ×
-            </button>
+      <div class="wk-inner" tabindex="-1">
+        <div class="wk-col">
+          <div class="wk-bars" id="weeklyBars" aria-hidden="true"></div>
+          <div class="wk-top">
+            <p class="wk-who">
+              <span class="wk-av" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
+                </svg>
+              </span>
+              <span id="weeklyTitle">今週のイベントボード</span>
+              <span class="wk-when" id="weeklyWhen"></span>
+            </p>
+            <div class="wk-ctl">
+              <button
+                type="button"
+                class="wk-round wk-pause"
+                id="weeklyPause"
+                aria-pressed="false"
+                aria-label="自動で進むのを止める"
+              ></button>
+              <button
+                type="button"
+                class="wk-round"
+                id="weeklyClose"
+                aria-label="とじる"
+              >
+                ×
+              </button>
+            </div>
           </div>
+          <span class="sr-only" id="weeklyCount"></span>
+          <div class="wk-body" id="weeklyBody"></div>
+          <div class="wk-cta" id="weeklyCta"></div>
         </div>
-        <div class="wk-body" id="weeklyBody"></div>
-        <div class="wk-foot">
-          <button type="button" class="map-btn" id="weeklyPrev">前へ</button>
-          <span class="wk-count" id="weeklyCount" aria-hidden="true"></span>
-          <button type="button" class="map-btn" id="weeklyNext">次へ</button>
-        </div>
+        <!-- ふだんは見えない前へ／次へ。キーボードと読み上げの人用で、フォーカスが来たときだけ出る -->
+        <button type="button" class="wk-step wk-prev" id="weeklyPrev">
+          前へ
+        </button>
+        <button type="button" class="wk-step wk-next" id="weeklyNext">
+          次へ
+        </button>
       </div>
     </div>
 

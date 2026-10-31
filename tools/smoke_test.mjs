@@ -1337,8 +1337,22 @@ async function scanPanels(isoTime) {
           3,
     ),
   );
+  check(
+    "ボードは画面を占有する（全面・色つきの地）",
+    await p.evaluate(() => {
+      const el = document.querySelector("#weeklySheet .wk-inner");
+      const r = el.getBoundingClientRect();
+      return (
+        r.left === 0 &&
+        r.top === 0 &&
+        r.width === innerWidth &&
+        r.height === innerHeight &&
+        /gradient/.test(getComputedStyle(el).backgroundImage)
+      );
+    }),
+  );
   await p.click("#weeklyPause");
-  await p.click("#weeklyNext");
+  await p.evaluate(() => document.getElementById("weeklyNext").click());
   check(
     "2枚目はお気に入りの新着",
     await p.evaluate(
@@ -1354,13 +1368,13 @@ async function scanPanels(isoTime) {
       () => document.querySelector("#weeklySheet .wk-inner").dataset.page,
     )) !== "weekend"
   )
-    await p.click("#weeklyNext");
+    await p.evaluate(() => document.getElementById("weeklyNext").click());
   const want = await p.evaluate(() => {
-    const b = document.querySelector("#weeklyBody .wk-acts button");
+    const b = document.querySelector("#weeklyCta button");
     return b ? Number((b.textContent.match(/(\d+)件/) || [])[1]) : null;
   });
   if (want != null) {
-    await p.click("#weeklyBody .wk-acts button");
+    await p.click("#weeklyCta button");
     await p.waitForTimeout(800);
     const got = await p.evaluate(() =>
       Number(

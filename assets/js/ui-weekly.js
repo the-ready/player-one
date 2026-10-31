@@ -39,8 +39,9 @@ const DUR = { total: 7, fav: 9, weekend: 9, free: 8, movies: 8, last: 7 };
 
 const PAUSE_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" class="ico-pause"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" class="ico-play"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>`;
 
-// 最後のページの絵。♡は「先頭にまとまる」ものではないので描かない（★と人のマークだけ）
-const LAST_ART = `<svg viewBox="0 0 170 80" width="170" height="80" role="presentation"><g transform="translate(46 40)"><circle r="32" fill="var(--card)" stroke="var(--ink)" stroke-width="3"/><path transform="scale(2.4)" d="M0-8.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L0 4.8-5.2 7.5l1-5.8-4.2-4.1 5.8-.8z" fill="#e8b93c" stroke="var(--ink)" stroke-width="1"/></g><g transform="translate(124 40)"><circle r="32" fill="var(--card)" stroke="var(--ink)" stroke-width="3"/><g transform="scale(2.4)"><circle cy="-3" r="3.6" fill="var(--sky)" stroke="var(--ink)" stroke-width="1"/><path d="M-7 8c0-4 3-6.5 7-6.5S7 4 7 8z" fill="var(--sky)" stroke="var(--ink)" stroke-width="1"/></g></g></svg>`;
+/* 最後のページの絵。♡は「先頭にまとまる」ものではないので描かない（★と人のマークだけ）。
+   背景は昼夜で変わらない色つきの面なので、絵の色も昼夜の変数を使わず固定する */
+const LAST_ART = `<svg viewBox="0 0 170 80" width="170" height="80" role="presentation"><g transform="translate(46 40)"><circle r="32" fill="#fff" stroke="#33302b" stroke-width="3"/><path transform="scale(2.4)" d="M0-8.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L0 4.8-5.2 7.5l1-5.8-4.2-4.1 5.8-.8z" fill="#e8b93c" stroke="#33302b" stroke-width="1"/></g><g transform="translate(124 40)"><circle r="32" fill="#fff" stroke="#33302b" stroke-width="3"/><g transform="scale(2.4)"><circle cy="-3" r="3.6" fill="#527b86" stroke="#33302b" stroke-width="1"/><path d="M-7 8c0-4 3-6.5 7-6.5S7 4 7 8z" fill="#527b86" stroke="#33302b" stroke-width="1"/></g></g></svg>`;
 
 /* ---------- ページの HTML ---------- */
 
@@ -75,7 +76,7 @@ const PAGE_HTML = {
           : "更新日が進んだタブを「更新」で示しています。"
     }</p>`,
   fav: (p) => `
-    <h2 class="wk-h">お気に入りに新着があります</h2>
+    <h2 class="wk-h">お気に入りに<br />新着があります</h2>
     <p class="wk-big">${n(p.count)}<small>件</small></p>
     ${p.groups
       .map(
@@ -91,18 +92,11 @@ const PAGE_HTML = {
     <p class="wk-big">${n(p.counts.reduce((s, c) => s + c.n, 0))}<small>件</small></p>
     <p class="wk-sub">${p.counts.map((c) => `${esc(c.label)} ${n(c.n)}`).join("・")}</p>
     ${itemsHtml(p.items)}
-    ${p.free > 0 ? `<p class="wk-note">うち無料は${n(p.free)}件です。</p>` : ""}
-    <div class="wk-acts">${p.counts
-      .map(
-        (c) =>
-          `<button type="button" class="map-btn" data-act="apply" data-tab="${esc(c.tab)}" data-kind="weekend">${esc(c.label)}${n(c.n)}件を見る</button>`,
-      )
-      .join("")}</div>`,
+    ${p.free > 0 ? `<p class="wk-note">うち無料は${n(p.free)}件です。</p>` : ""}`,
   free: (p) => `
     <h2 class="wk-h">無料で楽しめるイベント</h2>
     <p class="wk-big">${n(p.n)}<small>件</small></p>
-    ${itemsHtml(p.items)}
-    <div class="wk-acts"><button type="button" class="map-btn" data-act="apply" data-tab="event" data-kind="free">無料のイベントだけを見る</button></div>`,
+    ${itemsHtml(p.items)}`,
   movies: (p) => `
     <h2 class="wk-h">今週公開の映画</h2>
     <p class="wk-big">${n(p.n)}<small>本</small></p>
@@ -110,12 +104,26 @@ const PAGE_HTML = {
   last: (p) => `
     <div class="wk-art" aria-hidden="true">${LAST_ART}</div>
     <h2 class="wk-h">お気に入りを登録しよう</h2>
-    <p class="wk-text">会場名の横の★と、出演者の横の人のマークで登録すると、その予定が一覧の先頭にまとまります。登録はこの端末の中だけに保存されます。</p>
-    <div class="wk-acts">
-      <button type="button" class="map-btn primary" data-act="close">一覧を見る</button>
-      ${p.hasFavs ? `<button type="button" class="map-btn" data-act="manage">お気に入り管理</button>` : ""}
-    </div>`,
+    <p class="wk-text">会場名の横の★と、出演者の横の人のマークで登録すると、その予定が一覧の先頭にまとまります。登録はこの端末の中だけに保存されます。</p>`,
 };
+
+/* 下に固定するボタン。無いページには、操作のヒントを出す。
+   本文と分けるのは、題名が長くて本文が溢れても、押したいボタンが画面の外へ出ないようにするため */
+const HINT = `<p class="wk-hint">右をタップで次へ・長押しで止まる</p>`;
+const PAGE_CTA = {
+  weekend: (p) =>
+    p.counts
+      .map(
+        (c) =>
+          `<button type="button" class="map-btn" data-act="apply" data-tab="${esc(c.tab)}" data-kind="weekend">${esc(c.label)}${n(c.n)}件を見る</button>`,
+      )
+      .join(""),
+  free: () =>
+    `<button type="button" class="map-btn" data-act="apply" data-tab="event" data-kind="free">無料のイベントだけを見る</button>`,
+  last: (p) =>
+    `<button type="button" class="map-btn primary" data-act="close">一覧を見る</button>${p.hasFavs ? `<button type="button" class="map-btn" data-act="manage">お気に入り管理</button>` : ""}`,
+};
+const ctaHtml = (p) => (PAGE_CTA[p.id] ? PAGE_CTA[p.id](p) : HINT);
 
 /* ---------- フォントの先読み ---------- */
 
@@ -161,6 +169,7 @@ function preloadBoardFonts() {
   el.body.innerHTML = pages
     .map((p) => `<div class="wk-page">${PAGE_HTML[p.id](p)}</div>`)
     .join("");
+  el.cta.innerHTML = pages.map(ctaHtml).join("");
   const pairs = [];
   const walk = document.createTreeWalker(el.sheet, NodeFilter.SHOW_TEXT);
   for (let t = walk.nextNode(); t; t = walk.nextNode())
@@ -169,6 +178,16 @@ function preloadBoardFonts() {
 }
 
 /* ---------- 描画と送り ---------- */
+
+// 題名の横に「・10.28 更新」。3タブのうち最も新しい更新日
+function whenText(dates) {
+  const latest = Object.values(dates || {})
+    .filter(Boolean)
+    .sort()
+    .pop();
+  const m = latest && /^\d{4}-(\d{2})-(\d{2})/.exec(latest);
+  return m ? `・${Number(m[1])}.${Number(m[2])} 更新` : "";
+}
 
 function renderBars() {
   // 棒ごと作り直すのは、いま開いているページの進捗の動き（animation）を頭から始め直すため
@@ -183,11 +202,12 @@ function renderBars() {
 function renderPage() {
   const p = pages[cur];
   el.body.innerHTML = `<div class="wk-page">${PAGE_HTML[p.id](p)}</div>`;
+  el.cta.innerHTML = ctaHtml(p);
   el.body.scrollTop = 0;
   el.inner.dataset.page = p.id;
   el.sheet.style.setProperty("--wk-dur", `${DUR[p.id] || 7}s`);
   renderBars();
-  el.count.textContent = `${cur + 1} / ${pages.length}`;
+  el.count.textContent = `${cur + 1} / ${pages.length}ページ`;
   setDisabled(el.prev, cur === 0);
   setDisabled(el.next, cur === pages.length - 1);
 }
@@ -223,8 +243,11 @@ export function initWeekly(h) {
   el.sheet = document.getElementById("weeklySheet");
   if (!el.sheet) return;
   el.inner = el.sheet.querySelector(".wk-inner");
+  el.col = el.sheet.querySelector(".wk-col");
   el.bars = document.getElementById("weeklyBars");
   el.body = document.getElementById("weeklyBody");
+  el.cta = document.getElementById("weeklyCta");
+  el.when = document.getElementById("weeklyWhen");
   el.prev = document.getElementById("weeklyPrev");
   el.next = document.getElementById("weeklyNext");
   el.count = document.getElementById("weeklyCount");
@@ -239,21 +262,18 @@ export function initWeekly(h) {
     userPaused = !userPaused;
     syncPaused();
   });
-  // 暗幕を押しても閉じる
-  el.sheet.addEventListener("click", (e) => {
-    if (e.target === el.sheet) closeWeekly();
-  });
-
   // 棒が満ちたら次のページへ。最後のページでは止まる（繰り返さない）
   el.bars.addEventListener("animationend", (e) => {
     if (!open || !e.target.classList.contains("wk-fill")) return;
     if (cur < pages.length - 1) go(cur + 1);
   });
 
-  // 本文の押下：中のボタン・リンクは本来の動き。それ以外は、左側で前へ・右側で次へ。
-  // 長押しは「止めて読む」操作なので、指を離しても進めない
-  el.body.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("button, a")) return;
+  /* 画面の押下：ボタン・リンクと上の帯（進捗・題名・止める／とじる）は本来の動き。
+     それ以外は、中身の列の左側（4割）で前へ・それより右で次へ。列の外（広い画面の左右の余白）も、
+     列の左右に延ばして同じに扱う。長押しは「止めて読む」操作なので、指を離しても進めない */
+  const own = (t) => t.closest("button, a, .wk-bars, .wk-top");
+  el.inner.addEventListener("pointerdown", (e) => {
+    if (own(e.target)) return;
     holding = true;
     holdAt = performance.now();
     syncPaused();
@@ -263,16 +283,17 @@ export function initWeekly(h) {
     holding = false;
     syncPaused();
   };
-  el.body.addEventListener("pointerup", release);
-  el.body.addEventListener("pointercancel", release);
-  el.body.addEventListener("pointerleave", release);
-  el.body.addEventListener("click", (e) => {
+  el.inner.addEventListener("pointerup", release);
+  el.inner.addEventListener("pointercancel", release);
+  el.inner.addEventListener("pointerleave", release);
+  el.inner.addEventListener("click", (e) => {
     const t = e.target;
     const btn = t.closest && t.closest("button, a");
     if (btn) return onBodyButton(btn);
+    if (own(t)) return;
     if (performance.now() - holdAt > 350) return;
-    const r = el.body.getBoundingClientRect();
-    if (e.clientX - r.left < r.width * 0.35) go(cur - 1);
+    const r = el.col.getBoundingClientRect();
+    if (e.clientX - r.left < r.width * 0.4) go(cur - 1);
     else go(cur + 1);
   });
 
@@ -337,6 +358,7 @@ export function openWeekly({
   kbMode = viaKeyboard;
   // 動きを減らす設定の人には、はじめから自動で進めない（再開は押せる）
   userPaused = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  el.when.textContent = whenText(dates);
   el.sheet.hidden = false;
   document.body.style.overflow = "hidden";
   setBackgroundInert(true, [document.querySelector(".controls")]);

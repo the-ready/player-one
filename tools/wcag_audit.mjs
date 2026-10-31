@@ -39,8 +39,10 @@ const OUT = `temp/wcag`;
 fs.mkdirSync(`${OUT}/${NAME}`, { recursive: true });
 
 // 押しどころの例外。★は見た目が 24×22px だが、::after で当たり判定を広げてある（app.css の .star-btn::after）。
-// 会場名・出演者名のリンクは文中の対象（2.5.8 の「文中」の例外）
-const EXEMPT_SIZE = /\.star-btn|\.place-link|\.art-link|\.art-more/;
+// 会場名・出演者名のリンクは文中の対象（2.5.8 の「文中」の例外）。
+// 今週のボードの前へ／次へ（.wk-step）は、ふだんは見えない 1px で、フォーカスが来たときだけ 44px 以上で出る
+// （押す対象になるのは出ているとき。app.css の .wk-step:focus）
+const EXEMPT_SIZE = /\.star-btn|\.place-link|\.art-link|\.art-more|\.wk-step/;
 
 const browser = await chromium.launch(launchOpts);
 const ctx = await browser.newContext({

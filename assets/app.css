@@ -4674,8 +4674,9 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 /* ---------- ようこそカードと今週のボード（設計書 第5.15・5.16節） ----------
    骨格は .map-sheet / .map-sheet-inner を使い回す。夜・昼の空モードの色（--sheet・--text・各 tint）は
    .map-sheet-inner の規則がそのまま効くので、ここでは大きさと中身だけを定める。
-   地図シートと違い、全画面ではなくスマホでも中央のカードにする（一覧の前に出る案内なので、
-   背面が見えているほうが「閉じれば元の画面に戻る」ことが伝わる）。 */
+   ようこそカードは、地図シートと違い、全画面ではなくスマホでも中央のカードにする（一覧の前に出る
+   案内なので、背面が見えているほうが「閉じれば元の画面に戻る」ことが伝わる）。
+   今週のボードは、画面を占有する（.wk-*。下）。 */
 .onb-sheet {
   align-items: center;
   justify-content: center;
@@ -4784,48 +4785,72 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   text-align: center;
 }
 
-/* 今週のボード */
-.wk-inner {
-  height: min(720px, 100%);
+/* 今週のボード：画面を占有するストーリー。ページごとに色の違う地の上へ、白い大きな文字を置く。
+   色は昼夜の空モードの変数を使わず固定する。地が昼夜で変わらない濃い色なので、白い文字の対比が
+   どの時間帯でも同じに保てるため（どの色も白との対比は 4.5:1 以上）。
+   中身は幅 520px の列に収め、広い画面では地だけが全面に広がる。 */
+.wk-sheet {
+  align-items: stretch;
+  padding: 0;
+  background: #33302b;
 }
-.wk-inner[data-page="total"] {
-  --wk-tint: var(--grape-tint);
+.wk-inner {
+  position: relative;
+  --wk-ink: #33302b;
+  --wk-mute: #5f5a54;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(160deg, #7b6b9b, #b3566e);
+  color: #fff;
+}
+.wk-inner:focus {
+  outline: none;
 }
 .wk-inner[data-page="fav"] {
-  --wk-tint: var(--pink-tint);
+  background: linear-gradient(160deg, #906d2c, #b3566e);
 }
 .wk-inner[data-page="weekend"] {
-  --wk-tint: var(--sunny-tint);
+  background: linear-gradient(160deg, #b3566e, #a36644);
 }
 .wk-inner[data-page="free"] {
-  --wk-tint: var(--lime-tint);
+  background: linear-gradient(160deg, #4b7e72, #527b86);
 }
 .wk-inner[data-page="movies"] {
-  --wk-tint: var(--sky-tint);
+  background: linear-gradient(160deg, #527b86, #7b6b9b);
 }
 .wk-inner[data-page="last"] {
-  --wk-tint: var(--teal-tint);
+  background: linear-gradient(160deg, #33302b, #7b6b9b);
+}
+.wk-col {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  height: 100%;
+  margin: 0 auto;
 }
 /* 進捗の棒。いま見ているページの棒だけが animation で満ちていき、満ちきると次へ送る（ui-weekly.js）。
    幅ではなく transform で動かすので、レイアウトを触らない */
 .wk-bars {
   display: flex;
+  flex: none;
   gap: 4px;
-  padding: 0.8rem 0.9rem 0.3rem;
+  padding: max(14px, env(safe-area-inset-top)) 14px 8px;
 }
 .wk-bar {
   position: relative;
   flex: 1;
-  height: 5px;
+  height: 4px;
   overflow: hidden;
-  border-radius: 3px;
-  background: var(--neutral-bg-2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.35);
 }
 .wk-fill {
   position: absolute;
   inset: 0;
-  border-radius: 3px;
-  background: var(--text);
+  background: #fff;
   transform: scaleX(0);
   transform-origin: left;
 }
@@ -4846,20 +4871,56 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 }
 .wk-top {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  padding: 0.3rem 0.9rem 0.6rem;
+  padding: 2px 14px;
 }
 .wk-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 15px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.wk-av {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--wk-ink);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--wk-ink);
+}
+.wk-when {
+  font-weight: 500;
+  opacity: 0.92;
 }
 .wk-ctl {
   display: flex;
+  flex: none;
   gap: 0.4rem;
+}
+/* 色つきの地の上の丸いボタン。白い縁と白い印で、地の色が変わっても読める */
+.wk-round {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 .wk-pause .ico-play {
   display: none;
@@ -4870,16 +4931,17 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 .wk-pause[aria-pressed="true"] .ico-play {
   display: block;
 }
+/* 中身は縦の真ん中に置く。溢れるときは、上が切れないよう auto の余白で寄せてからスクロールさせる */
 .wk-body {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
-  padding: 1rem 1.2rem 1.1rem;
-  border-top: 3px solid var(--ink);
-  border-bottom: 3px solid var(--ink);
-  background: var(--wk-tint, var(--sky-tint));
+  padding: 0.6rem 22px;
 }
 .wk-page {
+  margin: auto 0;
   animation: wk-in 0.3s ease;
 }
 @keyframes wk-in {
@@ -4890,63 +4952,64 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 }
 .wk-h {
   text-wrap: balance;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 20px;
-  line-height: 1.4;
+  font-size: 30px;
+  line-height: 1.3;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
 }
 .wk-kicker,
 .wk-range {
   margin: 0;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--text-soft);
+  font-size: 14px;
+  opacity: 0.95;
 }
 .wk-big {
-  margin: 0 0 0.2rem;
+  margin: 0.3rem 0;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 40px;
-  line-height: 1.15;
+  font-size: 64px;
+  line-height: 1;
 }
 .wk-big small {
   margin-left: 0.15em;
-  font-size: 16px;
+  font-size: 20px;
 }
 .wk-sub,
-.wk-note {
+.wk-note,
+.wk-text {
   margin: 0 0 0.6rem;
-  font-size: 12.5px;
-  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.7;
+  opacity: 0.95;
 }
 .wk-note {
   margin: 0.8rem 0 0;
 }
-.wk-text {
-  margin: 0 0 1rem;
-  font-size: 14px;
-  line-height: 1.75;
-}
-.wk-updates {
+.wk-updates,
+.wk-list {
   display: grid;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0;
+  gap: 8px;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none;
+}
+/* 白い札。地の色にかかわらず、中の文字はインク色で読める */
+.wk-updates li,
+.wk-item {
+  border: 2.5px solid var(--wk-ink);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--wk-ink);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
 }
 .wk-updates li {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.45rem 0.75rem;
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  background: var(--sheet);
+  padding: 8px 12px;
   font-size: 13px;
-}
-.wk-updates li.adv {
-  border-color: var(--ink);
 }
 .wk-updates li span {
   flex: 1;
@@ -4957,28 +5020,17 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 .wk-updates li em {
   padding: 0 0.55rem;
   border-radius: 999px;
-  background: var(--pink);
-  color: var(--on-accent);
+  background: #b3566e;
+  color: #fff;
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
-}
-.wk-list {
-  display: grid;
-  gap: 0.45rem;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  list-style: none;
 }
 .wk-item {
   display: block;
   width: 100%;
   min-height: 44px;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  background: var(--sheet);
-  color: var(--text);
+  padding: 8px 12px;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -4990,74 +5042,136 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 }
 .wk-item span {
   display: block;
-  margin-top: 0.1rem;
-  font-size: 11.5px;
-  color: var(--text-soft);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--wk-mute);
 }
 .wk-group {
-  margin-top: 0.9rem;
+  margin-top: 14px;
 }
 .wk-group h3 {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 .wk-group h3 em {
   margin-left: auto;
   font-size: 12px;
   font-style: normal;
-  color: var(--text-soft);
+  opacity: 0.95;
 }
 .wk-kind {
   padding: 0 0.5rem;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--wk-ink);
   border-radius: 999px;
-  background: var(--surface);
+  background: #fff;
+  color: var(--wk-ink);
   font-size: 11px;
   font-weight: 700;
 }
-.wk-acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-.wk-acts .map-btn,
-.wk-acts .map-btn.primary {
-  flex: 1 1 9em;
-  min-width: 0;
-  text-align: center;
-}
-/* 幅が狭いと「イベント277件を見る」が2行に折れる。縦に並べて1行に収める */
-@media (max-width: 480px) {
-  .wk-acts .map-btn,
-  .wk-acts .map-btn.primary {
-    flex-basis: 100%;
-  }
-}
 .wk-rest {
   margin: 0.3rem 0 0;
-  font-size: 11.5px;
-  color: var(--text-soft);
+  font-size: 12px;
+  opacity: 0.95;
 }
 .wk-art {
   display: flex;
   justify-content: center;
-  margin: 0.2rem 0 0.8rem;
+  margin: 0 0 0.8rem;
 }
-.wk-foot {
+/* 下に固定するボタン。ボタンは縦に並べ、1行に収める */
+.wk-cta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.6rem 0.9rem 0.8rem;
+  flex: none;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.4rem 22px max(28px, env(safe-area-inset-bottom));
 }
-.wk-count {
-  font-family: var(--font-mono);
+.wk-cta .map-btn,
+.wk-cta .map-btn.primary {
+  flex: none;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0.6rem 1rem;
+  border-color: var(--wk-ink);
+  font-size: 15px;
+  text-align: center;
+  box-shadow: 3px 3px 0 var(--wk-ink);
+}
+.wk-cta .map-btn {
+  background: #fff;
+  color: var(--wk-ink);
+}
+.wk-cta .map-btn.primary {
+  background: #b3566e;
+  color: #fff;
+}
+.wk-hint {
+  margin: 0;
+  padding-top: 0.4rem;
   font-size: 12px;
+  text-align: center;
+  opacity: 0.92;
+}
+/* 前へ／次へ。見た目はタップの位置で進むので要らない。キーボードと読み上げの人にだけ、
+   フォーカスが来たとき、画面の左右の真ん中に出す */
+.wk-step {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.wk-step:focus {
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  margin: -22px 0 0;
+  padding: 0.4rem 1rem;
+  overflow: visible;
+  clip: auto;
+  border: 2.5px solid var(--wk-ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--wk-ink);
+  font-size: 14px;
   font-weight: 700;
+  box-shadow: 3px 3px 0 var(--wk-ink);
+}
+.wk-step[disabled] {
+  display: none;
+}
+.wk-prev {
+  left: 0.8rem;
+}
+.wk-next {
+  right: 0.8rem;
+}
+/* 背の低い画面（小さいスマホ・横向き）では、文字と数字を縮めて、1ページが収まるようにする */
+@media (max-height: 720px) {
+  .wk-h {
+    font-size: 24px;
+  }
+  .wk-big {
+    font-size: 48px;
+  }
+  .wk-art {
+    display: none;
+  }
+  .wk-group {
+    margin-top: 10px;
+  }
+  .wk-cta {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .wk-page {
