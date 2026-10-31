@@ -4780,6 +4780,8 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
   flex: 0 0 auto;
   min-width: 9em;
   margin-left: auto;
+  /* 全 button に text-align:left を掛けているため、幅を広げた主ボタンは文字が左に寄る */
+  text-align: center;
 }
 
 /* 今週のボード */
@@ -5026,6 +5028,7 @@ html.sky-night .fav-tab[aria-selected="true"] .n {
 .wk-acts .map-btn.primary {
   flex: 1 1 9em;
   min-width: 0;
+  text-align: center;
 }
 /* 幅が狭いと「イベント277件を見る」が2行に折れる。縦に並べて1行に収める */
 @media (max-width: 480px) {
