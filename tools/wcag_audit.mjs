@@ -61,6 +61,14 @@ await page.addInitScript((t) => {
 await page.addInitScript({
   path: new URL("./wcag_probe.js", import.meta.url).pathname,
 });
+// ようこそカード（初めて開いたとき1回だけ全画面で出る）が、ほかの画面の点検をふさがないよう、
+// 既読にしておく。12節だけは sessionStorage の __wcWelcome で「初めての端末」として開く
+await page.addInitScript(() => {
+  try {
+    if (sessionStorage.getItem("__wcWelcome") !== "show")
+      localStorage.setItem("eventboard.welcome.v1", "1");
+  } catch {}
+});
 // WALL=static で、壁紙を水玉（空の色を使わない紙色の画面）にして測る
 if (process.env.WALL === "static")
   await page.addInitScript(() => {
@@ -925,6 +933,78 @@ await click("#tabEventBtn", 1500);
   if (await page.$("#liveList .empty-state"))
     await audit("ライブ（読み込めなかった）", "#liveList");
   else cantCheck("ライブ: CSVの取得に失敗しても失敗の表示が出ない");
+}
+
+// 12. ようこそカードと今週のボード（開かない画面は測られないので、実際に開いて測る）
+{
+  // 初めての端末として開く（ようこそカードが出る）
+  await page.evaluate(() => {
+    sessionStorage.setItem("__wcWelcome", "show");
+    localStorage.removeItem("eventboard.welcome.v1");
+    localStorage.removeItem("eventboard.weekly.v1");
+  });
+  await page.goto(BASE);
+  await page
+    .waitForSelector("#welcomeSheet:not([hidden])", { timeout: 60000 })
+    .catch(() => {});
+  if (await page.$("#welcomeSheet:not([hidden])")) {
+    for (const n of ["1枚目", "2枚目", "3枚目"]) {
+      await audit(`ようこそカード（${n}）`, "#welcomeSheet");
+      await click("#welcomeNext", 400);
+    }
+  } else cantCheck("ようこそカード: 初めての端末でも開かなかった");
+  await page.evaluate(() => sessionStorage.removeItem("__wcWelcome"));
+
+  // 3タブが読み終わって基準が書かれるのを待ち、更新が進んだ状態・お気に入りを作って開き直す
+  await page.waitForFunction(
+    () => !!localStorage.getItem("eventboard.weekly.v1"),
+    null,
+    { timeout: 120000 },
+  );
+  await page.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem("eventboard.weekly.v1"));
+    for (const k of ["event", "movie", "live"]) {
+      r.seen[k] = "2026-10-01";
+      r.cur[k] = r.cur[k].filter((_, i) => i % 9 !== 0);
+    }
+    localStorage.setItem("eventboard.weekly.v1", JSON.stringify(r));
+    localStorage.setItem(
+      "eventboard.favspots.v1",
+      JSON.stringify(["有明アリーナ", "Zepp Haneda(TOKYO)", "よみうりランド"]),
+    );
+    localStorage.setItem(
+      "eventboard.favartists.v1",
+      JSON.stringify(["Mr.Children", "INORAN"]),
+    );
+  });
+  await page.goto(BASE);
+  await page
+    .waitForSelector("#weeklySheet:not([hidden])", { timeout: 120000 })
+    .catch(() => {});
+  if (await page.$("#weeklySheet:not([hidden])")) {
+    await click("#weeklyPause", 200); // 測っている間に次へ進まないよう止める
+    const n = await page.evaluate(
+      () => document.querySelectorAll("#weeklyBars .wk-bar").length,
+    );
+    for (let i = 0; i < n; i++) {
+      const id = await page.evaluate(
+        () => document.querySelector("#weeklySheet .wk-inner").dataset.page,
+      );
+      await audit(`今週のボード（${i + 1}枚目・${id}）`, "#weeklySheet");
+      if (i < n - 1) await click("#weeklyNext", 300);
+    }
+    await click("#weeklyClose", 300);
+  } else cantCheck("今週のボード: 更新が進んだ状態でも自動では開かなかった");
+  // 日付のボタンから開いた1枚目（「更新」の印が付かない形）
+  await page.evaluate(() =>
+    document.getElementById("statUpdatedChip")?.click(),
+  );
+  await page.waitForTimeout(500);
+  if (await page.$("#weeklySheet:not([hidden])")) {
+    await click("#weeklyPause", 200);
+    await audit("今週のボード（日付のボタンから）", "#weeklySheet");
+    await click("#weeklyClose", 300);
+  } else cantCheck("今週のボード: 日付のボタンを押しても開かなかった");
 }
 
 report.errors = errs;

@@ -889,7 +889,7 @@ export function syncUpdatedLabel() {
     .getElementById("statUpdatedChip")
     ?.setAttribute(
       "aria-label",
-      `${TAB_DATA_NOUNS[activeTab] || ""}データの最終更新日 ${shown}`,
+      `今週のボードを開く（${TAB_DATA_NOUNS[activeTab] || ""}データの最終更新日 ${shown}）`,
     );
   const off = document.getElementById("offlineNote");
   if (off) off.hidden = !dataStatus.offline;

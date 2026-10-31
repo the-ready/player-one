@@ -79,6 +79,7 @@
     <link rel="modulepreload" href="assets/js/data.js" />
     <link rel="modulepreload" href="assets/js/filters.js" />
     <link rel="modulepreload" href="assets/js/grid-fit.js" />
+    <link rel="modulepreload" href="assets/js/onboard.js" />
     <link rel="modulepreload" href="assets/js/page-sky.js" />
     <link rel="modulepreload" href="assets/js/render.js" />
     <link rel="modulepreload" href="assets/js/schedule.js" />
@@ -94,6 +95,8 @@
     <link rel="modulepreload" href="assets/js/ui-lineup.js" />
     <link rel="modulepreload" href="assets/js/ui-map.js" />
     <link rel="modulepreload" href="assets/js/ui-popover.js" />
+    <link rel="modulepreload" href="assets/js/ui-weekly.js" />
+    <link rel="modulepreload" href="assets/js/ui-welcome.js" />
     <link rel="modulepreload" href="assets/js/util.js" />
   </head>
   <body>
@@ -212,9 +215,16 @@
           </div>
           <!-- 表示中のタブのデータの更新日。タブを切り替えると中身が変わるので、
            何の更新日なのかが読み上げからも分かるよう aria-label を付け直す。 -->
-          <span class="stat-chip" id="statUpdatedChip"
-            >最終更新日 <b id="statUpdated">–</b></span
+          <!-- 押すと今週のボードが開く（ui-weekly.js）。見た目は以前の日付の表示のまま変えない。
+           何が開くかは読み上げの名前でだけ伝える（render.js の syncUpdatedLabel が付け直す）。 -->
+          <button
+            type="button"
+            class="stat-chip"
+            id="statUpdatedChip"
+            aria-haspopup="dialog"
           >
+            最終更新日 <b id="statUpdated">–</b>
+          </button>
         </div>
         <p class="offline-note" id="offlineNote" role="status" hidden>
           オフラインのため、端末に保存された内容を表示しています。最新の情報は通信できる状態で開きなおしてください。
@@ -849,6 +859,84 @@
         ></div>
         <!-- role="tabpanel" は日タブを出すときだけ ui-lineup.js が付ける -->
         <div class="lu-body" id="lineupBody" tabindex="0"></div>
+      </div>
+    </div>
+
+    <!-- ようこそカード（初めて開いたとき1回だけ。ui-welcome.js・設計書 第5.15節） -->
+    <div
+      class="map-sheet onb-sheet"
+      id="welcomeSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="welcomeTitle"
+      hidden
+    >
+      <div class="map-sheet-inner onb-inner" tabindex="-1">
+        <button
+          type="button"
+          class="popover-close onb-x"
+          id="welcomeClose"
+          aria-label="とじる"
+        >
+          ×
+        </button>
+        <div class="onb-art" id="welcomeArt" aria-hidden="true"></div>
+        <div class="onb-body">
+          <div aria-live="polite" aria-atomic="true">
+            <p class="onb-step" id="welcomeStep"></p>
+            <h2 class="onb-title" id="welcomeTitle"></h2>
+            <p class="onb-text" id="welcomeText"></p>
+          </div>
+          <div class="onb-dots" id="welcomeDots" aria-hidden="true"></div>
+          <div class="onb-nav">
+            <button type="button" class="onb-skip" id="welcomeSkip">
+              スキップ
+            </button>
+            <button type="button" class="map-btn primary" id="welcomeNext">
+              つぎへ
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 今週のボード（更新後に初めて開いたとき／日付のボタンから。ui-weekly.js・設計書 第5.16節） -->
+    <div
+      class="map-sheet onb-sheet"
+      id="weeklySheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="weeklyTitle"
+      hidden
+    >
+      <div class="map-sheet-inner onb-inner wk-inner" tabindex="-1">
+        <div class="wk-bars" id="weeklyBars" aria-hidden="true"></div>
+        <div class="wk-top">
+          <p class="wk-who" id="weeklyTitle">今週のイベントボード</p>
+          <div class="wk-ctl">
+            <button
+              type="button"
+              class="popover-close wk-pause"
+              id="weeklyPause"
+              aria-pressed="false"
+              aria-label="自動で進むのを止める"
+            ></button>
+            <button
+              type="button"
+              class="popover-close"
+              id="weeklyClose"
+              aria-label="とじる"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div class="wk-body" id="weeklyBody"></div>
+        <div class="wk-foot">
+          <button type="button" class="map-btn" id="weeklyPrev">前へ</button>
+          <span class="wk-count" id="weeklyCount" aria-hidden="true"></span>
+          <button type="button" class="map-btn" id="weeklyNext">次へ</button>
+        </div>
       </div>
     </div>
 

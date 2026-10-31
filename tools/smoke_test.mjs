@@ -20,6 +20,16 @@ const launchOpts = process.env.PW_CHROME
   ? { executablePath: process.env.PW_CHROME }
   : {};
 
+/* ようこそカード（初めて開いたとき1回だけ全画面で出る）が、ほかの確認をふさがないよう、既読にしておく。
+   ようこそカードと今週のボードを確かめる節だけが、sessionStorage の __onb=fresh で「初めての端末」として開く。
+   localStorage.clear() のあとの reload でも効くよう、読み込みのたびに入れる初期化スクリプトにしてある */
+const SEED_ONBOARDING = () => {
+  try {
+    if (sessionStorage.getItem("__onb") !== "fresh")
+      localStorage.setItem("eventboard.welcome.v1", "1");
+  } catch {}
+};
+
 const failures = [];
 // 表示中でないタブのデータは、表示のあとの空き時間に読み、読み終えると一覧を描き直す（main.js）。
 // 描き直しは★のトーストを消すので、★を押す確認は読み終えてから行う（Pi では読み込みから約6秒かかり、
@@ -47,6 +57,7 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch(launchOpts);
 const page = await browser.newPage();
+await page.addInitScript(SEED_ONBOARDING);
 
 const consoleErrors = [];
 const IGNORE =
@@ -739,6 +750,7 @@ await page.evaluate(() => localStorage.clear());
    （昼の配色は今回の対象外。補助色の一部は 4.4:1 前後で、基準にわずかに届かない）。 */
 async function scanCards(isoTime) {
   const ctx = await browser.newContext({ serviceWorkers: "block" });
+  await ctx.addInitScript(SEED_ONBOARDING);
   const p = await ctx.newPage();
   const t = Date.parse(isoTime);
   await p.addInitScript((t) => {
@@ -878,6 +890,7 @@ async function scanPanels(isoTime) {
     serviceWorkers: "block",
     viewport: { width: 1280, height: 800 },
   });
+  await ctx.addInitScript(SEED_ONBOARDING);
   const p = await ctx.newPage();
   const errs = [];
   p.on("pageerror", (e) => errs.push(e.message));
@@ -1101,7 +1114,10 @@ async function scanPanels(isoTime) {
     .catch(() => {});
   await p.waitForTimeout(800);
   res.favMore = await p.locator("#list > .fav-more").count();
-  await scan("先頭セクションの「お気に入りのほか◯件を表示」", "#list > .fav-more");
+  await scan(
+    "先頭セクションの「お気に入りのほか◯件を表示」",
+    "#list > .fav-more",
+  );
   await p.evaluate(() => document.querySelector("#tabMovieBtn").click());
   await p
     .waitForSelector("#movieList > .chain-row", { timeout: 8000 })
@@ -1173,6 +1189,7 @@ async function scanPanels(isoTime) {
     hasTouch: true,
     isMobile: true,
   });
+  await ctx.addInitScript(SEED_ONBOARDING);
   const p = await ctx.newPage();
   await p.goto(BASE, { waitUntil: "networkidle" });
   await p.waitForSelector("#list .card");
@@ -1232,6 +1249,166 @@ async function scanPanels(isoTime) {
     await p.evaluate(() =>
       document.querySelector(".controls").classList.contains("compact"),
     ),
+  );
+  await ctx.close();
+}
+
+/* ---------- ようこそカードと今週のボード（設計書 第5.15・5.16節） ----------
+   初めての端末（__onb=fresh）で開き直し、案内の出る・出ない・閉じる・フォーカスが戻るを通しで見る。
+   更新が進んだ状態は、基準を書かせたあとで記録の更新日を戻して作る。 */
+{
+  const ctx = await browser.newContext({
+    serviceWorkers: "block",
+    viewport: { width: 1280, height: 900 },
+  });
+  await ctx.addInitScript(() => {
+    try {
+      if (!sessionStorage.getItem("__onb"))
+        sessionStorage.setItem("__onb", "fresh");
+    } catch {}
+  });
+  await ctx.addInitScript(SEED_ONBOARDING);
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on("pageerror", (e) => errs.push(e.message));
+  const hid = (id) => p.evaluate((i) => document.getElementById(i).hidden, id);
+  const ls = (k) => p.evaluate((kk) => localStorage.getItem(kk), k);
+  await p.goto(BASE, { waitUntil: "networkidle" });
+  await p.waitForSelector("#list .card");
+  await p.waitForTimeout(1500);
+  check("初めて開くと、ようこそカードが出る", !(await hid("welcomeSheet")));
+  check(
+    "ようこそカードの間は背面が操作できない（inert）",
+    await p.evaluate(() =>
+      document.querySelector("main").hasAttribute("inert"),
+    ),
+  );
+  await p.keyboard.press("Escape");
+  check(
+    "Esc で閉じ、既読になる",
+    (await hid("welcomeSheet")) && (await ls("eventboard.welcome.v1")) === "1",
+  );
+  check(
+    "閉じたあと、フォーカスは本文へ戻る",
+    await p.evaluate(() => document.activeElement?.id === "mainContent"),
+  );
+  await waitAllTabs(p);
+  await p.waitForTimeout(1500);
+  check("初めての訪問では、今週のボードを出さない", await hid("weeklySheet"));
+  check(
+    "基準（更新日と一覧）が端末に覚えられる",
+    await p.evaluate(() => {
+      const r = JSON.parse(
+        localStorage.getItem("eventboard.weekly.v1") || "null",
+      );
+      return !!r && !!r.seen.event && r.cur.event.length > 0;
+    }),
+  );
+
+  // 更新が進んだ状態を作って開き直す。お気に入りの会場も登録しておく
+  await p.evaluate(() => {
+    sessionStorage.setItem("__onb", "seeded");
+    const r = JSON.parse(localStorage.getItem("eventboard.weekly.v1"));
+    for (const k of ["event", "movie", "live"]) {
+      r.seen[k] = "2026-10-01";
+      r.cur[k] = r.cur[k].filter((_, i) => i % 9 !== 0);
+    }
+    localStorage.setItem("eventboard.weekly.v1", JSON.stringify(r));
+    localStorage.setItem(
+      "eventboard.favspots.v1",
+      JSON.stringify(["有明アリーナ", "Zepp Haneda(TOKYO)", "よみうりランド"]),
+    );
+  });
+  await p.reload({ waitUntil: "networkidle" });
+  await p
+    .waitForSelector("#weeklySheet:not([hidden])", { timeout: 30000 })
+    .catch(() => {});
+  check(
+    "更新日が進んでいれば、今週のボードが自動で開く",
+    !(await hid("weeklySheet")),
+  );
+  check(
+    "ボードの1枚目は全体で、「更新」の印が付く",
+    await p.evaluate(
+      () =>
+        document.querySelector("#weeklySheet .wk-inner").dataset.page ===
+          "total" &&
+        document.querySelectorAll("#weeklyBody .wk-updates li.adv").length ===
+          3,
+    ),
+  );
+  await p.click("#weeklyPause");
+  await p.click("#weeklyNext");
+  check(
+    "2枚目はお気に入りの新着",
+    await p.evaluate(
+      () =>
+        document.querySelector("#weeklySheet .wk-inner").dataset.page === "fav",
+    ),
+  );
+  // 今週末のページの「◯件を見る」と、押した先の一覧の件数が一致する
+  let guard = 0;
+  while (
+    guard++ < 8 &&
+    (await p.evaluate(
+      () => document.querySelector("#weeklySheet .wk-inner").dataset.page,
+    )) !== "weekend"
+  )
+    await p.click("#weeklyNext");
+  const want = await p.evaluate(() => {
+    const b = document.querySelector("#weeklyBody .wk-acts button");
+    return b ? Number((b.textContent.match(/(\d+)件/) || [])[1]) : null;
+  });
+  if (want != null) {
+    await p.click("#weeklyBody .wk-acts button");
+    await p.waitForTimeout(800);
+    const got = await p.evaluate(() =>
+      Number(
+        ((document.getElementById("resultCount").textContent || "").match(
+          /(\d+)件を表示/,
+        ) || [])[1],
+      ),
+    );
+    check(
+      "「今週末の◯件を見る」の件数が、押した先の一覧の件数と一致する",
+      got === want,
+      `${got} / ${want}`,
+    );
+    check("そのあとボードは閉じている", await hid("weeklySheet"));
+  } else check("今週末のページにボタンがある", false);
+  await p.reload({ waitUntil: "networkidle" });
+  await waitAllTabs(p);
+  await p.waitForTimeout(1500);
+  check("同じ更新では、二度と自動では開かない", await hid("weeklySheet"));
+
+  // 日付のボタン
+  check(
+    "最終更新日は、押せるボタンになっている",
+    await p.evaluate(
+      () => document.getElementById("statUpdatedChip").tagName === "BUTTON",
+    ),
+  );
+  const before = await ls("eventboard.weekly.v1");
+  await p.focus("#statUpdatedChip");
+  await p.keyboard.press("Enter");
+  await p.waitForTimeout(500);
+  check("日付のボタンから、今週のボードが開く", !(await hid("weeklySheet")));
+  await p.keyboard.press("Escape");
+  check(
+    "Esc で閉じ、フォーカスは日付のボタンへ戻る",
+    (await hid("weeklySheet")) &&
+      (await p.evaluate(
+        () => document.activeElement?.id === "statUpdatedChip",
+      )),
+  );
+  check(
+    "日付のボタンから開いても、記録は変わらない",
+    (await ls("eventboard.weekly.v1")) === before,
+  );
+  check(
+    "ようこそカード・ボードの節でエラーが出ていない",
+    errs.length === 0,
+    errs.slice(0, 2).join(" / "),
   );
   await ctx.close();
 }

@@ -149,6 +149,7 @@ node tools/parking_badge_test.mjs           # 駐車場（P）バッジの組み
 node tools/grid_fit_test.mjs               # 「くわしく」を開いたカードだけ伸ばす位置計算（開いた列以外は動かない・重ならない・閉じると戻る。DOM不要）
 node tools/page_sky_test.mjs               # 空モードのページ背景色（地の上の文字が読める明るさ・夜への切り替え高度。DOM不要）
 node tools/sale_group_test.mjs              # バーゲンの同時開催カードと言い回し（DOM不要）
+node tools/onboard_test.mjs                 # ようこそカード・今週のボード：いつ出すか／件数が一覧と一致／3枚目に♡★を強調しない／書けない端末で出し続けない（DOM不要）
 python3 -m http.server 8000 &
 node tools/smoke_test.mjs                   # 画面全体（要 playwright）
 node tools/wcag_audit.mjs <iso時刻> <名前> [幅] [高さ] # 色・フォーカス・押しどころの WCAG 2.2 点検。配色（app.css の夜・昼・薄明）やフォーカス表示を変えた回は、夜と昼を回すこと。★・現在地など特定の使い方でだけ出る部品を足した回は、その状態を点検の中でも作ること（開いていない画面は測られない。要 playwright。詳細は先頭のコメント）

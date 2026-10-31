@@ -12,6 +12,7 @@ import {
   loadSources,
   loadUpdatedManifest,
   refreshToday,
+  dataStatus,
 } from "./data.js";
 import {
   activeTab,
@@ -103,6 +104,29 @@ import {
   isFavManageOpen,
 } from "./ui-favmanage.js";
 import { syncSeen } from "./artists.js";
+import { presetRange } from "./schedule.js";
+import {
+  initWelcome,
+  openWelcome,
+  closeWelcome,
+  refreshWelcome,
+  isWelcomeOpen,
+} from "./ui-welcome.js";
+import {
+  initWeekly,
+  openWeekly,
+  closeWeekly,
+  isWeeklyOpen,
+} from "./ui-weekly.js";
+import {
+  isWelcomeSeen,
+  canPersist,
+  readWeekly,
+  writeWeekly,
+  planWeekly,
+  currentDates,
+  currentUids,
+} from "./onboard.js";
 import {
   initControls,
   updateSortUI,
@@ -137,6 +161,8 @@ export function setActiveTab(tab, opts = {}) {
   if (isCalAddSheetOpen()) closeCalAddSheet();
   if (isArtistSheetOpen()) closeArtistSheet({ noBack: true });
   if (isFavManageOpen()) closeFavManage();
+  if (isWeeklyOpen()) closeWeekly({ noBack: true });
+  if (isWelcomeOpen()) closeWelcome();
 
   // 絞り込み状態はタブごとに別々に持っているので、それを映す表示も全部ぬりかえる。
   syncSearchForTab();
@@ -240,16 +266,19 @@ function initTabs() {
    単純な遅延読み込みだけにすると、初めて別タブを押したときに待ち時間が生まれる
    （いまは常に一瞬で切り替わる）ので、先読みして体感を落とさないようにする。 */
 
-const started = new Set();
+const started = new Map(); // タブ -> 読み込みの Promise（読み込み中のタブを待てるように、結果を覚える）
 /* 起動中は、読み終えたタブを個別には描かない。boot() は名簿を待ってから setActiveTab で
    一度だけ描く。ここでも描くと、★と駐車場のない一覧が先に出て、名簿が届いた直後に同じ
    約500枚を描き直すことになる（遅い端末では1回に数秒かかる）。起動中にタブが切り替わって
    いても、boot() の setActiveTab がそのときの表示タブを描くので取りこぼさない。 */
 let booting = true;
 
-async function ensureTabData(tabKey) {
-  if (started.has(tabKey)) return LOAD[tabKey].state === "done";
-  started.add(tabKey);
+function ensureTabData(tabKey) {
+  if (!started.has(tabKey)) started.set(tabKey, loadTabOnce(tabKey));
+  return started.get(tabKey);
+}
+
+async function loadTabOnce(tabKey) {
   try {
     await loadTab(tabKey);
   } catch {
@@ -300,6 +329,16 @@ async function boot() {
   initFavSpots();
   initFavArtists({ onGoToItem: goToItem });
   initFavManage();
+  initWelcome();
+  initWeekly({
+    onGoToItem: goToItem,
+    onApply: applyBoardFilter,
+    onManage: () => openFavManage(),
+  });
+  document.getElementById("statUpdatedChip")?.addEventListener("click", (e) =>
+    // detail が 0 のクリックは、キーボード（Enter・Space）からのもの
+    openBoardManually(e.detail === 0),
+  );
   document
     .getElementById("favEntry")
     ?.addEventListener("click", () => openFavManage());
@@ -376,7 +415,7 @@ async function boot() {
   // ページ全体で使う一括表示
   await loadSources();
   renderDirectories();
-  loadUpdatedManifest().then(syncUpdatedLabel);
+  manifestReady = loadUpdatedManifest().then(syncUpdatedLabel);
 
   // 表示中のタブを先に（名簿も一緒に待つ）、続いて残りのタブ
   await Promise.all([ensureTabData(activeTab), rosters]);
@@ -384,6 +423,7 @@ async function boot() {
   setActiveTab(activeTab, { push: false, url: false });
   enableUrlSync();
   syncUrl(false);
+  maybeOpenWelcome();
 
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
   idle(async () => {
@@ -392,7 +432,103 @@ async function boot() {
     }
     renderVenueList();
     refreshNow({ url: false });
+    refreshWelcome();
+    maybeAutoBoard();
   });
+}
+
+/* ---------- ようこそカードと今週のボード（設計書 第5.15・5.16節） ----------
+   ようこそカードは、初めて開いたとき1回だけ。今週のボードは、データの更新日が前回ボードを開いた
+   ときより進んでいたら、3タブが読み終わった時点で1回。初めての人には、ようこそカードを出した回は
+   ボードを出さず、その時点の更新日と一覧を覚えるだけにする（案内が全画面で2つ続かないように）。 */
+let welcomeShown = false;
+/* 更新日（data/updated.json）が届く前に比べると、CSV の Last-Modified（デプロイした日時）で
+   判断してしまい、のちの比べ方とずれる。自動で出す判断も、日付のボタンも、届いてから行う */
+let manifestReady = Promise.resolve();
+
+function maybeOpenWelcome() {
+  // 閉じた記録を書けない端末では、開くたびに出続けてしまうので出さない
+  if (isWelcomeSeen() || !canPersist()) return;
+  welcomeShown = true;
+  openWelcome();
+}
+
+/* 別のシートを開いている間・文字を打っている間は割り込まない。あとで空いたら出す */
+const boardBusy = () =>
+  isPopoverOpen() ||
+  isMapSheetOpen() ||
+  isPlaceSheetOpen() ||
+  isLineupSheetOpen() ||
+  isCalAddSheetOpen() ||
+  isArtistSheetOpen() ||
+  isFavManageOpen() ||
+  isWelcomeOpen() ||
+  isWeeklyOpen() ||
+  /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");
+
+async function maybeAutoBoard() {
+  await manifestReady;
+  // 1タブでも読めていない回は判断しない（件数も更新日も揃わないため）。
+  // オフライン表示の古いデータでは、「更新した」と言わない
+  if (TAB_ORDER.some((k) => LOAD[k].state !== "done") || dataStatus.offline)
+    return;
+  const plan = planWeekly({
+    rec: readWeekly(),
+    dates: currentDates(),
+    uids: currentUids(),
+    welcomeNow: welcomeShown,
+  });
+  if (plan.action === "baseline") {
+    writeWeekly(plan.rec);
+    return;
+  }
+  if (plan.action === "show" && canPersist()) openBoardWhenFree(plan, 0);
+}
+
+function openBoardWhenFree(plan, tries) {
+  if (boardBusy()) {
+    if (tries < 20) setTimeout(() => openBoardWhenFree(plan, tries + 1), 1500);
+    return;
+  }
+  // 記録を書けなければ出さない。書けないまま出すと、開くたびに「更新した」と言い続ける
+  if (!writeWeekly(plan.rec)) return;
+  openWeekly({
+    dates: plan.rec.seen,
+    advanced: plan.advanced,
+    fresh: plan.rec.fresh,
+  });
+}
+
+/* 「最終更新日」のボタンから。更新の有無にかかわらず開く。記録は変えない（開き直しても同じ中身） */
+async function openBoardManually(viaKeyboard = false) {
+  await Promise.all([manifestReady, ...TAB_ORDER.map((k) => ensureTabData(k))]);
+  if (isWeeklyOpen() || isWelcomeOpen()) return;
+  const rec = readWeekly();
+  openWeekly({
+    dates: currentDates(),
+    fresh: (rec && rec.fresh) || {},
+    manual: true,
+    viaKeyboard,
+  });
+}
+
+/* ボードの「◯件を見る」。ほかの条件が残っていると、ボードの件数と押した先の件数が食い違うので、
+   いったん絞り込みをすべて外してから、この条件だけを掛ける。 */
+function applyBoardFilter({ tab, kind }) {
+  if (!TABS[tab]) return;
+  if (tab !== activeTab) setActiveTab(tab, { push: false, url: false });
+  resetFilters();
+  const st = curState();
+  if (kind === "weekend") {
+    [st.rangeStart, st.rangeEnd] = presetRange("weekend");
+    resetCalendarCursor();
+    renderCalendar();
+  } else if (kind === "free") {
+    st.flags.freeOnly = true;
+  }
+  refreshNow({ push: true });
+  const first = document.getElementById("resultCount");
+  if (first) scrollToElement(first, 24);
 }
 
 /* ---------- 戻る/進む ---------- */

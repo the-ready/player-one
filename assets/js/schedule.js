@@ -56,6 +56,35 @@ export function refreshToday() {
   return true;
 }
 
+/* 日程の期間プリセット（今日・今週末・1週間・月末・3か月）。
+   日程ポップアップのチップ（ui-calendar.js）と、今週のボードの「今週末の◯件を見る」
+   （onboard.js）が同じ範囲を引くよう、「本日」を持つここに置く。別々に計算すると、
+   ボードの件数と、押した先の一覧の件数が食い違う。 */
+export function presetRange(key) {
+  const t = new Date(today + "T00:00:00");
+  if (key === "today") return [iso(t), iso(t)];
+  if (key === "weekend") {
+    const dow = t.getDay();
+    const sat = new Date(t);
+    sat.setDate(t.getDate() + ((6 - dow + 7) % 7));
+    const sun = new Date(sat);
+    sun.setDate(sat.getDate() + 1);
+    return [iso(dow === 0 ? t : sat), iso(dow === 0 ? t : sun)];
+  }
+  if (key === "7d") {
+    const e = new Date(t);
+    e.setDate(t.getDate() + 6);
+    return [iso(t), iso(e)];
+  }
+  if (key === "month") {
+    const e = new Date(t.getFullYear(), t.getMonth() + 1, 0);
+    return [iso(t), iso(e)];
+  }
+  const e = new Date(t);
+  e.setMonth(t.getMonth() + 3);
+  return [iso(t), iso(e)];
+}
+
 /* ---------- 日程の表示文字列 ---------- */
 
 /**

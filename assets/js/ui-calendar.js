@@ -7,6 +7,7 @@
 import { iso, WD, fmtDateDots } from "./util.js";
 import { PRESETS } from "./config.js";
 import { TODAY, HOLIDAYS } from "./data.js";
+import { presetRange } from "./schedule.js";
 import { curState } from "./state.js";
 import { refreshNow } from "./render.js";
 
@@ -14,35 +15,6 @@ let calCursor = null; // 表示中の月の1日
 let pendingStart = null; // 開始日だけ選ばれている状態
 let focusDate = null; // ロービングtabindexで「いま選択されている」日
 let gridHadFocus = false;
-
-function baseToday() {
-  return new Date(TODAY() + "T00:00:00");
-}
-
-export function presetRange(key) {
-  const t = baseToday();
-  if (key === "today") return [iso(t), iso(t)];
-  if (key === "weekend") {
-    const dow = t.getDay();
-    const sat = new Date(t);
-    sat.setDate(t.getDate() + ((6 - dow + 7) % 7));
-    const sun = new Date(sat);
-    sun.setDate(sat.getDate() + 1);
-    return [iso(dow === 0 ? t : sat), iso(dow === 0 ? t : sun)];
-  }
-  if (key === "7d") {
-    const e = new Date(t);
-    e.setDate(t.getDate() + 6);
-    return [iso(t), iso(e)];
-  }
-  if (key === "month") {
-    const e = new Date(t.getFullYear(), t.getMonth() + 1, 0);
-    return [iso(t), iso(e)];
-  }
-  const e = new Date(t);
-  e.setMonth(t.getMonth() + 3);
-  return [iso(t), iso(e)];
-}
 
 function ensureCursor() {
   const st = curState();
