@@ -45,6 +45,7 @@ python3 tools/close_run_test.py    # 終了工程の一括実行（写しの上�
 python3 tools/run_gate_test.py     # 調べていない回（検索0・取得0／`--init` 未実行）の判定
 python3 tools/append_lineup_test.py # 日割りと公演行の合成書き込み（片方だけ書けた状態を作らない）
 python3 tools/skill_brief_test.py  # サブエージェント向け抜粋が規則を落としていないか
+python3 tools/added_rows_test.py   # 公開時の新着の判定（id の振り直し・表記ゆれを新着と言わない）
 python3 tools/report_stats_test.py # 網羅性と「今週あらたに書いた行」の下限の判定
 python3 tools/read_gate_test.py    # 安い代替のある大物の全文 Read（抜粋・worklist は必ず通すこと）
 python3 tools/reply_gate_test.py   # 子の返答が「パスと件数だけ」か

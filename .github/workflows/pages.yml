@@ -109,6 +109,12 @@ jobs:
           print(json.dumps(out, ensure_ascii=False))
           PY
 
+      # この1週間で加わった行を data/added.json に書き出す。画面は使わず、運営者の個人用の
+      # AI エージェントが「今週の新着」を答えるために読む。判定は rowkey.py の自然キーで、
+      # 1週間前の版と比べる（tools/added_rows.py）。上の段と同じく全履歴が要る。
+      - name: この1週間の新着を書き出す
+        run: python3 tools/added_rows.py
+
       # enablement: true で、Settings を手で触らずに Pages を有効化する
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
         with:
