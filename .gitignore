@@ -1,6 +1,7 @@
 # デプロイ時に .github/workflows/pages.yml が git の履歴から生成する。
 # コミットしない（コミットすると、ローカルで編集中でも古い日付が優先されてしまう）。
 data/updated.json
+data/added.json
 .DS_Store
 temp/*
 logs
