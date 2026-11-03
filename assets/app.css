@@ -881,6 +881,18 @@ html.sky-night .card .act-btn:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
+/* 夜の ♡ の枠は、操作ボタン（.act-btn）と同じ透明地・--line の縁にそろえる */
+html.sky-night .card .fav-btn {
+  background: transparent;
+  border-color: var(--line);
+  box-shadow: 2px 2px 0 var(--line);
+  color: var(--text-soft);
+}
+html.sky-night .card .fav-btn:hover,
+html.sky-night .card .fav-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--pink) 22%, transparent);
+  color: var(--pink);
+}
 html.sky-night .card :is(.star-btn, .detail-toggle) {
   color: var(--text-soft);
 }
@@ -2212,38 +2224,48 @@ mark {
   text-decoration: none;
 }
 /* 行きたい（♡）。タイトルの文字の終わりに置く（cards.js の favBtnHtml に理由）。
-   .title-fav は幅ゼロの箱で、ボタンはそこから右へ絶対配置で出す。最後の行が文字でちょうど
-   埋まっていても、♡ は折り返しを増やさずカードの右の余白（1.2rem）に張り出す。
-   ボタン全体が余白に収まる幅（24px）にし、見える ♡ は文字の終わりの 4px 右から始まる。
-   押す範囲は 24×32px（WCAG 2.2 の 2.5.8 の下限 24px を満たす）。
-   登録済みは ♡ を pink で塗る（★が sunny で塗るのと同じ規則）。 */
+   ♡ だけだとイベント名の記号に見えるので、カードと同じ「太い縁＋ずらした影」の四角い枠で囲む。
+   枠は 28px 角（押す範囲は WCAG 2.2 の 2.5.8 の下限 24px 以上）。
+   .title-fav は幅ゼロの箱で、枠はそこから右へ絶対配置で出す。最後の行が文字でちょうど埋まっても
+   折り返しを増やさないために、枠が張り出せる余白（文字の終わりの右 6px から 36px ぶん）を
+   タイトルの右側に確保する：カード本体の右余白（1.2rem）に、タイトルの padding-right 18px を足して
+   37px。枠だけを置く列を空けるのではなく、全行で文字の幅が 18px（1字ぶん強）狭まるだけである。
+   登録済みは淡いピンクの地に ♡ を pink で塗る（★が sunny で塗るのと同じ規則）。 */
+.card .title {
+  padding-right: 18px;
+}
 .title-fav {
   position: relative;
 }
 .fav-btn {
   position: absolute;
   top: 50%;
-  left: 0;
+  left: 6px;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  width: 24px;
-  height: 32px;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-soft);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--card);
+  box-shadow: 2px 2px 0 var(--ink);
+  color: var(--text);
 }
 .fav-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   flex: none;
 }
 .fav-btn:hover {
+  background: var(--pink-tint);
   color: var(--pink);
 }
 .fav-btn[aria-pressed="true"] {
+  background: var(--pink-tint);
   color: var(--pink);
 }
 .fav-btn[aria-pressed="true"] svg {
