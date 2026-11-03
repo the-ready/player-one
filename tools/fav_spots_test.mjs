@@ -300,6 +300,31 @@ check(
     eq(names(S.spotsOfItem(fresh)), ["あとから載った館"]) &&
       eq(names(S.spotsOfItem(row2)), ["東京国際フォーラム"]),
   );
+
+  // 会場シートの地図: イベント施設の名簿（spots.csv）にだけ載る場所も、座標があれば点を返す
+  SYNTH.set(
+    "data/spots.csv",
+    [
+      "name,kind,pref,area,lat,lng,url,status",
+      "座標あり館,museum,tokyo,東京都・港区,35.6,139.7,https://example.com/a,active",
+      "座標なし館,museum,tokyo,東京都・港区,,,,active",
+    ].join("\n"),
+  );
+  await D.loadSpots();
+  const pts = (v) => S.placePoints(v).map((p) => [p.name, p.lat, p.lng]);
+  check(
+    "名簿の座標で地図の点が返る（行に座標が無くても）",
+    eq(pts("座標あり館"), [["座標あり館", 35.6, 139.7]]),
+    JSON.stringify(pts("座標あり館")),
+  );
+  check(
+    "館内の表記ゆれ（区切り＋部屋名）も名簿の点に寄る",
+    eq(pts("座標あり館 ホールA"), [["座標あり館", 35.6, 139.7]]),
+  );
+  check(
+    "座標の無い場所・名簿に無い場所は空（シートは「未登録」を出す）",
+    eq(pts("座標なし館"), []) && eq(pts("存在しない会場名"), []),
+  );
 }
 
 /* ================= 2. 保存 ================= */

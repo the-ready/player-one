@@ -16,7 +16,13 @@
         予定を横取りしないため
      3. `／` で区切られた表記は、全体と各部分を同じ規則で引く */
 
-import { SPOTS, VENUES, THEATERS, isKnownChain } from "./data.js";
+import {
+  SPOTS,
+  VENUES,
+  THEATERS,
+  isKnownChain,
+  pointsForPlace,
+} from "./data.js";
 import {
   venueNames,
   SPOT_KINDS,
@@ -157,6 +163,24 @@ export function matchSpots(venue) {
   }
   b.cache.set(raw, out);
   return out;
+}
+
+/* 会場シートの地図に出す点。data.js の pointsForPlace は ライブ会場・映画館・行の座標しか
+   引けず、イベント施設の名簿（spots.csv）にだけある場所は「位置情報が未登録」になっていた。
+   名簿3つを束ねたこの索引（表記ゆれの照合も含む）でも引き、座標を持つ場所だけ返す。
+   `A／B` のように複数の場所に当たる表記は、全部を地図に出す。 */
+export function placePoints(name) {
+  const own = pointsForPlace(name);
+  if (own.length) return own;
+  return matchSpots(name)
+    .filter((e) => e.lat != null && e.lng != null)
+    .map((e) => ({
+      name: e.name,
+      area: e.area,
+      lat: e.lat,
+      lng: e.lng,
+      url: e.url,
+    }));
 }
 
 /* 行 → 場所。複数会場にまたがる行は複数返す。件数は少ない（高々数件）が、絞り込みの

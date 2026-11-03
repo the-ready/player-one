@@ -48,7 +48,7 @@ import {
 } from "./schedule.js";
 import { isFav, isFavSpot, isFavArtist } from "./state.js";
 import { favArtistsOf, isNewSinceVisit } from "./artists.js";
-import { matchSpots, parkingState } from "./spots.js";
+import { matchSpots, parkingState, placePoints } from "./spots.js";
 
 /* ---------- 小さな部品 ---------- */
 
@@ -58,6 +58,7 @@ export const ICON = {
   share: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 13v6h14v-6"/></svg>`,
   device: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/></svg>`,
   google: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 9h17.6M3.2 15h17.6"/><path d="M12 3a15 15 0 0 0 0 18a15 15 0 0 0 0-18z"/></svg>`,
+  route: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 21 3 13 21 11 13 3 11"/></svg>`,
   cal: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>`,
 };
 
@@ -412,7 +413,9 @@ function hasPlaceInfo(name, it) {
     isKnownChain(name) ||
     !!venueMeta(name) ||
     !!theaterMeta(name) ||
-    (it.lat != null && it.lng != null)
+    (it.lat != null && it.lng != null) ||
+    // イベント施設の名簿（spots.csv）にだけ載っている場所。行に座標が無くても名簿の座標で開ける
+    placePoints(name).length > 0
   );
 }
 
@@ -670,6 +673,35 @@ function appleMusicBtnHtml(it) {
   return `<a class="act-btn am-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Apple Musicで聴く" aria-label="${esc(it.title)}のApple Musicアーティストページを開く">♪</a>`;
 }
 
+/* 会場への道案内（Googleマップ）。出発地を付けない dir は、開いた側の端末が現在地を出発地にする
+   （こちらで位置情報を読む必要がなく、許可していない人にも使える）。
+   行き先は座標で渡す。会場名の文字列で渡すと、同名の別の場所へ案内されることがあるため。
+   行き先が1か所に決まらないカードには出さない：同時開催でまとめたカード・複数会場の行・
+   チェーン名の行（どの店舗か決められない）・座標が分からない会場。 */
+export function routeUrl(it, merged = false) {
+  if (merged) return null;
+  const names = venueNames(it);
+  if (names.length > 1) return null;
+  let lat = it.lat;
+  let lng = it.lng;
+  if ((lat == null || lng == null) && names.length === 1) {
+    if (isKnownChain(names[0])) return null;
+    const pts = placePoints(names[0]);
+    if (pts.length !== 1) return null;
+    lat = pts[0].lat;
+    lng = pts[0].lng;
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
+function routeBtnHtml(it, merged) {
+  const href = routeUrl(it, merged);
+  if (!href) return "";
+  return `<a class="act-btn route-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="現在地からの行き方をGoogleマップで見る" aria-label="${esc(it.title)}の会場への行き方をGoogleマップで見る（新しいタブで開く）">${ICON.route}</a>`;
+}
+
 /* 価格の内訳。以前は検証済みの比較（price_official/price_best）を緑枠の中に、
    料金の原文（price列）をその外にプレーンテキストで別立てにしていたため、
    同じ1件の値段の確認先が2か所に分かれていた。値段を確認したい人がこの枠さえ
@@ -876,12 +908,13 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
   // 行きたい・共有・カレンダーは「くわしく」と同じ行の右側に置く。
   // カレンダーのボタンは、予定を組める日付があるときだけ出す（buildIcs が null を返すのと同じ条件。
   // .ics の本文まで組むと、カード1枚ごとに使わない文字列を作ることになる）。
-  // Apple Music の ♪ ボタンは、行きたい（ハート）の左隣に置く。
+  // Apple Music の ♪ ボタンは、行きたい（ハート）の左隣、道案内は右端に置く。
   const actions = `<div class="card-actions">
       ${appleMusicBtnHtml(it)}
       <button type="button" class="act-btn fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>
       <button type="button" class="act-btn" data-act="share" title="共有" aria-label="${esc(it.title)}を共有する">${ICON.share}</button>
       ${resolveSpan(it) ? `<button type="button" class="act-btn" data-act="cal" title="カレンダーに追加" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(it.title)}をカレンダーに追加する">${ICON.cal}</button>` : ""}
+      ${routeBtnHtml(it, merged)}
     </div>`;
   const detail = `<div class="detail-row">${toggle}${actions}</div>
       ${detailBody.trim() ? `<div class="desc" id="${descId}">${detailBody}</div>` : ""}`;

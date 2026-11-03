@@ -79,6 +79,7 @@ tools/                        収集タスク用のスクリプト
   free_filter_test.mjs        「無料のものだけ」の判定規則と配線の検証（DOM不要）
   fav_spots_test.mjs          お気に入りスポット（★）の名寄せ・保存・先頭セクションの検証（DOM不要）
   parking_badge_test.mjs      駐車場（P）バッジの組み合わせ表と絞り込みの検証（DOM不要）
+  route_btn_test.mjs          道案内ボタン（Googleマップ）の出す／出さない規則と実データの全カード（DOM不要）
   sale_group_test.mjs         バーゲンの同時開催カードと言い回しの検証（DOM不要）
   guest_filter_test.mjs       「出演あり」チップの判定・日程連動・時間経過・カード表示の検証（DOM不要）
   caladd_test.mjs             カレンダーに追加する日付の初期値の検証（DOM不要）
