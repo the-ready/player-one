@@ -150,6 +150,7 @@ node tools/fav_spots_test.mjs               # お気に入りスポット（★�
 node tools/fav_artists_test.mjs             # お気に入りアーティスト（人のボタン）の照合・保存・先頭セクションの順序・出演行の登録した人のかたまり・「前回から追加」・手入力の候補とEnterの動き・使い方の案内（DOM不要）
 node tools/parking_badge_test.mjs           # 駐車場（P）バッジの組み合わせ表と絞り込み（DOM不要）
 node tools/route_btn_test.mjs               # 道案内ボタン：行き先が1か所に決まるときだけ出る・URLが関東の座標のGoogleマップ経路（DOM不要）
+node tools/title_fav_test.mjs               # ♡はタイトルの末尾に1つ・Pは会場名の右（DOM不要）。折り返しの隙間はブラウザで320/375/430pxを見ること
 node tools/grid_fit_test.mjs               # 「くわしく」を開いたカードだけ伸ばす位置計算（開いた列以外は動かない・重ならない・閉じると戻る。DOM不要）
 node tools/page_sky_test.mjs               # 空モードのページ背景色（地の上の文字が読める明るさ・夜への切り替え高度。DOM不要）
 node tools/sale_group_test.mjs              # バーゲンの同時開催カードと言い回し（DOM不要）

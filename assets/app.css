@@ -881,15 +881,6 @@ html.sky-night .card .act-btn:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
-/* 道案内は上の .act-btn の透明地に負けないよう、夜も青（--sign）の縁と字にする */
-html.sky-night .card .act-btn.route-btn {
-  border-color: var(--sign);
-  color: var(--sign);
-}
-html.sky-night .card .act-btn.route-btn:hover {
-  background: color-mix(in srgb, var(--sign) 22%, transparent);
-  color: var(--sign);
-}
 html.sky-night .card :is(.star-btn, .detail-toggle) {
   color: var(--text-soft);
 }
@@ -2200,11 +2191,6 @@ mark {
   background: var(--paper);
   color: var(--ink);
 }
-.fav-btn[aria-pressed="true"] {
-  background: var(--pink);
-  border-color: var(--pink);
-  color: var(--on-accent);
-}
 /* Apple Music の ♪ ボタン。フェスの日割りラインナップ内の ♪（.lu-am）と
    同じ塗り（紫）で揃え、遷移先の種類が同じであることを見た目でも示す。 */
 .act-btn.am-btn {
@@ -2220,18 +2206,45 @@ mark {
   border-color: var(--pink);
   color: var(--on-accent);
 }
-/* 道案内（Googleマップ）。♡・共有・カレンダーの白い丸と並べるので、遷移先が外部地図であることが
-   分かるよう青（--sign）の淡い地にする。夜は --sign 自体が明るい青に切り替わり、
-   --sign-tint との組み合わせは昼夜とも本文の基準（4.5:1）を満たす。 */
+/* 道案内（Googleマップ）。共有・カレンダーと同じ白い丸にそろえる（見た目は .act-btn のまま）。
+   <a> なので下線だけ消す。 */
 .act-btn.route-btn {
-  border-color: var(--sign);
-  background: var(--sign-tint);
-  color: var(--sign);
   text-decoration: none;
 }
-.act-btn.route-btn:hover {
-  background: var(--sign);
-  color: var(--sign-tint);
+/* 行きたい（♡）。タイトルの文字の終わりに置く（cards.js の favBtnHtml に理由）。
+   .title-fav は幅ゼロの箱で、ボタンはそこから右へ絶対配置で出す。最後の行が文字でちょうど
+   埋まっていても、♡ は折り返しを増やさずカードの右の余白（1.2rem）に張り出す。
+   ボタン全体が余白に収まる幅（24px）にし、見える ♡ は文字の終わりの 4px 右から始まる。
+   押す範囲は 24×32px（WCAG 2.2 の 2.5.8 の下限 24px を満たす）。
+   登録済みは ♡ を pink で塗る（★が sunny で塗るのと同じ規則）。 */
+.title-fav {
+  position: relative;
+}
+.fav-btn {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 24px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+}
+.fav-btn svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.fav-btn:hover {
+  color: var(--pink);
+}
+.fav-btn[aria-pressed="true"] {
+  color: var(--pink);
 }
 .fav-btn[aria-pressed="true"] svg {
   fill: currentColor;
@@ -3789,6 +3802,21 @@ footer p {
   background: var(--tangerine);
   border-color: var(--tangerine);
   color: var(--on-accent);
+}
+/* 会場名の右に添える P は、タイトル横の標識より一回り小さくする（「ちょこっと添える」大きさ） */
+.card .meta .pk {
+  height: 17px;
+  min-width: 17px;
+  margin-left: 0.4rem;
+  padding: 0 4px;
+  border-width: 1.5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  vertical-align: 1px;
+}
+.card .meta .pk small {
+  margin-left: 2px;
+  font-size: 9.5px;
 }
 .vd-park {
   display: inline;

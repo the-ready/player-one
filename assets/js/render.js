@@ -482,7 +482,7 @@ export function bindList(
       return;
     }
 
-    const act = e.target.closest(".act-btn, .empty-reset");
+    const act = e.target.closest(".act-btn, .fav-btn, .empty-reset");
     if (!act) return;
     const kind = act.dataset.act;
     if (kind === "reset") {

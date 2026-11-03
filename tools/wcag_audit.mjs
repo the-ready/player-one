@@ -208,7 +208,7 @@ else cantCheck("イベント: 未登録・未読なのに使い方の案内が�
 await page.evaluate(() => {
   const cs = document.querySelectorAll("#list > .card");
   for (let i = 0; i < 9; i++) cs[i]?.querySelector(".detail-toggle")?.click();
-  cs[0].querySelector('.act-btn[data-act="fav"]')?.click();
+  cs[0].querySelector('.fav-btn[data-act="fav"]')?.click();
 });
 await page.waitForTimeout(600);
 await page.evaluate(() =>
@@ -218,7 +218,7 @@ await audit("カード（くわしく・行きたい）", "#list > .card:nth-chi
 await page.evaluate(() => {
   const cs = document.querySelectorAll("#list > .card");
   for (let i = 0; i < 9; i++) cs[i]?.querySelector(".detail-toggle")?.click();
-  cs[0].querySelector('.act-btn[data-act="fav"]')?.click();
+  cs[0].querySelector('.fav-btn[data-act="fav"]')?.click();
 });
 // 3. ポップアップ
 await top();

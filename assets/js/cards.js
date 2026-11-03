@@ -421,7 +421,10 @@ function hasPlaceInfo(name, it) {
 
 function placeLineHtml(it, terms) {
   const names = venueNames(it);
-  if (!names.length) return highlight(it.area || "", terms);
+  // 駐車場のバッジ（P）は会場名のすぐ右に小さく添える。車で行けるかは場所の事実で、
+  // タイトル（催し）に付けるものではないため
+  const park = parkingBadgesHtml(it);
+  if (!names.length) return `${highlight(it.area || "", terms)}${park}`;
 
   const siteUrl = safeUrl(it.venueUrl || it.theaterUrl);
   /* ★は、会場名が名簿のちょうど1か所に当たるときだけ付ける。2か所以上に当たる表記
@@ -447,7 +450,7 @@ function placeLineHtml(it, terms) {
 
   // 新作(チェーン名)の行は「チェーン名」だけで足り、エリアを足すと冗長になる。
   const showArea = it.area && !(names.length === 1 && isKnownChain(names[0]));
-  return `${rendered}${showArea ? "／" + highlight(it.area, terms) : ""}`;
+  return `${rendered}${park}${showArea ? "／" + highlight(it.area, terms) : ""}`;
 }
 
 /* 同時開催でまとめたカード（セール）の施設の並び。共通の先頭（`三井アウトレットパーク `）は
@@ -660,7 +663,7 @@ function scheduleDetailHtml(it) {
 }
 
 /* ライブ・フェスのメインアーティストの Apple Music アーティストページへのリンク。
-   行きたい・共有・カレンダーと並ぶ操作ボタンとして、♪ アイコンで置く
+   共有・カレンダー・道案内と並ぶ操作ボタンとして、♪ アイコンで置く
    （フェスの日割りラインナップ内で使っている見た目と揃える。第12.11節・第12.12節）。
    appleMusicUrl は events.csv / movies.csv には列が無く常に undefined → safeUrl(undefined) は
    null になるため、tab を判定しなくてもライブ以外では自然に何も出ない。
@@ -671,6 +674,17 @@ function appleMusicBtnHtml(it) {
   const href = safeUrl(it.appleMusicUrl);
   if (!href) return "";
   return `<a class="act-btn am-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Apple Musicで聴く" aria-label="${esc(it.title)}のApple Musicアーティストページを開く">♪</a>`;
+}
+
+/* 行きたい（♡）は、タイトルの文字の終わりに置く。★（場所）・人のボタンが名前の左にあるのと同じく、
+   「名前の隣のアイコンを押すと登録できる」並びにそろえるため。
+   タイトルの幅は削らない（♡のぶん右を空ける列にはしない）。そのため ♡ は幅ゼロの箱に入れ、
+   ボタンだけを絶対配置で文字の終わりの右に出す（CSS の .title-fav）。幅を持つ要素にすると、
+   最後の行がちょうど埋まったとき ♡ だけが次の行へ落ち、右端に空きができる。幅ゼロなら、
+   行が埋まっていても ♡ はカードの右の余白に張り出すだけで、折り返しを増やさない。
+   中の ZWSP は、幅ゼロの箱にも行の高さ（文字の上下）を持たせ、ボタンを文字の高さに合わせるため。 */
+function favBtnHtml(it, fav) {
+  return `<span class="title-fav"><button type="button" class="fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>&#8203;</span>`;
 }
 
 /* 会場への道案内（Googleマップ）。出発地を付けない dir は、開いた側の端末が現在地を出発地にする
@@ -905,13 +919,12 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
   const toggle = detailBody.trim()
     ? `<button type="button" class="detail-toggle" data-target="${descId}" data-title="${esc(it.title)}" aria-expanded="false" aria-controls="${descId}" aria-label="${esc(it.title)}のくわしい説明を見る">くわしく ▾</button>`
     : "";
-  // 行きたい・共有・カレンダーは「くわしく」と同じ行の右側に置く。
+  // 共有・カレンダー・道案内は「くわしく」と同じ行の右側に置く（行きたい♡はタイトルの末尾。favBtnHtml）。
   // カレンダーのボタンは、予定を組める日付があるときだけ出す（buildIcs が null を返すのと同じ条件。
   // .ics の本文まで組むと、カード1枚ごとに使わない文字列を作ることになる）。
-  // Apple Music の ♪ ボタンは、行きたい（ハート）の左隣、道案内は右端に置く。
+  // Apple Music の ♪ ボタンは列の左端、道案内は右端に置く。
   const actions = `<div class="card-actions">
       ${appleMusicBtnHtml(it)}
-      <button type="button" class="act-btn fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>
       <button type="button" class="act-btn" data-act="share" title="共有" aria-label="${esc(it.title)}を共有する">${ICON.share}</button>
       ${resolveSpan(it) ? `<button type="button" class="act-btn" data-act="cal" title="カレンダーに追加" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(it.title)}をカレンダーに追加する">${ICON.cal}</button>` : ""}
       ${routeBtnHtml(it, merged)}
@@ -932,7 +945,7 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
           ${onsale === "closed" ? `<span class="status-badge closed-badge">${esc(tab.onsaleWords.closed)}</span>` : ""}
         </span>
       </div>
-      <h3 class="title">${highlight(it.title, terms)}${merged ? "" : parkingBadgesHtml(it)}</h3>
+      <h3 class="title">${highlight(it.title, terms)}${favBtnHtml(it, fav)}</h3>
       ${personLinesHtml(tab, it, terms, merged)}
       ${
         merged

@@ -213,7 +213,11 @@ check(
   const st = ST.STATES.event;
   const h = C.cardHtml(TABS.event, it, st, []);
   const title = h.match(/<h3 class="title">(.*?)<\/h3>/s)?.[1] || "";
-  check("カードのタイトルの末尾にバッジが付く", /class="pk yes"/.test(title));
+  const meta = h.match(/<p class="meta">(.*?)<\/p>/s)?.[1] || "";
+  check(
+    "バッジは会場名の右（会場の行）に付き、タイトルには付かない",
+    /class="pk yes"/.test(meta) && !/class="pk/.test(title),
+  );
   check(
     "「くわしく」の駐車場の行にも同じバッジが出る",
     /class="vd-label">駐車場<\/span><span class="vd-park"><span class="pk yes"/.test(

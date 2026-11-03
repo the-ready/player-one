@@ -304,12 +304,16 @@ console.log("\n--- 描かれたカード ---");
     (h.match(/<h3 class="title">三井アウトレットパーク BLACK FRIDAY/g) || [])
       .length === 1,
   );
-  check(
-    "まとめたカードにはタイトル横の駐車場バッジが付かない（施設ごとに並ぶので）",
-    !/<h3 class="title">三井アウトレットパーク BLACK FRIDAY<span class="pk/.test(
-      h,
-    ),
-  );
+  {
+    const title =
+      h.match(/<h3 class="title">三井アウトレットパーク BLACK FRIDAY.*?<\/h3>/s)?.[0] ||
+      "";
+    check(
+      "まとめたカードのタイトルには駐車場バッジが付かない（施設ごとに並ぶので）",
+      title !== "" && !title.includes('class="pk'),
+    );
+  }
+
 }
 
 /* ================= 2. 絞り込み・★・並び順との組み合わせ ================= */

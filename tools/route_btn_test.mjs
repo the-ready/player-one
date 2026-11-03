@@ -190,12 +190,12 @@ console.log("\n--- カードの描画（合成した行） ---");
     /aria-label="ふつうの催しの会場への行き方をGoogleマップで見る/.test(a),
   );
   check(
-    "操作の列の右端（カレンダーの後ろ）に置く",
+    "操作の列の右端（共有の後ろ）に置く",
     h.indexOf("route-btn") > h.indexOf('data-act="share"'),
   );
   check(
-    "「公式サイトで確認する」など他のボタンを巻き込まない",
-    (h.match(/class="act-btn/g) || []).length >= 3,
+    "共有と道案内の2つが操作の列に並ぶ（この行には日付が無くカレンダーは出ない）",
+    (h.match(/class="act-btn/g) || []).length === 2,
   );
 
   const quote = C.cardHtml(
