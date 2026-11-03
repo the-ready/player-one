@@ -33,6 +33,7 @@ import { starBtnHtml, parkBadgeHtml } from "./cards.js";
 import { flushFavChange, toggleSpot } from "./ui-favspot.js";
 import {
   matchSpots,
+  placePoints,
   spotsOfItem,
   branchesOfChain,
   spotFacts,
@@ -679,7 +680,7 @@ export function openPlaceSheet(name, { back = null } = {}) {
     refreshNow({ push: true });
   });
 
-  const points = pointsForPlace(name);
+  const points = placePoints(name);
   ps.loading.hidden = false;
   ps.loading.textContent = points.length
     ? "地図を読み込んでいます…"

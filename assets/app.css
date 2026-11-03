@@ -881,6 +881,15 @@ html.sky-night .card .act-btn:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
+/* 道案内は上の .act-btn の透明地に負けないよう、夜も青（--sign）の縁と字にする */
+html.sky-night .card .act-btn.route-btn {
+  border-color: var(--sign);
+  color: var(--sign);
+}
+html.sky-night .card .act-btn.route-btn:hover {
+  background: color-mix(in srgb, var(--sign) 22%, transparent);
+  color: var(--sign);
+}
 html.sky-night .card :is(.star-btn, .detail-toggle) {
   color: var(--text-soft);
 }
@@ -2119,6 +2128,7 @@ mark {
   color: var(--pink);
 }
 .detail-toggle {
+  white-space: nowrap;
   background: none;
   border: none;
   padding: 0.4rem 0;
@@ -2149,6 +2159,9 @@ mark {
    「くわしく」と同じ行の右端へ寄せる。行を1つも増やさずに済む。 */
 .detail-row {
   display: flex;
+  /* 操作ボタンが5つ並ぶカード（♪・♡・共有・カレンダー・道案内）は、320px 幅だと「くわしく」と
+     同じ行に収まらない。「くわしく」を潰さず、ボタンの列を次の行へ送る。 */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -2206,6 +2219,19 @@ mark {
   background: var(--pink);
   border-color: var(--pink);
   color: var(--on-accent);
+}
+/* 道案内（Googleマップ）。♡・共有・カレンダーの白い丸と並べるので、遷移先が外部地図であることが
+   分かるよう青（--sign）の淡い地にする。夜は --sign 自体が明るい青に切り替わり、
+   --sign-tint との組み合わせは昼夜とも本文の基準（4.5:1）を満たす。 */
+.act-btn.route-btn {
+  border-color: var(--sign);
+  background: var(--sign-tint);
+  color: var(--sign);
+  text-decoration: none;
+}
+.act-btn.route-btn:hover {
+  background: var(--sign);
+  color: var(--sign-tint);
 }
 .fav-btn[aria-pressed="true"] svg {
   fill: currentColor;
