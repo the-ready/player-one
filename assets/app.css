@@ -3008,6 +3008,8 @@ mark {
   transform: translate(-50%, -50%);
   z-index: 2;
   margin: 0;
+  /* .toast と同じ理由で max-content（left:50% のままだと残りの右半分で折り返す） */
+  width: max-content;
   max-width: min(20em, 88%);
   text-align: center;
   background: var(--sheet);
@@ -3603,6 +3605,10 @@ footer p {
   bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%) translateY(120%);
   z-index: 80;
+  /* left:50% の絶対配置は、幅が「残りの右半分」に収まる前提で縮む（shrink-to-fit）ので、
+     width を指定しないと max-width より先に画面の半分で折り返し、短い一文が2行になる。
+     max-content で文の長さを取り、上限（max-width）だけで縮める。 */
+  width: max-content;
   max-width: min(30em, 92vw);
   background: var(--ink);
   color: #fff;
