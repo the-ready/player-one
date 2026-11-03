@@ -6,7 +6,7 @@ name,kind,pref,area,lat,lng,url,parking,status,closed_until,first_seen,last_hit,
 東京ジョイポリス,themepark,tokyo,東京都・港区（台場）,35.6272,139.7745,https://tokyo-joypolis.com/,yes,active,,2026-08-02,2026-10-28,19,
 レゴランド・ディスカバリー・センター東京,themepark,tokyo,東京都・港区（台場）,35.6272,139.7745,https://www.legolanddiscoverycenter.com/tokyo/,,active,,2026-08-02,2026-10-28,12,
 東京サマーランド,themepark,tokyo,東京都・あきる野市,35.7472,139.2694,https://www.summerland.co.jp/,,active,,2026-08-02,2026-10-07,16,
-ワーナー ブラザース スタジオツアー東京 メイキング・オブ ハリー・ポッター,themepark,tokyo,東京都・練馬区,35.7391,139.6547,https://www.wbstudiotour.jp/,yes,active,,2026-08-02,2026-10-28,18,
+ワーナー・ブラザース・スタジオツアー東京,themepark,tokyo,東京都・練馬区,35.7456,139.6457,https://www.wbstudiotour.jp/,yes,active,,2026-08-02,2026-10-28,18,
 西武園ゆうえんち,themepark,saitama,埼玉県・所沢市,35.769024,139.4426543,https://www.seibuen-amusement-park.jp/index.html,yes,active,,2026-08-02,2026-10-28,19,元リストの注記: 所在は埼玉
 すみだ水族館,aquazoo,tokyo,東京都・墨田区,35.7101,139.8107,https://www.sumida-aquarium.com/,nearby,active,,2026-08-02,2026-10-28,19,
 マクセル アクアパーク品川,aquazoo,tokyo,東京都・港区,35.6286,139.7392,https://www.aqua-park.jp/aqua/,,active,,2026-08-02,2026-08-22,2,
@@ -253,7 +253,7 @@ Uvanceとどろきスタジアム by Fujitsu,hall,kanagawa,神奈川県・川崎
 笠間芸術の森公園,park,ibaraki,茨城県・笠間市,36.3724,140.2616,https://www.city.kasama.lg.jp/page/page000122.html,,candidate,,2026-09-29,2026-09-29,1,笠間の陶炎祭(GW)の会場
 那珂湊おさかな市場,landmark,ibaraki,茨城県・ひたちなか市,36.3396,140.5946,https://www.nakaminato-osakanaichiba.jp/,,candidate,,2026-09-29,2026-09-29,1,マグロ解体ショー等の催し
 茨城県陶芸美術館,museum,ibaraki,茨城県・笠間市,36.3724,140.2616,https://www.tougei.museum.ibk.ed.jp/viewer/genre.html?id=2,yes,active,,2026-09-29,2026-10-28,6,笠間芸術の森公園内。企画展年4回
-県立カシマサッカースタジアム,hall,ibaraki,茨城県・鹿嶋市,,,https://www.antlers.co.jp/,,candidate,,2026-09-29,2026-09-29,1,愛称メルカリスタジアム。鹿島アントラーズの試合・バックステージツアー
+県立カシマサッカースタジアム,hall,ibaraki,茨城県・鹿嶋市,35.9920,140.6404,https://www.antlers.co.jp/,,candidate,,2026-09-29,2026-09-29,1,愛称メルカリスタジアム。鹿島アントラーズの試合・バックステージツアー
 アダストリアみとアリーナ,hall,ibaraki,茨城県・水戸市,36.3811,140.4486,https://www.city.mito.lg.jp/page/1015.html,,candidate,,2026-09-29,2026-09-29,1,東町運動公園体育館。Bリーグ・催事
 つくば国際会議場,hall,ibaraki,茨城県・つくば市,36.0760,140.1169,https://www.tsukuba-icc.com/,,candidate,,2026-09-29,2026-09-29,1,エポカルつくば。学会・展示・科学イベント
 あみプレミアム・アウトレット,mall,ibaraki,茨城県・稲敷郡阿見町,35.9836,140.2379,https://www.premiumoutlets.co.jp/ami/calendar/,,candidate,,2026-09-29,2026-09-29,1,イベントカレンダー
@@ -288,7 +288,7 @@ SOMPO美術館,museum,tokyo,東京都・新宿区,35.6929,139.6968,https://www.s
 日本民家園,museum,kanagawa,神奈川県・川崎市,35.6108,139.562,https://www.nihonminkaen.jp/,,candidate,,2026-10-03,2026-10-03,1,
 笠間日動美術館,museum,ibaraki,茨城県・笠間市,36.3839,140.2578,https://www.nichido-museum.or.jp/,,candidate,,2026-10-03,2026-10-03,1,
 うらわ美術館,museum,saitama,埼玉県・さいたま市,35.8608,139.653,https://www.city.saitama.jp/urawa-art-museum/,,candidate,,2026-10-03,2026-10-03,1,
-THE MOVEUM YOKOHAMA,science,kanagawa,神奈川県・横浜市中区,,,https://global.toyota/info/themoveum/,no,active,,2026-10-03,2026-10-28,5,山下ふ頭4号上屋の没入型デジタルアート施設。期ごとにプログラムが入れ替わる
+THE MOVEUM YOKOHAMA,science,kanagawa,神奈川県・横浜市中区,35.4453,139.6546,https://global.toyota/info/themoveum/,no,active,,2026-10-03,2026-10-28,5,山下ふ頭4号上屋の没入型デジタルアート施設。期ごとにプログラムが入れ替わる
 新宿文化センター,hall,tokyo,東京都・新宿区,35.6954,139.7094,https://www.regasu-shinjuku.or.jp/bunka-center/,,active,,2026-10-03,2026-10-28,5,大ホールで公演・トークイベントが開かれる区立ホール(ライブ名簿の venues.csv には登録済み)
 三井アウトレットパーク 木更津,mall,chiba,千葉県・木更津市,35.4353,139.9350,https://mitsui-shopping-park.com/mop/kisarazu/,yes,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
 三井アウトレットパーク 入間,mall,saitama,埼玉県・入間市,35.8102,139.3805,https://mitsui-shopping-park.com/mop/iruma/,yes,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
@@ -309,3 +309,8 @@ THE MOVEUM YOKOHAMA,science,kanagawa,神奈川県・横浜市中区,,,https://gl
 ららテラス武蔵小杉,mall,kanagawa,神奈川県・川崎市中原区,35.5752,139.6600,https://mitsui-shopping-park.com/lalat-musashikosugi/,,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
 ららテラス北綾瀬,mall,tokyo,東京都・足立区,35.7779,139.8316,https://mitsui-shopping-park.com/lalat-kitaayase/,,active,,2026-10-15,,0,三井の商業施設の全館セール(一斉バーゲン)の収集対象
 KARIMOKU RESEARCH CENTER,museum,tokyo,東京都・港区,35.6614,139.7211,https://www.karimoku-research.com/jp,,candidate,,2026-10-21,2026-10-21,1,カリモク家具の展示・研究拠点(西麻布)。企画展が期間ごとに入れ替わり、開館時間・料金は展覧会ごとに確認する
+さがみ湖リゾート MORI MORI,park,kanagawa,神奈川県・相模原市,35.6054,139.2076,https://www.sagamiko.com/,,candidate,,2026-11-03,2026-11-03,1,
+マザー牧場グランピング THE FARM,park,chiba,千葉県・富津市,35.2483,139.9415,https://www.motherfarm.co.jp/,,candidate,,2026-11-03,2026-11-03,1,
+千葉市立動物公園,aquazoo,chiba,千葉県・千葉市若葉区,35.6426,140.1256,https://www.city.chiba.jp/zoo/,,candidate,,2026-11-03,2026-11-03,1,
+多摩中央公園,park,tokyo,東京都・多摩市,35.6227,139.4272,,,candidate,,2026-11-03,2026-11-03,1,
+長井海の手公園 ソレイユの丘,park,kanagawa,神奈川県・横須賀市,35.1951,139.6127,,,candidate,,2026-11-03,2026-11-03,1,
