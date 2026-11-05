@@ -2223,31 +2223,29 @@ mark {
 .act-btn.route-btn {
   text-decoration: none;
 }
-/* 行きたい（♡）。タイトルの文字の終わりに置く（cards.js の favBtnHtml に理由）。
+/* 行きたい（♡）。タイトルの文字の前（行頭）に置く（cards.js の favBtnHtml に理由）。
    ♡ だけだとイベント名の記号に見えるので、カードと同じ「太い縁＋ずらした影」の四角い枠で囲む。
-   枠は 28px 角（押す範囲は WCAG 2.2 の 2.5.8 の下限 24px 以上）。
-   .title-fav は幅ゼロの箱で、枠はそこから右へ絶対配置で出す。最後の行が文字でちょうど埋まっても
-   折り返しを増やさないために、枠が張り出せる余白（文字の終わりの右 6px から 36px ぶん）を
-   タイトルの右側に確保する：カード本体の右余白（1.2rem）に、タイトルの padding-right 18px を足して
-   37px。枠だけを置く列を空けるのではなく、全行で文字の幅が 18px（1字ぶん強）狭まるだけである。
+   枠は 24px 角（押す範囲は WCAG 2.2 の 2.5.8 の下限 24px ちょうど。縁の2pxは枠の内側に含める）。
+   ♡ の絵（16px）は枠を小さくしても変えない：絵まで小さくすると、押す先として見分けにくくなるため。
+   .title-fav はタイトルの文字と同じ行に並ぶ箱で、右に 8px 空ける（影の2pxを引いて、文字との見た目の
+   間は 6px）。縦は文字の中央にそろえる。折り返した行は左端から始まり、♡の下には文字が回り込む
+   （会場の行の ★ と同じ並び）。
    登録済みは淡いピンクの地に ♡ を pink で塗る（★が sunny で塗るのと同じ規則）。 */
-.card .title {
-  padding-right: 18px;
-}
 .title-fav {
-  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 .fav-btn {
-  position: absolute;
-  top: 50%;
-  left: 6px;
-  transform: translateY(-50%);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  margin: 0;
   padding: 0;
   border: 2px solid var(--ink);
   border-radius: 6px;

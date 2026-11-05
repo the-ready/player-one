@@ -301,19 +301,23 @@ console.log("\n--- 描かれたカード ---");
   );
   check(
     "まとめたカードのタイトルは1つ（施設の数だけ繰り返さない）",
-    (h.match(/<h3 class="title">三井アウトレットパーク BLACK FRIDAY/g) || [])
-      .length === 1,
+    // ♡の箱（.title-fav）はタイトルの文字の前にあるので、読み飛ばしてから文字を見る
+    (
+      h.match(
+        /<h3 class="title">(?:<span class="title-fav">(?:(?!<\/span>).)*<\/span>)?三井アウトレットパーク BLACK FRIDAY/g,
+      ) || []
+    ).length === 1,
   );
   {
     const title =
-      h.match(/<h3 class="title">三井アウトレットパーク BLACK FRIDAY.*?<\/h3>/s)?.[0] ||
-      "";
+      h.match(
+        /<h3 class="title">(?:<span class="title-fav">(?:(?!<\/span>).)*<\/span>)?三井アウトレットパーク BLACK FRIDAY.*?<\/h3>/s,
+      )?.[0] || "";
     check(
       "まとめたカードのタイトルには駐車場バッジが付かない（施設ごとに並ぶので）",
       title !== "" && !title.includes('class="pk'),
     );
   }
-
 }
 
 /* ================= 2. 絞り込み・★・並び順との組み合わせ ================= */

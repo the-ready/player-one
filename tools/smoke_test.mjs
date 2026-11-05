@@ -237,7 +237,7 @@ await page.waitForTimeout(300);
 
 // --- カードの操作ボタン（アイコンのみ、「くわしく」の右）とカレンダーの追加先えらび
 // 共有・カレンダー・道案内が「くわしく」の右に並ぶ（カレンダーは日付があるとき、道案内は行き先が
-// 1か所に決まるときだけ）。行きたい（♡）はタイトルの末尾にある（第5.17節・第5.18節）。
+// 1か所に決まるときだけ）。行きたい（♡）はタイトルの行頭にある（第5.17節・第5.18節）。
 // Apple Music の♪はメインアーティストのリンクがある公演（フェスを除く。第12.11節・第12.12節）だけ、
 // 列の左端に追加で出る。
 const card = page.locator("#liveList .card").first();
@@ -245,8 +245,7 @@ check("操作ボタンは2つ以上", (await card.locator(".act-btn").count()) >
 check(
   "行きたい（♡）はタイトルの中にあり、操作の列には無い",
   (await card.locator('.title .title-fav .fav-btn[data-act="fav"]').count()) ===
-    1 &&
-    (await card.locator('.card-actions [data-act="fav"]').count()) === 0,
+    1 && (await card.locator('.card-actions [data-act="fav"]').count()) === 0,
 );
 check(
   "行きたい・共有ボタンに文字を持たせていない",

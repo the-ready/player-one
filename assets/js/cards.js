@@ -676,16 +676,16 @@ function appleMusicBtnHtml(it) {
   return `<a class="act-btn am-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Apple Musicで聴く" aria-label="${esc(it.title)}のApple Musicアーティストページを開く">♪</a>`;
 }
 
-/* 行きたい（♡）は、タイトルの文字の終わりに置く。★（場所）・人のボタンが名前の隣にあるのと同じく、
-   「名前の隣のアイコンを押すと登録できる」並びにそろえるため。
+/* 行きたい（♡）は、タイトルの文字の前（行頭・左端）に置く。★（場所）・人のボタンが名前の隣にあるのと同じく、
+   「名前の隣のアイコンを押すと登録できる」並びにそろえるため。文字の終わりに置くと、タイトルの長さで
+   ♡の位置が変わり、どのカードでも同じ場所を押す、ということができない。左端なら、どのカードでも同じ場所にある。
    ♡ だけを文字の続きに置くとイベント名の一部（記号）に見えて紛らわしいので、四角い枠（カードと同じ
    太い縁と影のミニボタン）で囲み、押せる部品だと分かる形にする（CSS の .fav-btn）。
-   ♡ は幅ゼロの箱に入れ、ボタンだけを絶対配置で文字の終わりの右に出す（CSS の .title-fav）。
-   幅を持つ要素にすると、最後の行がちょうど埋まったとき枠だけが次の行へ落ちて隙間ができる。
-   幅ゼロなら、枠は最後の行の右の余白に張り出すだけで、折り返しを増やさない。
-   中の ZWSP は、幅ゼロの箱にも行の高さ（文字の上下）を持たせ、ボタンを文字の高さに合わせるため。 */
+   枠は文字と同じ行に並ぶ幅を持つ箱（CSS の .title-fav）に入れる。折り返した行は左端から始まる
+   （会場の行の ★ と同じ並び）。枠は行頭にあるので、最後の行が文字でちょうど埋まっても枠だけが
+   次の行へ落ちることはなく、右の余白を空けておく必要もない。 */
 function favBtnHtml(it, fav) {
-  return `<span class="title-fav"><button type="button" class="fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button>&#8203;</span>`;
+  return `<span class="title-fav"><button type="button" class="fav-btn" data-act="fav" aria-pressed="${fav}" title="${fav ? "行きたいリストから外す" : "行きたいリストに追加"}" aria-label="${esc(it.title)}を行きたいリストに${fav ? "登録済み。外す" : "追加する"}">${ICON.heart}</button></span>`;
 }
 
 /* 会場への道案内（Googleマップ）。出発地を付けない dir は、開いた側の端末が現在地を出発地にする
@@ -920,7 +920,7 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
   const toggle = detailBody.trim()
     ? `<button type="button" class="detail-toggle" data-target="${descId}" data-title="${esc(it.title)}" aria-expanded="false" aria-controls="${descId}" aria-label="${esc(it.title)}のくわしい説明を見る">くわしく ▾</button>`
     : "";
-  // 共有・カレンダー・道案内は「くわしく」と同じ行の右側に置く（行きたい♡はタイトルの末尾。favBtnHtml）。
+  // 共有・カレンダー・道案内は「くわしく」と同じ行の右側に置く（行きたい♡はタイトルの行頭。favBtnHtml）。
   // カレンダーのボタンは、予定を組める日付があるときだけ出す（buildIcs が null を返すのと同じ条件。
   // .ics の本文まで組むと、カード1枚ごとに使わない文字列を作ることになる）。
   // Apple Music の ♪ ボタンは列の左端、道案内は右端に置く。
@@ -946,7 +946,7 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
           ${onsale === "closed" ? `<span class="status-badge closed-badge">${esc(tab.onsaleWords.closed)}</span>` : ""}
         </span>
       </div>
-      <h3 class="title">${highlight(it.title, terms)}${favBtnHtml(it, fav)}</h3>
+      <h3 class="title">${favBtnHtml(it, fav)}${highlight(it.title, terms)}</h3>
       ${personLinesHtml(tab, it, terms, merged)}
       ${
         merged
