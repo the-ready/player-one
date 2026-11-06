@@ -881,11 +881,12 @@ html.sky-night .card .act-btn:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
-/* 夜の ♡ の枠は、操作ボタン（.act-btn）と同じ透明地・--line の縁にそろえる */
+/* 夜の ♡ の枠は、地を透明にし、縁と影をカードの縁と同じ --ink（黒紺）にする。
+   操作ボタンの薄い縁（--line）だと、タイトルの行頭で ♡ だけが明るく浮くため */
 html.sky-night .card .fav-btn {
   background: transparent;
-  border-color: var(--line);
-  box-shadow: 2px 2px 0 var(--line);
+  border-color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
   color: var(--text-soft);
 }
 html.sky-night .card .fav-btn:hover,
