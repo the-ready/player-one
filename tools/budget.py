@@ -636,7 +636,9 @@ FIVE_HOUR_RETREAT = 0.92
 # そこで「リセットまでに残っている予定の回数 × 1回ぶん」を残す位置に線を引く。
 # 1回ぶんは `ratelimit-history.jsonl`（各回の開始と終了の標本）の実測から取り、
 # 実測が無いうちは既定値を使う。
-SEVEN_DAY_CEILING = 0.92
+# 上限は95%。取りこぼした回を同じ週のうちに取り戻せるよう、撤退（96%）の1ポイント手前まで
+# 新しい波を許す。幅が狭いので、開始時に94%台だと最初の波の途中で撤退に入りやすい。
+SEVEN_DAY_CEILING = 0.95
 SEVEN_DAY_RETREAT = 0.96
 SEVEN_DAY_RESERVE_DEFAULT = 0.10
 SEVEN_DAY_RESERVE_MIN = 0.03
