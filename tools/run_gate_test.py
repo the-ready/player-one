@@ -173,6 +173,24 @@ def check_resolve_ds_from_skill():
     return got == "movies.csv" or f"ROUTINE_SKILL から対象を決められない: {got!r}"
 
 
+def check_usage_error_is_not_undecidable():
+    """引数の誤りは exit 64 で、「判定不能（2）＝止めない」と取り違えない。
+
+    呼び出し側は 1 だけを失敗として読み、2 は通す。argparse の既定（2）のままだと、
+    `--check` の付け忘れが「判定不能」に化ける。次に打つべき形も出すこと。
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run_gate.py")
+    for args in ([], ["--ds", "lives"], ["--bogus"]):
+        r = subprocess.run([sys.executable, "-I", script, *args],
+                           capture_output=True, text=True, timeout=30)
+        if r.returncode != 64:
+            return f"{args!r}: 引数の誤りが exit={r.returncode}（64 のはず）"
+        if "--check" not in r.stderr:
+            return f"{args!r}: 次に打つべき形が stderr に無い: {r.stderr!r}"
+    return True
+
+
 CHECKS = [
     ("取得した回は通す", check_fetched_passes),
     ("検索だけの回も通す", check_searched_only_passes),
@@ -185,6 +203,7 @@ CHECKS = [
     ("壊れた記録では判定しない", check_broken_state_passes),
     ("--init は数え直したあとに印を残す（順序）", check_init_file_marks_and_resets),
     ("ROUTINE_SKILL から対象を決める", check_resolve_ds_from_skill),
+    ("引数の誤りは「判定不能（2）」にしない", check_usage_error_is_not_undecidable),
 ]
 
 

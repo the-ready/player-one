@@ -39,9 +39,13 @@ push された（`onsale_start`/`onsale_end` は0%）。
   0 : 収集の回として成立している
   1 : 成立していない。理由を stderr に書く
   2 : 判定できない（`data/.run/budget.json` が無い・古い）
+  64: 引数の誤り（`--check` の付け忘れなど。判定はしていない）
 
 **2 では止めない。** 計測できないことを理由に成果を捨てるのは、この門が防ごうと
 している損失より大きい（`wave_gate.py` / `budget.py --gate` と同じ倒し方）。
+**引数の誤りに 2 を使わない。** argparse の既定は 2 で、呼び出し側が「判定不能なので通す」と
+読んでしまう。2026-11-13 の実行では、親が `--check` を付けずに呼んで usage エラーになった。
+判定していないものを、判定不能と同じ扱いにしないため 64 を返す（`dispatch-routine.sh` と同じ番号）。
 
 使い方:
     python3 tools/run_gate.py --check            # ROUTINE_SKILL から対象を決める
@@ -122,13 +126,24 @@ def check(ds):
     return (1 if reasons else 0), reasons
 
 
+USAGE_EXIT = 64
+
+
+class _Parser(argparse.ArgumentParser):
+    """引数の誤りを、判定不能（2）と取り違えない終了コードで返す。"""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(USAGE_EXIT, f"{self.prog}: error: {message}\n")
+
+
 def main():
-    p = argparse.ArgumentParser(description="その回が収集の回として成立しているかを見る")
+    p = _Parser(description="その回が収集の回として成立しているかを見る")
     p.add_argument("--check", action="store_true", help="成立していなければ理由を出して exit 1")
     p.add_argument("--ds", help="対象データセット（events / lives / movies）。既定は ROUTINE_SKILL から")
     args = p.parse_args()
     if not args.check:
-        p.error("--check を指定してください")
+        p.error("--check を指定してください（例: python3 tools/run_gate.py --check [--ds lives]）")
 
     rc, reasons = check(resolve_ds(args.ds))
     if reasons:
