@@ -524,9 +524,9 @@ const VENUE_KIND_LABEL = {
    受付の状態と発売日時は「くわしく」を開かずに読めなければ意味がない。
    最初に知りたいのは「そもそも今からでも申し込めるのか」で、それが折りたたまれて
    いると、開かなかった人には無いのと同じになる。 */
-function ticketBlockHtml(tab, it) {
+function ticketBlockHtml(tab, it, members) {
   const onsale = onsaleState(it); // ここで state という名前を使わない（絞り込み状態と紛れるため）
-  const hi = seriesHighlights(it);
+  const hi = seriesHighlights(it, members);
   if (onsale === "unknown" && !it.limitedSale && !hi.limited && !hi.before)
     return "";
 
@@ -591,8 +591,8 @@ function ticketBlockHtml(tab, it) {
 
 /* シリーズの他会場は、日付と会場だけでなく受付の状態も並べる。
    「東京は完売だが仙台はこれから発売」を、1枚のカードから把握できるようにする。 */
-function seriesOthersHtml(tab, it) {
-  const others = seriesSiblings(it);
+function seriesOthersHtml(tab, it, members) {
+  const others = seriesSiblings(it, members);
   if (!others.length) return "";
   const words = tab.onsaleWords;
   return `<div class="series-others">
@@ -910,7 +910,7 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
     guestDetailHtml(tab, it),
     merged ? "" : morePerformersHtml(tab, it),
     merged ? "" : venueDetailHtml(it),
-    seriesOthersHtml(tab, it),
+    seriesOthersHtml(tab, it, members),
     it.note
       ? `<p class="coupon-note"><span class="coupon-tag">注意</span>${esc(it.note)}</p>`
       : "",
@@ -954,7 +954,7 @@ export function cardHtml(tab, it, st, terms, members = [it], section = "") {
           : `<p class="meta">${placeLineHtml(it, terms)}${venueCapHtml(it)}${officialLink ? `<br>${officialLink}` : ""}${distBadgeHtml(it, st)}</p>`
       }
       <div class="cats">${pills}</div>
-      ${ticketBlockHtml(tab, it)}
+      ${ticketBlockHtml(tab, it, members)}
       ${detail}
       ${href ? `<a class="go-btn" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(ctaAria(it.title, it.source, ctaDef))}">${esc(cta)}</a>` : ""}
     </div>

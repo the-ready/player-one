@@ -2,7 +2,12 @@
    タブごとの違いは config.js のファセット宣言だけが持つ。 */
 
 import { DAY_MS, haversineKm, searchTerms } from "./util.js";
-import { CLOSED_ONSALE, venueNames, catWording } from "./config.js";
+import {
+  CLOSED_ONSALE,
+  MERGE_BY_TITLE_TABS,
+  venueNames,
+  catWording,
+} from "./config.js";
 import { TODAY, ITEMS } from "./data.js";
 import { activeGuests, guestDays } from "./schedule.js";
 import { isFav } from "./state.js";
@@ -91,17 +96,21 @@ export function onsaleInDays(it) {
 /* ---------- シリーズ（ツアー／巡回展／特集上映） ---------- */
 
 // 同じシリーズの他会場。「東京は取れないが横浜なら」という判断ができるようにする。
-export function seriesSiblings(it) {
+export function seriesSiblings(it, members = []) {
   if (!it.seriesId) return [];
+  // まとめたカードの仲間は、同じカードの施設の並びに出ているので「他の会場」には数えない
+  const same = new Set(members.map((m) => m.key));
   return ITEMS[it.tab]
-    .filter((x) => x.seriesId === it.seriesId && x.key !== it.key)
+    .filter(
+      (x) => x.seriesId === it.seriesId && x.key !== it.key && !same.has(x.key),
+    )
     .sort((a, b) =>
       (a.startDate || "9999") < (b.startDate || "9999") ? -1 : 1,
     );
 }
 // シリーズ内の他公演にだけ出ている枠を、このカードからも気づけるようにするための集計。
-export function seriesHighlights(it) {
-  const others = seriesSiblings(it);
+export function seriesHighlights(it, members = []) {
+  const others = seriesSiblings(it, members);
   return {
     total: others.length,
     limited: others.filter((o) => !!o.limitedSale).length,
@@ -300,9 +309,17 @@ export function sortItems(items, st) {
    別のカードのままにする。まとめるのは CAT_WORDING で merge を宣言したカテゴリだけ。
    先頭の行（並びの先頭＝いちばん早く出る行）が代表になり、代表の位置にカードが出る。 */
 function mergeKey(it) {
+  if (!it.seriesId) return null;
   const w = catWording(it);
-  if (!(w && w.merge) || !it.seriesId) return null;
-  return [it.tab, it.seriesId, it.startDate || "", it.endDate || ""].join("|");
+  const byTitle = MERGE_BY_TITLE_TABS.has(it.tab);
+  if (!(w && w.merge) && !byTitle) return null;
+  return [
+    it.tab,
+    it.seriesId,
+    byTitle ? it.title : "",
+    it.startDate || "",
+    it.endDate || "",
+  ].join("|");
 }
 
 /** 並べ替え済みの行を、同時開催でまとめる。[{rep, members}] を元の並びのまま返す。 */

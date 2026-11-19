@@ -180,6 +180,12 @@ export const CAT_WORDING = {
     merge: true,
   },
 };
+/* 同時開催のまとめを、カテゴリではなくタブ単位で宣言するもの。映画は cats を持たないうえ、
+   series_id は特集上映の束ね（作品が違う行も同じ値になる）にも使うので、題名まで同じ行だけを
+   まとめる。シネマ歌舞伎のように、同じ作品を関東の複数館が同じ週に一斉上映する行（`special` は
+   具体的な劇場名で持つ規則のため1館1行になる）が、同じカードとして館の数だけ並ぶのを避けるため。 */
+export const MERGE_BY_TITLE_TABS = new Set(["movie"]);
+
 /** その行に当てはまる言い回しの上書き（無ければ undefined）。cats の並びの先頭を優先する。 */
 export function catWording(it) {
   const k = (it && it.cats ? it.cats : []).find((c) => CAT_WORDING[c]);
