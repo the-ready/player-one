@@ -85,6 +85,10 @@
       "url": "",
       "why": "大小文字を無視すると候補が3件"
     },
+    "ALPHA DRIVE ONE": {
+      "checked": "2026-11-20",
+      "url": "https://music.apple.com/jp/artist/alpha-drive-one/1856090527"
+    },
     "AOY B2B AVY": {
       "checked": "2026-08-29",
       "url": "",
@@ -160,6 +164,10 @@
     "Ayumu Imazu": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/ayumu-imazu/1497146276"
+    },
+    "Aぇ! group": {
+      "checked": "2026-11-20",
+      "url": "https://music.apple.com/jp/artist/a%E3%81%87-group/1877076596"
     },
     "BABYMETAL": {
       "checked": "2026-08-13",
@@ -1079,6 +1087,10 @@
       "checked": "2026-08-29",
       "url": "https://music.apple.com/jp/artist/nakajin/580772376"
     },
+    "NCT DREAM": {
+      "checked": "2026-11-20",
+      "url": "https://music.apple.com/jp/artist/nct-dream/1208839599"
+    },
     "NCT JNJM": {
       "checked": "2026-08-27",
       "url": "https://music.apple.com/jp/artist/nct-jnjm/1875870065"
@@ -1284,6 +1296,10 @@
       "checked": "2026-08-29",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "ROIROM": {
+      "checked": "2026-11-20",
+      "url": "https://music.apple.com/jp/artist/roirom/1848076386"
     },
     "ROTTENGRAFFTY": {
       "checked": "2026-08-27",
@@ -1721,6 +1737,10 @@
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/xdinary-heroes/1594215221"
     },
+    "XngHan&Xoul": {
+      "checked": "2026-11-20",
+      "url": "https://music.apple.com/jp/artist/xnghan-xoul/1827385997"
+    },
     "YONA YONA WEEKENDERS": {
       "checked": "2026-08-13",
       "url": "",
@@ -1865,6 +1885,11 @@
       "checked": "2026-08-27",
       "url": "",
       "why": "同名の候補が5件（別アーティストの可能性）"
+    },
+    "izna": {
+      "checked": "2026-11-20",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
     },
     "jo0ji": {
       "checked": "2026-08-13",
