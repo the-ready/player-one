@@ -949,6 +949,12 @@ html.sky-night .card .go-btn:active {
     0 0 0 1.5px rgba(251, 245, 230, 0.85);
 }
 /* 地が --ink（縁の暗い色）の部品は、暗いカードでは見えないので生成りの地にする */
+/* 同時開催の施設の一覧は、昼は生成りの箱。夜に同じ箱のままだと、カードの中だけ淡く直した色
+   （パステルのリンク・生成りの文字）が白地に載って読めなくなる。箱の地を夜の面に合わせる */
+html.sky-night .card .fac-list {
+  background: var(--neutral-bg);
+  color: var(--text);
+}
 html.sky-night .card :is(.ti-badge, .fac-tag) {
   background: var(--text);
 }
