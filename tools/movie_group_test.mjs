@@ -94,6 +94,7 @@ const mvRow = (o) =>
         genre: "jp-live",
         screening_type: "special",
         pref: "saitama",
+        area: "埼玉県・さいたま市",
         source: "公式サイト",
         release_date: day(1),
         end_date: day(7),
@@ -120,6 +121,13 @@ const rows = [
   // series_id が空（まとめない）
   mvRow({ title: "単独", theater: "A館" }),
   mvRow({ title: "単独", theater: "B館" }),
+  // チェーン名だけの行（複数館で一斉上映する特別上映）。エリアは代表の1館のもの
+  mvRow({
+    title: "一斉上映",
+    theater: "MOVIX|109シネマズ",
+    area: "東京都・葛飾区",
+    series_id: "s-chain",
+  }),
 ];
 SYNTH.set("data/movies.csv", [realHead, ...rows].join("\n") + "\n");
 SYNTH.set("data/spots.csv", "name,kind,pref,area,lat,lng,url,parking,status\n");
@@ -129,7 +137,9 @@ SYNTH.set(
 );
 SYNTH.set(
   "data/theaters.csv",
-  "chain,name,pref,area,lat,lng,url,parking,status\n",
+  "chain,name,pref,area,lat,lng,url,parking,status\n" +
+    "MOVIX,MOVIX亀有,tokyo,東京都・葛飾区,35.7653,139.8524,,,active\n" +
+    "109シネマズ,109シネマズ湘南,kanagawa,神奈川県・藤沢市,35.339,139.446,,,active\n",
 );
 await Promise.all([D.loadSpots(), D.loadTheaters(), D.loadVenues()]);
 await D.loadTab("movie");
@@ -171,6 +181,25 @@ check(
   ) && F.seriesSiblings(rep).length === 4,
   `${F.seriesSiblings(rep, kou[0].members).length}件`,
 );
+
+{
+  const html = (() => {
+    R.renderList();
+    return els.get("movieList")?.innerHTML || "";
+  })();
+  const card = html.split("<article").find((c) => c.includes("一斉上映")) || "";
+  check(
+    "チェーン名だけの行は、代表の1館のエリアを出さない",
+    card.includes("MOVIX") && !card.includes("東京都・葛飾区"),
+    card ? "" : "カードが描かれていない",
+  );
+  const single =
+    html.split("<article").find((c) => c.includes("歌舞伎乙")) || "";
+  check(
+    "具体的な劇場名の行は、エリアを出す（A館／エリア）",
+    single.includes("A館") && single.includes("埼玉"),
+  );
+}
 
 console.log(
   failures.length

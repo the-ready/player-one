@@ -448,8 +448,9 @@ function placeLineHtml(it, terms) {
     })
     .join("・");
 
-  // 新作(チェーン名)の行は「チェーン名」だけで足り、エリアを足すと冗長になる。
-  const showArea = it.area && !(names.length === 1 && isKnownChain(names[0]));
+  // チェーン名だけの行（新作・複数館で一斉上映する特別上映）は「チェーン名」だけで足り、
+  // エリアを足すと代表の1館の所在地が全館の所在地のように読めてしまう。
+  const showArea = it.area && !names.every(isKnownChain);
   return `${rendered}${park}${showArea ? "／" + highlight(it.area, terms) : ""}`;
 }
 
