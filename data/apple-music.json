@@ -363,6 +363,11 @@
       "url": "",
       "why": "大小文字を無視すると候補が2件"
     },
+    "DENIMS": {
+      "checked": "2026-11-27",
+      "url": "",
+      "why": "大小文字を無視すると候補が2件"
+    },
     "DERMOT KENNEDY": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/dermot-kennedy/376564133"
@@ -419,6 +424,10 @@
     "DJ和": {
       "checked": "2026-08-13",
       "url": "https://music.apple.com/jp/artist/dj%E5%92%8C/1151743549"
+    },
+    "DURDN": {
+      "checked": "2026-11-27",
+      "url": "https://music.apple.com/jp/artist/durdn/1549347766"
     },
     "DXTEEN": {
       "checked": "2026-08-13",
@@ -497,6 +506,11 @@
     "Elephant Kind": {
       "checked": "2026-11-06",
       "url": "https://music.apple.com/jp/artist/elephant-kind/871237192"
+    },
+    "Enfants": {
+      "checked": "2026-11-27",
+      "url": "",
+      "why": "同名の候補が2件（別アーティストの可能性）"
     },
     "Enuoh B2B Matsunami": {
       "checked": "2026-08-29",
@@ -892,6 +906,11 @@
       "checked": "2026-10-30",
       "url": "",
       "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "LITE": {
+      "checked": "2026-11-27",
+      "url": "",
+      "why": "同名の候補が3件（別アーティストの可能性）"
     },
     "LOGAN": {
       "checked": "2026-08-29",
@@ -1495,6 +1514,20 @@
     },
     "TAKU INOUE × 超かぐや姫!": {
       "checked": "2026-10-30",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "TAKU INOUE × 超かぐや姫！": {
+      "checked": "2026-11-27",
+      "url": "",
+      "why": "候補なし（Apple Music に登録が無い可能性）"
+    },
+    "TENDOUJI": {
+      "checked": "2026-11-27",
+      "url": "https://music.apple.com/jp/artist/tendouji/1125845236"
+    },
+    "TENSAIBAND BEYOND": {
+      "checked": "2026-11-27",
       "url": "",
       "why": "候補なし（Apple Music に登録が無い可能性）"
     },
@@ -2400,6 +2433,10 @@
       "checked": "2026-10-30",
       "url": "",
       "why": "同名の候補が4件（別アーティストの可能性）"
+    },
+    "古舘佑太郎（BAND SET）": {
+      "checked": "2026-11-27",
+      "url": "https://music.apple.com/jp/artist/%E5%8F%A4%E8%88%98%E4%BD%91%E5%A4%AA%E9%83%8E/387513214"
     },
     "名誉伝説": {
       "checked": "2026-08-13",
